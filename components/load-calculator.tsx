@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { ChevronDown, Download, Info, Plus, RotateCcw, Trash2, Zap, Building2, X } from 'lucide-react'
+import { ChevronDown, Download, Info, Plus, RotateCcw, Trash2, Building2, X } from 'lucide-react'
 
 type ProjectInfo = {
   companyName: string
@@ -161,7 +161,7 @@ export function LoadCalculator() {
       }
       doc.setFontSize(16)
       doc.setFont('helvetica', 'bold')
-      doc.text(projectInfo.companyName || 'ELECTROCALC', 15, 11)
+      doc.text(projectInfo.companyName || 'ELECTRO-CÁLCULOS', 15, 11)
       doc.setFontSize(8)
       doc.setFont('helvetica', 'normal')
       doc.text('MEMORIA TÉCNICA · PREVISIÓN DE CARGAS', 15, 17)
@@ -172,7 +172,7 @@ export function LoadCalculator() {
       doc.line(15, pageHeight - 15, pageWidth - 15, pageHeight - 15)
       doc.setTextColor(100, 116, 139)
       doc.setFontSize(8)
-      doc.text('Documento generado por ElectroCalc · Valores editables según proyecto', 15, pageHeight - 9)
+      doc.text('Documento generado por Electro-cálculos · Valores editables según proyecto', 15, pageHeight - 9)
       doc.text(`Página ${page}`, pageWidth - 15, pageHeight - 9, { align: 'right' })
     }
     const section = (title: string, y: number) => {
@@ -228,7 +228,7 @@ export function LoadCalculator() {
     <main className="min-h-screen bg-[#f5f7f8] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl bg-cyan-600 text-white"><Zap /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">ElectroCalc</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
+          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-cyan-600"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
           <div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-slate-500">Referencia normativa</p><p className="text-sm font-semibold">ITC-BT-10 · REBT</p></div><div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Cálculo activo</div></div>
         </div>
       </header>

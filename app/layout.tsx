@@ -3,11 +3,15 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Previsión de cargas | ITC-BT-10',
+  title: 'Electro-cálculos | Previsión de cargas ITC-BT-10',
   description: 'Calculadora web de previsión de cargas para suministros en baja tensión conforme a la ITC-BT-10.',
   generator: 'v0.app',
   icons: {
     icon: [
+      {
+        url: '/favicon.png',
+        type: 'image/png',
+      },
       {
         url: '/icon-light-32x32.png',
         media: '(prefers-color-scheme: light)',
