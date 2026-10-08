@@ -228,7 +228,7 @@ export function LoadCalculator() {
     <main className="min-h-screen bg-[#f5f7f8] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-cyan-600"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
+          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-slate-950 ring-1 ring-slate-800"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-cyan-700">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
           <div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-slate-500">Referencia normativa</p><p className="text-sm font-semibold">ITC-BT-10 · REBT</p></div><div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Cálculo activo</div></div>
         </div>
       </header>
