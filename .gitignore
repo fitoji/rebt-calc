@@ -12,6 +12,8 @@ __v0_jsx-dev-runtime.ts
 # Common ignores
 node_modules
 .next/
+mcp-excel-server/dist/
+mcp-excel-server/node_modules/
 .DS_Store
 
 # Extracted icon archives (source .zip is tracked)

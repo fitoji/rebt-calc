@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "excel": {
+      "command": "node",
+      "args": ["./mcp-excel-server/dist/index.js"],
+      "env": {
+        "EXCEL_PROJECTS_DIR": "./projects"
+      }
+    }
+  }
+}
