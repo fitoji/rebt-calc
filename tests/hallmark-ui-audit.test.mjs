@@ -24,9 +24,9 @@ test('mobile tables keep desktop tables and clip root overflow', () => {
   assert.ok(calc.includes('min-w-[580px]'), 'editable desktop min-width preserved')
 })
 
-test('unused button component stays removed and unreferenced', () => {
-  assert.ok(!existsSync(path.join(root, 'components/ui/button.tsx')), 'button.tsx deleted')
-  assert.doesNotMatch(allSource, /ui\/button|@base-ui\/react\/button/, 'no references remain')
+test('shadcn button component is installed and referenced', () => {
+  assert.ok(existsSync(path.join(root, 'components/ui/button.tsx')), 'button.tsx installed')
+  assert.match(calc, /from '@\/components\/ui\/button'/, 'calculator imports Button')
 })
 
 test('no pure-white surfaces remain in tokens or markup', () => {
@@ -38,8 +38,12 @@ test('no pure-white surfaces remain in tokens or markup', () => {
 })
 
 test('shared controls use scoped transition properties', () => {
-  assert.doesNotMatch(allSource, /transition-all/, 'transition-all gone from source')
-  assert.match(globals, /transition-\[background-color,border-color,box-shadow\]/, 'scoped transition set in place')
+  const ownSource = sourceFiles
+    .filter(file => !file.startsWith('components/ui/'))
+    .map(read)
+    .join('\n')
+  assert.doesNotMatch(ownSource, /transition-all/, 'transition-all banned from own source (vendored shadcn exempt)')
+  assert.match(calc, /transition-colors/, 'interactive controls keep scoped transitions')
 })
 
 test('numeric readouts use tabular figures while form fields stay out of scope', () => {

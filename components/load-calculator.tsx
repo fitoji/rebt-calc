@@ -1,11 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { FieldLegend, FieldLabel, FieldSet } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 type ProjectInfo = {
   companyName: string
@@ -86,18 +93,12 @@ export function LoadCalculator() {
   const [irveOption, setIrveOption] = useState(1)
   const [showReferences, setShowReferences] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const settingsTriggerRef = useRef<HTMLButtonElement>(null)
-  const settingsDialogRef = useRef<HTMLElement>(null)
-  const referencesTriggerRef = useRef<HTMLButtonElement>(null)
-  const referencesDialogRef = useRef<HTMLElement>(null)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
   const [showItaTable, setShowItaTable] = useState(false)
   const [showSimultaneityTable, setShowSimultaneityTable] = useState(false)
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   const [storageLoaded, setStorageLoaded] = useState(false)
-  const simultaneityTriggerRef = useRef<HTMLButtonElement>(null)
-  const simultaneityDialogRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
     try {
@@ -130,10 +131,6 @@ export function LoadCalculator() {
 
     setStorageLoaded(true)
   }, [])
-
-  useDialogFocus(showSettings, settingsDialogRef, settingsTriggerRef, setShowSettings)
-  useDialogFocus(showReferences, referencesDialogRef, referencesTriggerRef, setShowReferences)
-  useDialogFocus(showSimultaneityTable, simultaneityDialogRef, simultaneityTriggerRef, setShowSimultaneityTable)
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -309,9 +306,9 @@ export function LoadCalculator() {
       </header>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <div className="mb-8 max-w-3xl"><p className="mb-2 text-sm font-semibold text-cyan-700">Herramienta de ingeniería</p><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Calcula la previsión de cargas de tu edificio</h2><p className="mt-3 text-base leading-7 text-slate-600">Introduce los datos del proyecto y obtén el desglose de potencia conforme a las tablas y criterios de la hoja de cálculo original.</p></div>
-        {showSettings && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSettings(false) }}>
-          <section ref={settingsDialogRef} tabIndex={-1} className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
-            <div className="mb-6 flex items-start justify-between gap-4"><div><h3 id="settings-title" className="text-xl font-bold text-slate-950">Parámetros de cálculo</h3><p id="settings-description" className="mt-1 text-sm text-slate-500">Ajusta los valores utilizados en las previsiones. Los cambios se guardan en este navegador.</p></div><button type="button" className="icon-button" aria-label="Cerrar parámetros de cálculo" onClick={() => setShowSettings(false)}><X /></button></div>
+        <Dialog open={showSettings} onOpenChange={setShowSettings}>
+          <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-3xl">
+            <div className="mb-6 flex items-start justify-between gap-4"><div><DialogTitle id="settings-title" className="text-xl font-bold text-slate-950">Parámetros de cálculo</DialogTitle><DialogDescription id="settings-description" className="mt-1 text-sm text-slate-500">Ajusta los valores utilizados en las previsiones. Los cambios se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar parámetros de cálculo" />}><X /></DialogClose></div>
             <div className="grid gap-4 md:grid-cols-2">
               <section className="rounded-xl border border-slate-200 p-4"><h4 className="mb-4 text-sm font-bold text-slate-800">Viviendas y suministros</h4><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Vivienda básica" value={settings.basicHousingPower} suffix="W" onChange={value => updateSetting('basicHousingPower', value)} />
@@ -331,40 +328,39 @@ export function LoadCalculator() {
                 <SettingInput label="Conversión de CV" value={settings.cvToWatts} suffix="W/CV" step="0.1" onChange={value => updateSetting('cvToWatts', value)} />
               </div></section>
             </div>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"><button type="button" className="text-sm font-semibold text-cyan-700 underline-offset-4 hover:underline" onClick={() => setSettings(defaultSettings)}>Restaurar valores predeterminados</button><button type="button" className="action-primary sm:min-w-28" onClick={() => setShowSettings(false)}>Listo</button></div>
-          </section>
-        </div>}
-        {showProjectInfo && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowProjectInfo(false) }}>
-          <section className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="project-info-title">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><h3 id="project-info-title" className="text-xl font-bold text-slate-950">Datos de la memoria técnica</h3><p className="mt-1 text-sm text-slate-500">Estos datos aparecerán en la cabecera del PDF y se guardan en este navegador.</p></div><button type="button" className="icon-button" aria-label="Cerrar diálogo" onClick={() => setShowProjectInfo(false)}><X /></button></div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"><Button type="button" variant="link" className="px-0 text-sm font-semibold text-cyan-700 underline-offset-4 hover:underline" onClick={() => setSettings(defaultSettings)}>Restaurar valores predeterminados</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:min-w-28" onClick={() => setShowSettings(false)}>Listo</Button></div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={showProjectInfo} onOpenChange={setShowProjectInfo}>
+          <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-2xl">
+            <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="project-info-title" className="text-xl font-bold text-slate-950">Datos de la memoria técnica</DialogTitle><DialogDescription className="mt-1 text-sm text-slate-500">Estos datos aparecerán en la cabecera del PDF y se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar diálogo" />}><X /></DialogClose></div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="sm:col-span-2"><span className="label">Nombre de empresa</span><input className="field w-full" value={projectInfo.companyName} onChange={event => updateProjectInfo('companyName', event.target.value)} placeholder="Instalaciones Ejemplo S.L." /></label>
-              <label><span className="label">Dirección de empresa</span><input className="field w-full" value={projectInfo.companyAddress} onChange={event => updateProjectInfo('companyAddress', event.target.value)} placeholder="Calle, número, ciudad" /></label>
-              <label><span className="label">Teléfono</span><input className="field w-full" value={projectInfo.phone} onChange={event => updateProjectInfo('phone', event.target.value)} placeholder="+34 900 000 000" /></label>
-              <label><span className="label">Correo electrónico</span><input className="field w-full" type="email" value={projectInfo.email} onChange={event => updateProjectInfo('email', event.target.value)} placeholder="contacto@empresa.es" /></label>
-              <label><span className="label">Dirección de obra</span><input className="field w-full" value={projectInfo.workAddress} onChange={event => updateProjectInfo('workAddress', event.target.value)} placeholder="Emplazamiento del proyecto" /></label>
-              <label className="sm:col-span-2"><span className="label">Logo de empresa</span><input className="field w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-slate-200 object-contain p-1" /><button type="button" className="text-sm font-semibold text-red-600" onClick={() => updateProjectInfo('logo', '')}>Quitar logo</button></div>}</label>
+              <label className="sm:col-span-2"><span className="label">Nombre de empresa</span><Input className="w-full" value={projectInfo.companyName} onChange={event => updateProjectInfo('companyName', event.target.value)} placeholder="Instalaciones Ejemplo S.L." /></label>
+              <label><span className="label">Dirección de empresa</span><Input className="w-full" value={projectInfo.companyAddress} onChange={event => updateProjectInfo('companyAddress', event.target.value)} placeholder="Calle, número, ciudad" /></label>
+              <label><span className="label">Teléfono</span><Input className="w-full" value={projectInfo.phone} onChange={event => updateProjectInfo('phone', event.target.value)} placeholder="+34 900 000 000" /></label>
+              <label><span className="label">Correo electrónico</span><Input className="w-full" type="email" value={projectInfo.email} onChange={event => updateProjectInfo('email', event.target.value)} placeholder="contacto@empresa.es" /></label>
+              <label><span className="label">Dirección de obra</span><Input className="w-full" value={projectInfo.workAddress} onChange={event => updateProjectInfo('workAddress', event.target.value)} placeholder="Emplazamiento del proyecto" /></label>
+              <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-slate-200 object-contain p-1" /><Button type="button" variant="link" className="px-0 text-sm font-semibold text-red-600" onClick={() => updateProjectInfo('logo', '')}>Quitar logo</Button></div>}</label>
             </div>
-            <div className="mt-6 flex justify-end gap-3"><button type="button" className="action-secondary" onClick={() => setShowProjectInfo(false)}>Cerrar</button><button type="button" className="action-primary" onClick={() => setShowProjectInfo(false)}>Guardar datos</button></div>
-          </section>
-        </div>}
-        {showSimultaneityTable && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSimultaneityTable(false) }}>
-          <section id="simultaneity-dialog" ref={simultaneityDialogRef} tabIndex={-1} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="simultaneity-title" aria-describedby="simultaneity-description">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><h3 id="simultaneity-title" className="text-xl font-bold text-slate-950">Coeficiente de simultaneidad</h3><p id="simultaneity-description" className="mt-1 text-sm text-slate-500">Tabla 1 de la ITC-BT-10 según el número de viviendas.</p></div><button type="button" className="icon-button" aria-label="Cerrar tabla de simultaneidad" onClick={() => setShowSimultaneityTable(false)}><X /></button></div>
+            <div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowProjectInfo(false)}>Guardar datos</Button></div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={showSimultaneityTable} onOpenChange={setShowSimultaneityTable}>
+          <DialogContent id="simultaneity-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-xl">
+            <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="simultaneity-title" className="text-xl font-bold text-slate-950">Coeficiente de simultaneidad</DialogTitle><DialogDescription id="simultaneity-description" className="mt-1 text-sm text-slate-500">Tabla 1 de la ITC-BT-10 según el número de viviendas.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tabla de simultaneidad" />}><X /></DialogClose></div>
             <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-slate-200">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</th><th scope="col" className="px-4 py-3 text-center">Coeficiente</th></tr></thead>
-                <tbody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <tr key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><td className="px-4 py-2 text-center tabular-nums">{index + 1}</td><td className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</td></tr>)}<tr className="border-t border-slate-200 bg-cyan-50/70"><td className="px-4 py-3 text-center font-semibold">n &gt; 21</td><td className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</td></tr></tbody>
-              </table>
+              <Table className="w-full text-left text-sm">
+                <TableHeader className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><TableRow><TableHead scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Coeficiente</TableHead></TableRow></TableHeader>
+                <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-slate-200 bg-cyan-50/70"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
+              </Table>
             </div>
             <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm leading-5 text-amber-800"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-            <div className="mt-6 flex justify-end"><button type="button" className="action-primary" onClick={() => setShowSimultaneityTable(false)}>Cerrar</button></div>
-          </section>
-        </div>}
-        {showItaTable && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowItaTable(false) }}>
-            <section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="ita-table-title">
-              <div className="mb-5 flex items-start justify-between gap-4"><div><h3 id="ita-table-title" className="text-xl font-bold text-slate-950">Tipos de ascensores · Tabla ITA</h3><p className="mt-1 text-sm text-slate-500">Clasificación según ITC-BT 10 (REBT). Selecciona el tipo de aparato elevador en función de las características del ascensor.</p></div><button type="button" className="icon-button" aria-label="Cerrar diálogo" onClick={() => setShowItaTable(false)}><X /></button></div>
+            <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowSimultaneityTable(false)}>Cerrar</Button></div>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={showItaTable} onOpenChange={setShowItaTable}>
+          <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-3xl">
+              <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="ita-table-title" className="text-xl font-bold text-slate-950">Tipos de ascensores · Tabla ITA</DialogTitle><DialogDescription className="mt-1 text-sm text-slate-500">Clasificación según ITC-BT 10 (REBT). Selecciona el tipo de aparato elevador en función de las características del ascensor.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar diálogo" />}><X /></DialogClose></div>
               <div className="grid gap-3 md:hidden">
                 {ITA_TYPES.map(ita => <article key={`mobile-${ita.type}`} className="rounded-xl border border-slate-200 bg-paper p-4">
                   <div className="mb-3 flex items-center justify-between"><h4 className="font-semibold text-cyan-700">{ita.type}</h4><span className="text-sm font-semibold tabular-nums">{fmtDec(ita.potencia)} kW</span></div>
@@ -376,90 +372,89 @@ export function LoadCalculator() {
                 </article>)}
               </div>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <th className="px-4 py-3">Tipo</th>
-                      <th className="px-4 py-3 text-right">Carga (kg)</th>
-                      <th className="px-4 py-3 text-right">Personas</th>
-                      <th className="px-4 py-3 text-right">Velocidad (m/s)</th>
-                      <th className="px-4 py-3 text-right">Potencia (kW)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full text-left text-sm">
+                  <TableHeader>
+                    <TableRow className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <TableHead className="px-4 py-3">Tipo</TableHead>
+                      <TableHead className="px-4 py-3 text-right">Carga (kg)</TableHead>
+                      <TableHead className="px-4 py-3 text-right">Personas</TableHead>
+                      <TableHead className="px-4 py-3 text-right">Velocidad (m/s)</TableHead>
+                      <TableHead className="px-4 py-3 text-right">Potencia (kW)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {ITA_TYPES.map((ita, idx) => (
-                      <tr key={ita.type} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} hover:bg-cyan-50 transition-colors`}>
-                        <td className="px-4 py-3 font-semibold text-cyan-700">{ita.type}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{ita.carga}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{ita.personas}</td>
-                        <td className="px-4 py-3 text-right tabular-nums">{fmtDec(ita.velocidad)}</td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">{ita.potencia}</td>
-                      </tr>
+                      <TableRow key={ita.type} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} hover:bg-cyan-50 transition-colors`}>
+                        <TableCell className="px-4 py-3 font-semibold text-cyan-700">{ita.type}</TableCell>
+                        <TableCell className="px-4 py-3 text-right tabular-nums">{ita.carga}</TableCell>
+                        <TableCell className="px-4 py-3 text-right tabular-nums">{ita.personas}</TableCell>
+                        <TableCell className="px-4 py-3 text-right tabular-nums">{fmtDec(ita.velocidad)}</TableCell>
+                        <TableCell className="px-4 py-3 text-right font-medium tabular-nums">{ita.potencia}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
               <div className="mt-5 rounded-lg bg-amber-50 p-4 text-xs leading-5 text-amber-800">
                 <p className="flex items-start gap-2"><Info data-icon="inline-start" className="mt-0.5 shrink-0" /><span>Esta tabla es informativa. La potencia del ascensor debe introducirse manualmente según las especificaciones del fabricante. Los valores de la tabla ITC-BT 10 son orientativos.</span></p>
               </div>
-              <div className="mt-6 flex justify-end"><button type="button" className="action-primary" onClick={() => setShowItaTable(false)}>Cerrar</button></div>
-            </section>
-          </div>
-        )}
+              <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
+          </DialogContent>
+        </Dialog>
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-6">
             <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm">
               <SectionTitle number="01" title="Viviendas" subtitle="Añade cada vivienda y selecciona su grado de electrificación" />
               <div className="grid gap-3 md:hidden">
                 {housing.map((row, i) => <article key={`mobile-${i}`} className="rounded-xl border border-slate-200 bg-paper p-4">
-                  <div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold">Vivienda {i + 1}</h4><button type="button" className="icon-button" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></button></div>
+                  <div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold">Vivienda {i + 1}</h4><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></Button></div>
                   <div className="grid gap-3">
-                    <label><span className="label">Electrificación</span><select className="field w-full" value={row.level} onChange={event => { const level = event.target.value as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }}><option>Básica</option><option>Elevada</option></select></label>
-                    <label><span className="label">Potencia (W)</span><input className="field w-full" type="number" min="0" value={row.power} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(event.target.value) } : house))} /></label>
+                    <label><span className="label">Electrificación</span><ChoiceSelect className="w-full" value={row.level} onChange={event => { const level = event as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }} items={['Básica', 'Elevada']} /></label>
+                    <label><span className="label">Potencia (W)</span><Input className="w-full" type="number" min="0" value={row.power} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(event.target.value) } : house))} /></label>
                     <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span className="text-slate-500">Subtotal</span><strong className="tabular-nums">{fmt(row.power * row.homes)} W</strong></div>
                   </div>
                 </article>)}
               </div>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[620px] text-left text-sm">
-                  <thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th className="pb-3">Vivienda</th><th className="pb-3">Electrificación</th><th className="pb-3">Potencia (W)</th><th className="pb-3 text-right">Subtotal (W)</th><th className="pb-3" /></tr></thead>
-                  <tbody>{housing.map((row, i) => <tr key={i} className="border-b border-slate-100">
-                    <td className="py-3 font-medium">Vivienda {i + 1}</td>
-                    <td className="py-3"><select className="field" value={row.level} onChange={event => { const level = event.target.value as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }}><option>Básica</option><option>Elevada</option></select></td>
-                    <td className="py-3"><input className="field w-32" type="number" min="0" value={row.power} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(event.target.value) } : house))} /></td>
-                    <td className="py-3 text-right font-semibold tabular-nums">{fmt(row.power * row.homes)}</td>
-                    <td className="py-3 text-right"><button type="button" className="icon-button" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></button></td>
-                  </tr>)}</tbody>
-                </table>
+                <Table className="w-full min-w-[620px] text-left text-sm">
+                  <TableHeader><TableRow className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><TableHead className="pb-3">Vivienda</TableHead><TableHead className="pb-3">Electrificación</TableHead><TableHead className="pb-3">Potencia (W)</TableHead><TableHead className="pb-3 text-right">Subtotal (W)</TableHead><TableHead className="pb-3" /></TableRow></TableHeader>
+                  <TableBody>{housing.map((row, i) => <TableRow key={i} className="border-b border-slate-100">
+                    <TableCell className="py-3 font-medium">Vivienda {i + 1}</TableCell>
+                    <TableCell className="py-3"><ChoiceSelect value={row.level} onChange={event => { const level = event as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }} items={['Básica', 'Elevada']} /></TableCell>
+                    <TableCell className="py-3"><Input className="w-32" type="number" min="0" value={row.power} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(event.target.value) } : house))} /></TableCell>
+                    <TableCell className="py-3 text-right font-semibold tabular-nums">{fmt(row.power * row.homes)}</TableCell>
+                    <TableCell className="py-3 text-right"><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></Button></TableCell>
+                  </TableRow>)}</TableBody>
+                </Table>
               </div>
               {housing.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay viviendas añadidas.</p>}
-              <div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1 }])}><Plus data-icon="inline-start" /> Añadir vivienda</button><Metric label="P1 · Viviendas" value={`${fmt(result.p1)} W`} accent /></div>
+              <div className="mt-4 flex items-center justify-between gap-3"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1 }])}><Plus data-icon="inline-start" /> Añadir vivienda</Button><Metric label="P1 · Viviendas" value={`${fmt(result.p1)} W`} accent /></div>
             </section>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${fmt(result.average)} W`} /><div className="rounded-xl bg-slate-50 p-3">
               <p className="text-xs text-slate-500">Coeficiente de simultaneidad</p>
-              <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold tabular-nums">{fmtDec(result.cs)}</p><button ref={simultaneityTriggerRef} type="button" aria-label="Ver tabla del coeficiente de simultaneidad" aria-haspopup="dialog" aria-controls="simultaneity-dialog" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-700" onClick={() => setShowSimultaneityTable(true)}><Table2 className="size-4" aria-hidden="true" /></button></div>
+              <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold tabular-nums">{fmtDec(result.cs)}</p><Button type="button" variant="outline" size="icon" aria-label="Ver tabla del coeficiente de simultaneidad" aria-haspopup="dialog" aria-controls="simultaneity-dialog" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-transparent text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-700" onClick={() => setShowSimultaneityTable(true)}><Table2 className="size-4" aria-hidden="true" /></Button></div>
             </div></div>
-            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="02" title="Servicios generales" subtitle="Añade cada ascensor, motor y carga con sus datos específicos" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<input key="name" className="field w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><select key="ita" className="field" value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e.target.value as ElevatorRow['ita'] } : x))}><option>ITA-1</option><option>ITA-2</option><option>ITA-3</option><option>ITA-4</option><option>ITA-5</option><option>ITA-6</option></select><button key="ita-info" type="button" className="flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-600" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></button></div>, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e.target.value as ElevatorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<input key="name" className="field w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e.target.value as MotorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<input key="name" className="field w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></button>])} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 p-3 text-xs leading-5 text-cyan-900"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motores ×{fmtDec(settings.motorCoefficient)} y otras cargas ×{fmtDec(settings.otherLoadCoefficient)}. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p></section>
-            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="03" title="Locales, oficinas e industrias" subtitle="Se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <input key="a" className="field w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <input key="b" className="field w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(Math.max(row.real || 0, row.area * 100, row.area ? 3450 : 0))}</strong>, <button key="d" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay locales añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div></section>
-            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="04" title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <select key="a" className="field" value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e.target.value as GarageRow['ventilation'] } : x))}><option>Forzada</option><option>Natural</option></select>, <input key="b" className="field w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? 20 : 10), row.area ? 3450 : 0))}</strong>, <button key="d" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay garajes añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div></section>
-            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="05" title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><Input label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><div className="flex flex-col gap-2"><span className="label">Opción de cálculo</span>{['Todas las plazas · sin SPL','Todas las plazas · con SPL','Mínimo 10% de plazas'].map((name, i) => <label key={name} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200'}`}><input type="radio" checked={irveOption === i + 1} onChange={() => setIrveOption(i + 1)} />{name}<span className="ml-auto text-xs text-slate-500">Cs {i === 1 ? '0,3' : '1'}</span></label>)}</div></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div></section>
+            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="02" title="Servicios generales" subtitle="Añade cada ascensor, motor y carga con sus datos específicos" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e as ElevatorRow['ita'] } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-transparent text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-600" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <Input key="power" className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<Input key="name" className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 p-3 text-xs leading-5 text-cyan-900"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motores ×{fmtDec(settings.motorCoefficient)} y otras cargas ×{fmtDec(settings.otherLoadCoefficient)}. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p></section>
+            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="03" title="Locales, oficinas e industrias" subtitle="Se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <Input key="a" className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" className="w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(Math.max(row.real || 0, row.area * 100, row.area ? 3450 : 0))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay locales añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div></section>
+            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="04" title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="b" className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? 20 : 10), row.area ? 3450 : 0))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay garajes añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div></section>
+            <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm"><SectionTitle number="05" title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-slate-500">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{['Todas las plazas · sin SPL','Todas las plazas · con SPL','Mínimo 10% de plazas'].map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-slate-500">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div></section>
           </div>
-          <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-slate-950 text-white shadow-xl"><div className="border-b border-white/10 p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-slate-400">W</span></p><p className="mt-1 text-sm text-slate-400">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-slate-400"><b className="mr-2 text-cyan-300">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-white/10" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-cyan-300">{fmt(result.total)} W</span></div></div></div><div className="mt-4 flex flex-col gap-2"><button type="button" className="action-primary" onClick={downloadReport}><Download data-icon="inline-start" /> Descargar resumen PDF</button><button type="button" className="action-secondary" onClick={downloadJson}><Download data-icon="inline-start" /> Descargar datos JSON</button><button type="button" className="action-secondary" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</button><button type="button" className="action-secondary" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</button></div>
-            <button ref={settingsTriggerRef} type="button" className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-paper p-5 text-left shadow-sm transition-colors hover:border-cyan-300 hover:bg-cyan-50/40" onClick={() => setShowSettings(true)}>
+          <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-slate-950 text-white shadow-xl"><div className="border-b border-white/10 p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-slate-400">W</span></p><p className="mt-1 text-sm text-slate-400">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-slate-400"><b className="mr-2 text-cyan-300">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-white/10" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-cyan-300">{fmt(result.total)} W</span></div></div></div><div className="mt-4 flex flex-col gap-2"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={downloadReport}><Download data-icon="inline-start" /> Descargar resumen PDF</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={downloadJson}><Download data-icon="inline-start" /> Descargar datos JSON</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button></div>
+            <button type="button" className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-paper p-5 text-left shadow-sm transition-colors hover:border-cyan-300 hover:bg-cyan-50/40" onClick={() => setShowSettings(true)}>
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700"><SlidersHorizontal className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Parámetros de cálculo</span><span className="mt-1 block text-xs leading-5 text-slate-500">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span></span>
               <span className="text-sm font-semibold text-cyan-700">Configurar</span>
             </button>
             <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm">
               <div className="mb-3"><h3 className="text-sm font-bold">Datos de la memoria técnica</h3><p className="mt-1 text-xs leading-5 text-slate-500">Completa los datos que aparecerán en la cabecera del PDF.</p></div>
-              <button type="button" className="action-secondary w-full" onClick={() => setShowProjectInfo(true)}><Building2 data-icon="inline-start" /> Editar datos del proyecto</button>
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold w-full" onClick={() => setShowProjectInfo(true)}><Building2 data-icon="inline-start" /> Editar datos del proyecto</Button>
             </section>
-            <button ref={referencesTriggerRef} type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-paper px-4 py-3 text-left text-sm font-semibold" onClick={() => setShowReferences(true)}>
+            <button type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-paper px-4 py-3 text-left text-sm font-semibold" onClick={() => setShowReferences(true)}>
               <span>Tablas y referencias</span><span className="flex items-center gap-2 text-cyan-700"><span className="text-xs">Ver tablas</span><Table2 className="size-4" /></span>
             </button>
-            {showReferences && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowReferences(false) }}>
-              <section id="references-dialog" ref={referencesDialogRef} tabIndex={-1} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="references-title" aria-describedby="references-description">
-                <div className="mb-5 flex items-start justify-between gap-4"><div><h3 id="references-title" className="text-xl font-bold text-slate-950">Tablas y referencias</h3><p id="references-description" className="mt-1 text-sm text-slate-500">Criterios de previsión de cargas según ITC-BT-10.</p></div><button type="button" className="icon-button" aria-label="Cerrar tablas y referencias" onClick={() => setShowReferences(false)}><X /></button></div>
+            <Dialog open={showReferences} onOpenChange={setShowReferences}>
+              <DialogContent id="references-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-2xl">
+                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="references-title" className="text-xl font-bold text-slate-950">Tablas y referencias</DialogTitle><DialogDescription id="references-description" className="mt-1 text-sm text-slate-500">Criterios de previsión de cargas según ITC-BT-10.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas y referencias" />}><X /></DialogClose></div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <p className="rounded-lg bg-slate-50 p-3 text-sm"><b>Electrificación básica:</b> 5.750 W.</p>
                   <p className="rounded-lg bg-slate-50 p-3 text-sm"><b>Electrificación elevada:</b> 9.200 W o superior.</p>
@@ -469,17 +464,17 @@ export function LoadCalculator() {
                 </div>
                 <h4 className="mt-6 font-bold text-slate-800">Coeficiente de simultaneidad · ITC-BT-10</h4>
                 <div className="mt-2 max-h-[45vh] overflow-y-auto rounded-lg border border-slate-200">
-                  <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <tr><th scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</th><th scope="col" className="px-4 py-3 text-center">Coeficiente de simultaneidad</th></tr>
-                    </thead>
-                    <tbody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <tr key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><td className="px-4 py-2 text-center tabular-nums">{index + 1}</td><td className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</td></tr>)}<tr className="border-t border-slate-200 bg-cyan-50/70"><td className="px-4 py-3 text-center font-semibold">n &gt; 21</td><td className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</td></tr></tbody>
-                  </table>
+                  <Table className="w-full text-left text-sm">
+                    <TableHeader className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                      <TableRow><TableHead scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Coeficiente de simultaneidad</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-paper' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-slate-200 bg-cyan-50/70"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
+                  </Table>
                 </div>
                 <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm leading-5 text-amber-800"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-                <div className="mt-6 flex justify-end"><button type="button" className="action-primary" onClick={() => setShowReferences(false)}>Cerrar</button></div>
-              </section>
-            </div>}</aside>
+                <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
+              </DialogContent>
+            </Dialog></aside>
         </div>
       </div>
       <footer className="border-t border-slate-200 bg-paper">
@@ -498,57 +493,11 @@ export function LoadCalculator() {
 }
 
 function SectionTitle({ number, title, subtitle }: { number: string; title: string; subtitle: string }) { return <div className="mb-5"><span className="block text-xs font-bold tracking-wide text-cyan-600">{number}</span><h3 className="mt-1 font-bold">{title}</h3><p className="mt-1 text-sm text-slate-500">{subtitle}</p></div> }
-function useDialogFocus<TDialog extends HTMLElement, TTrigger extends HTMLElement>(isOpen: boolean, dialogRef: { readonly current: TDialog | null }, triggerRef: { readonly current: TTrigger | null }, setIsOpen: (isOpen: boolean) => void) {
-  useEffect(() => {
-    if (!isOpen) return
-
-    const dialog = dialogRef.current
-    if (!dialog) return
-
-    const focusableSelector = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
-    const getFocusableElements = () => Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
-    const focusableElements = getFocusableElements()
-    ;(focusableElements[0] ?? dialog).focus()
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        setIsOpen(false)
-        return
-      }
-
-      if (event.key !== 'Tab') return
-
-      const currentFocusableElements = getFocusableElements()
-      const first = currentFocusableElements[0]
-      const last = currentFocusableElements[currentFocusableElements.length - 1]
-      if (!first || !last) {
-        event.preventDefault()
-        dialog.focus()
-        return
-      }
-
-      const focusIsOutsideDialog = !dialog.contains(document.activeElement)
-      if (event.shiftKey && (document.activeElement === first || focusIsOutsideDialog)) {
-        event.preventDefault()
-        last.focus()
-      } else if (!event.shiftKey && (document.activeElement === last || focusIsOutsideDialog)) {
-        event.preventDefault()
-        first.focus()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      triggerRef.current?.focus()
-    }
-  }, [isOpen, dialogRef, triggerRef, setIsOpen])
-}
 function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) { return <div className={`rounded-xl p-3 ${accent ? 'bg-cyan-50' : 'bg-slate-50'}`}><p className="text-xs text-slate-500">{label}</p><p className={`mt-1 font-bold tabular-nums ${accent ? 'text-cyan-700' : ''}`}>{value}</p></div> }
-function Input({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }) { return <label><span className="label">{label}</span><span className="relative block"><input className="field w-full pr-12" value={value} onChange={onChange} type={onChange ? 'number' : 'text'} readOnly={!onChange} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">{suffix}</span></span></label> }
-function SettingInput({ label, value, suffix, step = '1', onChange }: { label: string; value: number; suffix: string; step?: string; onChange: (value: number) => void }) { return <label><span className="label">{label}</span><span className="relative block"><input className="field w-full pr-16" type="number" min="0" step={step} value={value} onChange={event => onChange(Number(event.target.value))} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">{suffix}</span></span></label> }
-function ServiceTable({ title, addLabel, onAdd, headers, rows }: { title: string; addLabel: string; onAdd: () => void; headers: string[]; rows: React.ReactNode[][] }) { return <div><div className="mb-2 flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-700">{title}</h4><button type="button" className="action-secondary px-3 py-2 text-xs" onClick={onAdd}><Plus data-icon="inline-start" /> {addLabel}</button></div><EditableTable headers={headers} rows={rows} />{rows.length === 0 && <p className="py-3 text-center text-sm text-slate-500">No hay elementos añadidos.</p>}</div> }
+function ChoiceSelect({ id, className, value, onChange, items }: { id?: string; className?: string; value: string; onChange: (value: string) => void; items: string[] }) { return <Select value={value} onValueChange={next => onChange(next == null ? value : String(next))}><SelectTrigger id={id} className={className}><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{items.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent></Select> }
+function LabeledInput({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-12" value={value} onChange={onChange} type={onChange ? 'number' : 'text'} readOnly={!onChange} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">{suffix}</span></span></label> }
+function SettingInput({ label, value, suffix, step = '1', onChange }: { label: string; value: number; suffix: string; step?: string; onChange: (value: number) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-16" type="number" min="0" step={step} value={value} onChange={event => onChange(Number(event.target.value))} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-slate-400">{suffix}</span></span></label> }
+function ServiceTable({ title, addLabel, onAdd, headers, rows }: { title: string; addLabel: string; onAdd: () => void; headers: string[]; rows: React.ReactNode[][] }) { return <div><div className="mb-2 flex items-center justify-between"><h4 className="text-sm font-semibold text-slate-700">{title}</h4><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold px-3 py-2 text-xs" onClick={onAdd}><Plus data-icon="inline-start" /> {addLabel}</Button></div><EditableTable headers={headers} rows={rows} />{rows.length === 0 && <p className="py-3 text-center text-sm text-slate-500">No hay elementos añadidos.</p>}</div> }
 function EditableTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {
   return <>
     <div className="grid gap-3 md:hidden">
@@ -564,10 +513,10 @@ function EditableTable({ headers, rows }: { headers: string[]; rows: React.React
       </article>)}
     </div>
     <div className="hidden overflow-x-auto md:block">
-      <table className="w-full min-w-[580px] text-left text-sm">
-        <thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">{headers.map((header, index) => <th key={`${header}-${index}`} scope="col" className="pb-3">{header}</th>)}</tr></thead>
-        <tbody>{rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-slate-100">{row.map((cell, columnIndex) => <td key={columnIndex} className="py-3">{cell}</td>)}</tr>)}</tbody>
-      </table>
+      <Table className="w-full min-w-[580px] text-left text-sm">
+        <TableHeader><TableRow className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">{headers.map((header, index) => <TableHead key={`${header}-${index}`} scope="col" className="pb-3">{header}</TableHead>)}</TableRow></TableHeader>
+        <TableBody>{rows.map((row, rowIndex) => <TableRow key={rowIndex} className="border-b border-slate-100">{row.map((cell, columnIndex) => <TableCell key={columnIndex} className="py-3">{cell}</TableCell>)}</TableRow>)}</TableBody>
+      </Table>
     </div>
   </>
 }
