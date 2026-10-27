@@ -16,12 +16,12 @@ Branch: `main`. Delivery: work-unit commits. Test runner: `node --test tests/*.t
 
 ## Tasks
 
-- T1 (S2, S8) `lib/cable-tables.mjs`: table data + lookup + grouping factors. Route: inline.
-- T2 (S3, S4, S7, S8) `lib/lga.mjs` and `lib/di.mjs`: sizing engine. Route: inline.
-- T3 (S2, S3, S7, S8) numeric tests for tables and engines. Route: inline.
-- T4 (S1, S5) Tabs + LGA/DI panels + table dialogs. Route: inline.
-- T5 (S6) Persistence, JSON export, PDF sections. Route: inline.
-- T6 (S1..S8) Full verification: suite, tsc, build.
+- T1 (S2, S8) `lib/cable-tables.mjs`: table data + lookup + grouping factors. Route: inline. Done (c361730).
+- T2 (S3, S4, S7, S8) `lib/line-sizing.mjs`: sizing engine. Route: inline. Done (c361730).
+- T3 (S2, S3, S7, S8) numeric tests for tables and engine. Route: inline. Done (c361730).
+- T4 (S1, S5) Tabs + LGA/DI panels + table dialogs. Route: inline. Done.
+- T5 (S6) Persistence, JSON export, PDF sections. Route: inline. PENDING.
+- T6 (S1..S8) Full verification: suite, tsc, build. Suite 48/48, tsc clean, build 0 after T4; re-run after T5.
 
 ## Log
 

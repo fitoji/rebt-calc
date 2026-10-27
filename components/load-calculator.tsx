@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { DiPanel, LgaPanel, LineTablesDialog, type LineState } from '@/components/line-modules'
 
 type ProjectInfo = {
   companyName: string
@@ -92,6 +94,20 @@ export function LoadCalculator() {
   const [otherLoads, setOtherLoads] = useState<OtherLoadRow[]>([])
   const [parking, setParking] = useState(0)
   const [irveOption, setIrveOption] = useState(1)
+  const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
+  const [showLineTables, setShowLineTables] = useState(false)
+  const [lga, setLga] = useState<LineState>({
+    powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
+    method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
+    neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
+  })
+  const [di, setDi] = useState<LineState>({
+    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1.5, gamma: 48.5,
+    method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
+    neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
+  })
+  const updateLga = (patch: Partial<LineState>) => setLga(current => ({ ...current, ...patch }))
+  const updateDi = (patch: Partial<LineState>) => setDi(current => ({ ...current, ...patch }))
   const [showReferences, setShowReferences] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
@@ -402,6 +418,13 @@ export function LoadCalculator() {
               <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
           </DialogContent>
         </Dialog>
+        <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'cargas' | 'lga' | 'di')} className="gap-6">
+          <TabsList className="h-auto w-fit gap-1 rounded-xl border border-slate-200 bg-paper p-1">
+            <TabsTrigger value="cargas" className="h-auto rounded-lg px-4 py-2 text-sm font-semibold">Previsión de cargas</TabsTrigger>
+            <TabsTrigger value="lga" className="h-auto rounded-lg px-4 py-2 text-sm font-semibold">LGA · ITC-BT-14</TabsTrigger>
+            <TabsTrigger value="di" className="h-auto rounded-lg px-4 py-2 text-sm font-semibold">DI · ITC-BT-15</TabsTrigger>
+          </TabsList>
+          <TabsContent value="cargas">
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <div className="flex flex-col gap-6">
             <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm">
@@ -477,6 +500,15 @@ export function LoadCalculator() {
               </DialogContent>
             </Dialog></aside>
         </div>
+          </TabsContent>
+          <TabsContent value="lga">
+            <LgaPanel state={lga} onChange={updateLga} onOpenTables={() => setShowLineTables(true)} />
+          </TabsContent>
+          <TabsContent value="di">
+            <DiPanel state={di} onChange={updateDi} onOpenTables={() => setShowLineTables(true)} />
+          </TabsContent>
+        </Tabs>
+        <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} />
       </div>
       <footer className="border-t border-slate-200 bg-paper">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 py-5 sm:flex-row lg:px-8">
