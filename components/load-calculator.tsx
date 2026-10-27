@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
+import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
 
 type ProjectInfo = {
   companyName: string
@@ -15,7 +16,7 @@ type ProjectInfo = {
   logo: string
 }
 
-type HousingRow = { level: string; power: number; homes: number }
+type HousingRow = { level: 'Básica' | 'Elevada'; power: number; homes: number }
 type LocalRow = { name: string; type: string; area: number; real: number }
 type GarageRow = { name: string; ventilation: 'Forzada' | 'Natural'; area: number }
 type ElevatorRow = { name: string; ita: 'ITA-1' | 'ITA-2' | 'ITA-3' | 'ITA-4' | 'ITA-5' | 'ITA-6'; power: number; unit: 'W' | 'CV' }
@@ -60,8 +61,8 @@ const defaultSettings: CalculationSettings = {
 }
 
 const initialHousing: HousingRow[] = [
-  ...Array.from({ length: 8 }, () => ({ level: 'Básica', power: 5750, homes: 1 })),
-  ...Array.from({ length: 3 }, () => ({ level: 'Elevada', power: 9200, homes: 1 })),
+  ...Array.from({ length: 8 }, (): HousingRow => ({ level: 'Básica', power: 5750, homes: 1 })),
+  ...Array.from({ length: 3 }, (): HousingRow => ({ level: 'Elevada', power: 9200, homes: 1 })),
 ]
 const exampleLocals: LocalRow[] = [
   { name: 'Local 1', type: 'Comercial/oficina', area: 50, real: 0 },
@@ -91,30 +92,71 @@ export function LoadCalculator() {
   const referencesDialogRef = useRef<HTMLElement>(null)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
   const [showItaTable, setShowItaTable] = useState(false)
+  const [showSimultaneityTable, setShowSimultaneityTable] = useState(false)
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
+  const [storageLoaded, setStorageLoaded] = useState(false)
+  const simultaneityTriggerRef = useRef<HTMLButtonElement>(null)
+  const simultaneityDialogRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('electrocalc-settings')
-    const savedProject = window.localStorage.getItem('electrocalc-project-info')
-    if (saved) {
-      try { setSettings({ ...defaultSettings, ...JSON.parse(saved) }) } catch { window.localStorage.removeItem('electrocalc-settings') }
-    }
-    if (savedProject) {
-      try { setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '', ...JSON.parse(savedProject) }) } catch { window.localStorage.removeItem('electrocalc-project-info') }
-    }
+    try {
+      const savedInputs = loadCalculatorInputs(window.localStorage)
+      if (savedInputs) {
+        setHousing(savedInputs.housing)
+        setLocals(savedInputs.locals)
+        setGarages(savedInputs.garages)
+        setElevators(savedInputs.elevators)
+        setMotors(savedInputs.motors)
+        setOtherLoads(savedInputs.otherLoads)
+        setParking(savedInputs.parking)
+        setIrveOption(savedInputs.irveOption)
+      }
+    } catch { /* Local storage may be unavailable in private browsing. */ }
+
+    try {
+      const saved = window.localStorage.getItem('electrocalc-settings')
+      if (saved) {
+        try { setSettings({ ...defaultSettings, ...JSON.parse(saved) }) } catch { window.localStorage.removeItem('electrocalc-settings') }
+      }
+    } catch { /* Keep default calculation parameters when storage is unavailable. */ }
+
+    try {
+      const savedProject = window.localStorage.getItem('electrocalc-project-info')
+      if (savedProject) {
+        try { setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '', ...JSON.parse(savedProject) }) } catch { window.localStorage.removeItem('electrocalc-project-info') }
+      }
+    } catch { /* Keep project information empty when storage is unavailable. */ }
+
+    setStorageLoaded(true)
   }, [])
 
   useDialogFocus(showSettings, settingsDialogRef, settingsTriggerRef, setShowSettings)
   useDialogFocus(showReferences, referencesDialogRef, referencesTriggerRef, setShowReferences)
+  useDialogFocus(showSimultaneityTable, simultaneityDialogRef, simultaneityTriggerRef, setShowSimultaneityTable)
 
   useEffect(() => {
-    window.localStorage.setItem('electrocalc-settings', JSON.stringify(settings))
-  }, [settings])
+    if (!storageLoaded) return
+    try {
+      saveCalculatorInputs(window.localStorage, { housing, locals, garages, elevators, motors, otherLoads, parking, irveOption })
+    } catch { /* Storage failure does not block calculator use. */ }
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, parking, irveOption])
 
   useEffect(() => {
-    window.localStorage.setItem('electrocalc-project-info', JSON.stringify(projectInfo))
-  }, [projectInfo])
+    if (!storageLoaded) return
+    try { window.localStorage.setItem('electrocalc-settings', JSON.stringify(settings)) } catch { /* Storage failure does not block calculator use. */ }
+  }, [settings, storageLoaded])
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    try {
+      if (Object.values(projectInfo).every(value => !value)) {
+        window.localStorage.removeItem('electrocalc-project-info')
+        return
+      }
+      window.localStorage.setItem('electrocalc-project-info', JSON.stringify(projectInfo))
+    } catch { /* Storage failure does not block calculator use. */ }
+  }, [projectInfo, storageLoaded])
 
   const updateProjectInfo = (key: keyof ProjectInfo, value: string) => setProjectInfo(current => ({ ...current, [key]: value }))
   const handleLogo = (file: File | undefined) => {
@@ -145,6 +187,18 @@ export function LoadCalculator() {
   }, [housing, locals, garages, elevators, motors, otherLoads, parking, irveOption, settings])
 
   const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 4784, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 920, unit: 'W' }]); setOtherLoads([{ name: 'Alumbrado común', power: 2700 }]); setParking(30); setIrveOption(1) }
+  const clear = () => {
+    try { clearProjectData(window.localStorage) } catch { /* In-memory reset still applies when storage is unavailable. */ }
+    setHousing([])
+    setLocals([])
+    setGarages([])
+    setElevators([])
+    setMotors([])
+    setOtherLoads([])
+    setParking(0)
+    setIrveOption(1)
+    setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
+  }
 
   const downloadJson = () => {
     const exportData = {
@@ -241,6 +295,10 @@ export function LoadCalculator() {
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
 
+  if (!storageLoaded) {
+    return <main className="min-h-screen bg-[#f5f7f8] text-slate-950" aria-busy="true"><div className="mx-auto max-w-7xl px-5 py-10 text-sm text-slate-500" role="status">Cargando datos guardados…</div></main>
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f7f8] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -290,6 +348,19 @@ export function LoadCalculator() {
             <div className="mt-6 flex justify-end gap-3"><button type="button" className="action-secondary" onClick={() => setShowProjectInfo(false)}>Cerrar</button><button type="button" className="action-primary" onClick={() => setShowProjectInfo(false)}>Guardar datos</button></div>
           </section>
         </div>}
+        {showSimultaneityTable && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowSimultaneityTable(false) }}>
+          <section id="simultaneity-dialog" ref={simultaneityDialogRef} tabIndex={-1} className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="simultaneity-title" aria-describedby="simultaneity-description">
+            <div className="mb-5 flex items-start justify-between gap-4"><div><h3 id="simultaneity-title" className="text-xl font-bold text-slate-950">Coeficiente de simultaneidad</h3><p id="simultaneity-description" className="mt-1 text-sm text-slate-500">Tabla 1 de la ITC-BT-10 según el número de viviendas.</p></div><button type="button" className="icon-button" aria-label="Cerrar tabla de simultaneidad" onClick={() => setShowSimultaneityTable(false)}><X /></button></div>
+            <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-slate-200">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</th><th scope="col" className="px-4 py-3 text-center">Coeficiente</th></tr></thead>
+                <tbody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <tr key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><td className="px-4 py-2 text-center">{index + 1}</td><td className="px-4 py-2 text-center font-medium">{fmtDec(coefficient)}</td></tr>)}<tr className="border-t border-slate-200 bg-cyan-50/70"><td className="px-4 py-3 text-center font-semibold">n &gt; 21</td><td className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</td></tr></tbody>
+              </table>
+            </div>
+            <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm leading-5 text-amber-800"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
+            <div className="mt-6 flex justify-end"><button type="button" className="action-primary" onClick={() => setShowSimultaneityTable(false)}>Cerrar</button></div>
+          </section>
+        </div>}
         {showItaTable && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setShowItaTable(false) }}>
             <section className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="ita-table-title">
@@ -334,7 +405,7 @@ export function LoadCalculator() {
                   <thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th className="pb-3">Vivienda</th><th className="pb-3">Electrificación</th><th className="pb-3">Potencia (W)</th><th className="pb-3 text-right">Subtotal (W)</th><th className="pb-3" /></tr></thead>
                   <tbody>{housing.map((row, i) => <tr key={i} className="border-b border-slate-100">
                     <td className="py-3 font-medium">Vivienda {i + 1}</td>
-                    <td className="py-3"><select className="field" value={row.level} onChange={event => { const level = event.target.value; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }}><option>Básica</option><option>Elevada</option></select></td>
+                    <td className="py-3"><select className="field" value={row.level} onChange={event => { const level = event.target.value as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }}><option>Básica</option><option>Elevada</option></select></td>
                     <td className="py-3"><input className="field w-32" type="number" min="0" value={row.power} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(event.target.value) } : house))} /></td>
                     <td className="py-3 text-right font-semibold">{fmt(row.power * row.homes)}</td>
                     <td className="py-3 text-right"><button type="button" className="icon-button" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></button></td>
@@ -343,14 +414,17 @@ export function LoadCalculator() {
               </div>
               {housing.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay viviendas añadidas.</p>}
               <div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1 }])}><Plus data-icon="inline-start" /> Añadir vivienda</button><Metric label="P1 · Viviendas" value={`${fmt(result.p1)} W`} accent /></div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${fmt(result.average)} W`} /><Metric label="Coeficiente de simultaneidad" value={fmtDec(result.cs)} /></div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${fmt(result.average)} W`} /><div className="rounded-xl bg-slate-50 p-3">
+                <p className="text-xs text-slate-500">Coeficiente de simultaneidad</p>
+                <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold">{fmtDec(result.cs)}</p><button ref={simultaneityTriggerRef} type="button" aria-label="Ver tabla del coeficiente de simultaneidad" aria-haspopup="dialog" aria-controls="simultaneity-dialog" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-700" onClick={() => setShowSimultaneityTable(true)}><Table2 className="size-4" aria-hidden="true" /></button></div>
+              </div></div>
             </section>
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><SectionTitle number="02" title="Servicios generales" subtitle="Añade cada ascensor, motor y carga con sus datos específicos" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<input key="name" className="field w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><select key="ita" className="field" value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e.target.value as ElevatorRow['ita'] } : x))}><option>ITA-1</option><option>ITA-2</option><option>ITA-3</option><option>ITA-4</option><option>ITA-5</option><option>ITA-6</option></select><button key="ita-info" type="button" className="flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-600" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></button></div>, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e.target.value as ElevatorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<input key="name" className="field w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e.target.value as MotorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<input key="name" className="field w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></button>])} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 p-3 text-xs leading-5 text-cyan-900"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Se aplica ×1,3 a ascensores, ×1,25 a motores y ×1,8 a otras cargas.</p></section>
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><SectionTitle number="02" title="Servicios generales" subtitle="Añade cada ascensor, motor y carga con sus datos específicos" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<input key="name" className="field w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><select key="ita" className="field" value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e.target.value as ElevatorRow['ita'] } : x))}><option>ITA-1</option><option>ITA-2</option><option>ITA-3</option><option>ITA-4</option><option>ITA-5</option><option>ITA-6</option></select><button key="ita-info" type="button" className="flex size-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-cyan-500 hover:bg-cyan-50 hover:text-cyan-600" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></button></div>, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e.target.value as ElevatorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<input key="name" className="field w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <select key="unit" className="field" value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e.target.value as MotorRow['unit'] } : x))}><option>W</option><option>CV</option></select>, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<input key="name" className="field w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <input key="power" className="field w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <button key="remove" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></button>])} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-cyan-50 p-3 text-xs leading-5 text-cyan-900"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motores ×{fmtDec(settings.motorCoefficient)} y otras cargas ×{fmtDec(settings.otherLoadCoefficient)}. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p></section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><SectionTitle number="03" title="Locales, oficinas e industrias" subtitle="Se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <input key="a" className="field w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <input key="b" className="field w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c">{fmt(Math.max(row.real || 0, row.area * 100, row.area ? 3450 : 0))}</strong>, <button key="d" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay locales añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div></section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><SectionTitle number="04" title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <select key="a" className="field" value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e.target.value as GarageRow['ventilation'] } : x))}><option>Forzada</option><option>Natural</option></select>, <input key="b" className="field w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c">{fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? 20 : 10), row.area ? 3450 : 0))}</strong>, <button key="d" type="button" className="icon-button" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No hay garajes añadidos.</p>}<div className="mt-4 flex items-center justify-between gap-3"><button type="button" className="action-secondary" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div></section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><SectionTitle number="05" title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><Input label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><div className="flex flex-col gap-2"><span className="label">Opción de cálculo</span>{['Todas las plazas · sin SPL','Todas las plazas · con SPL','Mínimo 10% de plazas'].map((name, i) => <label key={name} className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-cyan-500 bg-cyan-50' : 'border-slate-200'}`}><input type="radio" checked={irveOption === i + 1} onChange={() => setIrveOption(i + 1)} />{name}<span className="ml-auto text-xs text-slate-500">Cs {i === 1 ? '0,3' : '1'}</span></label>)}</div></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div></section>
           </div>
-          <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-slate-950 text-white shadow-xl"><div className="border-b border-white/10 p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-slate-400">W</span></p><p className="mt-1 text-sm text-slate-400">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-slate-400"><b className="mr-2 text-cyan-300">{code}</b>{label}</span><span className="font-semibold">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-white/10" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold text-cyan-300">{fmt(result.total)} W</span></div></div></div><div className="mt-4 flex flex-col gap-2"><button type="button" className="action-primary" onClick={downloadReport}><Download data-icon="inline-start" /> Descargar resumen PDF</button><button type="button" className="action-secondary" onClick={downloadJson}><Download data-icon="inline-start" /> Descargar datos JSON</button><button className="action-secondary" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</button></div>
+          <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-slate-950 text-white shadow-xl"><div className="border-b border-white/10 p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-slate-400">W</span></p><p className="mt-1 text-sm text-slate-400">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-slate-400"><b className="mr-2 text-cyan-300">{code}</b>{label}</span><span className="font-semibold">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-white/10" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold text-cyan-300">{fmt(result.total)} W</span></div></div></div><div className="mt-4 flex flex-col gap-2"><button type="button" className="action-primary" onClick={downloadReport}><Download data-icon="inline-start" /> Descargar resumen PDF</button><button type="button" className="action-secondary" onClick={downloadJson}><Download data-icon="inline-start" /> Descargar datos JSON</button><button type="button" className="action-secondary" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</button><button type="button" className="action-secondary" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</button></div>
             <button ref={settingsTriggerRef} type="button" className="flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors hover:border-cyan-300 hover:bg-cyan-50/40" onClick={() => setShowSettings(true)}>
               <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-700"><SlidersHorizontal className="size-5" /></span>
               <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Parámetros de cálculo</span><span className="mt-1 block text-xs leading-5 text-slate-500">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span></span>
@@ -377,9 +451,9 @@ export function LoadCalculator() {
                 <div className="mt-2 max-h-[45vh] overflow-y-auto rounded-lg border border-slate-200">
                   <table className="w-full text-left text-sm">
                     <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                      <tr><th scope="col" className="px-4 py-3">N.º viviendas (n)</th><th scope="col" className="px-4 py-3 text-right">Coeficiente de simultaneidad</th></tr>
+                      <tr><th scope="col" className="px-4 py-3 text-center">N.º viviendas (n)</th><th scope="col" className="px-4 py-3 text-center">Coeficiente de simultaneidad</th></tr>
                     </thead>
-                    <tbody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <tr key={index + 1} className="border-t border-slate-100"><td className="px-4 py-2">{index + 1}</td><td className="px-4 py-2 text-right font-medium">{fmtDec(coefficient)}</td></tr>)}<tr className="border-t border-slate-200 bg-cyan-50/70"><td className="px-4 py-3 font-semibold">n &gt; 21</td><td className="px-4 py-3 text-right font-semibold">15,3 + (n − 21) × 0,5</td></tr></tbody>
+                    <tbody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <tr key={index + 1} className={`border-b border-slate-100 ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'} transition-colors hover:bg-cyan-50`}><td className="px-4 py-2 text-center">{index + 1}</td><td className="px-4 py-2 text-center font-medium">{fmtDec(coefficient)}</td></tr>)}<tr className="border-t border-slate-200 bg-cyan-50/70"><td className="px-4 py-3 text-center font-semibold">n &gt; 21</td><td className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</td></tr></tbody>
                   </table>
                 </div>
                 <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm leading-5 text-amber-800"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
