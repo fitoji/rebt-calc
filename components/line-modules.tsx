@@ -250,25 +250,37 @@ function groupingFor(state: LineState) {
   return { layout: state.layout, circuits: state.circuits, layers: state.layers }
 }
 
-export function LgaPanel({ state, onChange, onOpenTables }: {
-  state: LineState
-  onChange: (patch: Partial<LineState>) => void
-  onOpenTables: () => void
-}) {
-  const result = useMemo(() => sizeLine({
-    system: 'three-phase',
+/**
+ * Sizing result for a line module. Shared by the panels, the JSON export and
+ * the PDF so all three report the same numbers.
+ */
+export function computeLine(state: LineState, system: 'three-phase' | 'single-phase') {
+  return sizeLine({
+    system,
     powerW: state.powerW,
     voltageV: state.voltageV,
     cosPhi: state.cosPhi,
     lengthM: state.lengthM,
     maxDropPercent: state.maxDropPercent,
     gamma: state.gamma,
-    variant: { method: state.method, loadedConductors: 3, insulation: state.insulation },
+    variant: {
+      method: state.method,
+      loadedConductors: system === 'three-phase' ? 3 : 2,
+      insulation: state.insulation,
+    },
     installation: state.installation,
     grouping: groupingFor(state),
     circuits: state.circuits,
     protectionA: state.protectionA > 0 ? state.protectionA : null,
-  }), [state])
+  })
+}
+
+export function LgaPanel({ state, onChange, onOpenTables }: {
+  state: LineState
+  onChange: (patch: Partial<LineState>) => void
+  onOpenTables: () => void
+}) {
+  const result = useMemo(() => computeLine(state, 'three-phase'), [state])
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -302,20 +314,7 @@ export function DiPanel({ state, onChange, onOpenTables }: {
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: () => void
 }) {
-  const result = useMemo(() => sizeLine({
-    system: 'single-phase',
-    powerW: state.powerW,
-    voltageV: state.voltageV,
-    cosPhi: state.cosPhi,
-    lengthM: state.lengthM,
-    maxDropPercent: state.maxDropPercent,
-    gamma: state.gamma,
-    variant: { method: state.method, loadedConductors: 2, insulation: state.insulation },
-    installation: state.installation,
-    grouping: groupingFor(state),
-    circuits: state.circuits,
-    protectionA: state.protectionA > 0 ? state.protectionA : null,
-  }), [state])
+  const result = useMemo(() => computeLine(state, 'single-phase'), [state])
 
   const phase = result.finalSection
   const pe = phase == null ? state.peSection : protectiveSection(phase)

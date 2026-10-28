@@ -20,8 +20,8 @@ Branch: `main`. Delivery: work-unit commits. Test runner: `node --test tests/*.t
 - T2 (S3, S4, S7, S8) `lib/line-sizing.mjs`: sizing engine. Route: inline. Done (c361730).
 - T3 (S2, S3, S7, S8) numeric tests for tables and engine. Route: inline. Done (c361730).
 - T4 (S1, S5) Tabs + LGA/DI panels + table dialogs. Route: inline. Done.
-- T5 (S6) Persistence, JSON export, PDF sections. Route: inline. PENDING.
-- T6 (S1..S8) Full verification: suite, tsc, build. Suite 48/48, tsc clean, build 0 after T4; re-run after T5.
+- T5 (S6) Persistence, JSON export, PDF sections. Route: inline. Done.
+- T6 (S1..S8) Full verification: suite, tsc, build. Suite 54/54, tsc clean, build 0 after T5.
 
 ## Log
 
@@ -36,3 +36,4 @@ Branch: `main`. Delivery: work-unit commits. Test runner: `node --test tests/*.t
 - Table set completed: A (admissible currents, air), C (soil resistivity), D (buried under tube), E (all five dispositions), F (layers), G (tubes in contact, air), H (buried cables, spacing), I (tubes in contact, buried). Table B is descriptive and is covered by the method labels in the UI.
 - The engine now picks the base table from the installation type (A for air, D for buried) and the reduction from the grouping family (E×F, G, H or I), each one tested against its published values.
 - Still out of reach from this source: aluminium for non-buried installations (the guide does not publish it) and ambient-temperature correction (defers to the UNE).
+- T5 detail: LGA and DI states persist inside the existing versioned snapshot as optional keys, so older snapshots keep loading and are not rewritten until the user touches a line module. Results are computed once by `computeLine` and shared by the panels, the JSON export (`lines` block) and two new PDF pages (6 and 7).

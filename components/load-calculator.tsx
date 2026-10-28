@@ -15,7 +15,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DiPanel, LgaPanel, LineTablesDialog, type LineState } from '@/components/line-modules'
+import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type LineState } from '@/components/line-modules'
 
 type ProjectInfo = {
   companyName: string
@@ -82,7 +82,7 @@ const exampleGarages: GarageRow[] = [
   { name: 'Garaje 1', ventilation: 'Forzada', area: 240 },
   { name: 'Garaje 2', ventilation: 'Natural', area: 0 },
 ]
-const fmt = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(Math.round(value))
+const fmt = (value: number, digits = 0) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(value)
 
 export function LoadCalculator() {
@@ -96,6 +96,7 @@ export function LoadCalculator() {
   const [irveOption, setIrveOption] = useState(1)
   const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
   const [showLineTables, setShowLineTables] = useState(false)
+  const [lineTouched, setLineTouched] = useState(false)
   const [lga, setLga] = useState<LineState>({
     powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
@@ -108,8 +109,8 @@ export function LoadCalculator() {
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
-  const updateLga = (patch: Partial<LineState>) => setLga(current => ({ ...current, ...patch }))
-  const updateDi = (patch: Partial<LineState>) => setDi(current => ({ ...current, ...patch }))
+  const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); setLga(current => ({ ...current, ...patch })) }
+  const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
   const [showReferences, setShowReferences] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
@@ -131,6 +132,8 @@ export function LoadCalculator() {
         setOtherLoads(savedInputs.otherLoads)
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
+        if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
+        if (savedInputs.di) { setDi(savedInputs.di as LineState); setLineTouched(true) }
       }
     } catch { /* Local storage may be unavailable in private browsing. */ }
 
@@ -154,9 +157,13 @@ export function LoadCalculator() {
   useEffect(() => {
     if (!storageLoaded) return
     try {
-      saveCalculatorInputs(window.localStorage, { housing, locals, garages, elevators, motors, otherLoads, parking, irveOption })
+      saveCalculatorInputs(window.localStorage, {
+        housing, locals, garages, elevators, motors, otherLoads, parking, irveOption,
+        lga: lineTouched ? lga : null,
+        di: lineTouched ? di : null,
+      })
     } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, parking, irveOption])
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, parking, irveOption, lga, di, lineTouched])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -216,13 +223,20 @@ export function LoadCalculator() {
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   }
 
+  const lgaResult = useMemo(() => computeLine(lga, 'three-phase'), [lga])
+  const diResult = useMemo(() => computeLine(di, 'single-phase'), [di])
+
   const downloadJson = () => {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, parking, irveOption },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, parking, irveOption, lga, di },
       settings,
       calculations: result,
+      lines: {
+        lga: { inputs: lga, result: lgaResult },
+        di: { inputs: di, result: diResult },
+      },
     }
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -307,6 +321,32 @@ export function LoadCalculator() {
     addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ...motors.map(row => [row.name, 'Motor', `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ...otherLoads.map(row => [row.name, 'Otra carga', `${fmt(row.power)} W`])])
     addDetailPage('4. Locales y oficinas', ['Descripción', 'Superficie', 'Previsión'], locals.map(row => [row.name, `${row.area} m²`, `${fmt(Math.max(row.real || 0, row.area * settings.localPowerPerM2, row.area ? settings.minimumSupplyPower : 0))} W`]))
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
+    addDetailPage('6. Línea General de Alimentación · ITC-BT-14', ['Concepto', 'Valor'], [
+      ['Potencia prevista', `${fmt(lga.powerW)} W`],
+      ['Intensidad de línea (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
+      ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
+      ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
+      ['Iz de tabla', lgaResult.tableCurrent == null ? '—' : `${fmt(lgaResult.tableCurrent)} A`],
+      ['Factor de agrupamiento', fmt(lgaResult.groupingFactor, 2)],
+      ['Iz corregida', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
+      ['Caída resultante', lgaResult.dropPercent == null ? '—' : `${fmt(lgaResult.dropPercent, 2)} %`],
+      ['Protección (In)', lgaResult.protection == null ? '—' : `${fmt(lgaResult.protection)} A`],
+      ['Método · aislamiento', `${lga.method} · ${lga.insulation}`],
+      ['Observaciones', lgaResult.problems.length > 0 ? lgaResult.problems.join(' ') : 'Cumple los criterios aplicados'],
+    ])
+    addDetailPage('7. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
+      ['Potencia prevista', `${fmt(di.powerW)} W`],
+      ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
+      ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
+      ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
+      ['Iz de tabla', diResult.tableCurrent == null ? '—' : `${fmt(diResult.tableCurrent)} A`],
+      ['Factor de agrupamiento', fmt(diResult.groupingFactor, 2)],
+      ['Iz corregida', diResult.correctedCurrent == null ? '—' : `${fmt(diResult.correctedCurrent, 1)} A`],
+      ['Caída resultante', diResult.dropPercent == null ? '—' : `${fmt(diResult.dropPercent, 2)} %`],
+      ['Protección (In)', diResult.protection == null ? '—' : `${fmt(diResult.protection)} A`],
+      ['Método · aislamiento', `${di.method} · ${di.insulation}`],
+      ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
+    ])
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }

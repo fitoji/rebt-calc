@@ -33,11 +33,24 @@ test('each module offers its reference table viewer', () => {
 
 test('the panels size lines through the shared engine, not inline formula copies', () => {
   assert.match(modules, /import \{ sizeLine \} from '@\/lib\/line-sizing\.mjs'/, 'engine imported')
-  assert.equal(count(modules, /sizeLine\(\{/g), 2, 'one sizing call per module')
-  assert.match(modules, /system: 'three-phase'/, 'LGA is three-phase')
-  assert.match(modules, /system: 'single-phase'/, 'DI is single-phase')
+  assert.equal(count(modules, /sizeLine\(\{/g), 1, 'one sizing call, inside computeLine')
+  assert.equal(count(modules, /export function computeLine/g), 1, 'one shared helper')
+  assert.ok(modules.includes("computeLine(state, 'three-phase')"), 'LGA panel uses the helper')
+  assert.ok(modules.includes("computeLine(state, 'single-phase')"), 'DI panel uses the helper')
+  assert.match(modules, /loadedConductors: system === 'three-phase' \? 3 : 2/, 'loaded conductors follow the system')
+  assert.ok(calc.includes("computeLine(lga, 'three-phase')"), 'JSON and PDF use the same LGA result')
+  assert.ok(calc.includes("computeLine(di, 'single-phase')"), 'JSON and PDF use the same DI result')
   assert.doesNotMatch(modules, /Math\.max\([^)]*\* 100/, 'no hardcoded 100 W/m2 ladder')
   assert.doesNotMatch(modules, /recommendedPhase|admissibleCurrent = recommendedPhase/, 'no capped section ladder')
+})
+
+test('line inputs persist and reach the exports', () => {
+  assert.match(calc, /lga: lineTouched \? lga : null/, 'LGA saved only once touched')
+  assert.match(calc, /di: lineTouched \? di : null/, 'DI saved only once touched')
+  assert.match(calc, /setLga\(savedInputs\.lga as LineState\)/, 'LGA restored from storage')
+  assert.match(calc, /lines: \{/, 'JSON export carries a lines block')
+  assert.ok(calc.includes("'6. Línea General de Alimentación · ITC-BT-14'"), 'PDF has an LGA page')
+  assert.ok(calc.includes("'7. Derivación Individual · ITC-BT-15'"), 'PDF has a DI page')
 })
 
 test('the table viewer shows the reference source instead of an unattributed list', () => {
