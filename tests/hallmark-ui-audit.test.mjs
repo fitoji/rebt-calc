@@ -55,7 +55,7 @@ test('numeric readouts use tabular figures while form fields stay out of scope',
 })
 
 test('section numbers read as eyebrows and housing metrics live inside the card', () => {
-  assert.ok(calc.includes('block text-xs font-bold tracking-wide text-cyan-600'), 'number renders as eyebrow')
+  assert.ok(calc.includes('block text-xs font-bold tracking-wide text-brand-strong'), 'number renders as eyebrow')
   assert.doesNotMatch(calc, /mb-5 flex gap-3/, 'left-of-heading number tag removed')
   const firstSectionTitle = calc.indexOf('number="01"')
   assert.ok(firstSectionTitle > 0, 'section 01 present')
@@ -63,4 +63,12 @@ test('section numbers read as eyebrows and housing metrics live inside the card'
   assert.ok(calc.indexOf('<Metric label="Total viviendas"') > 0, 'metrics cluster present')
   assert.ok(calc.indexOf('<Metric label="Total viviendas"') < section01Close, 'metrics cluster inside the Viviendas card')
   assert.ok(calc.indexOf('<Metric label="P1 · Viviendas"') < section01Close, 'P1 metric stays with its controls')
+})
+
+test('the project letterhead preview shows the uploaded logo without stretching it', () => {
+  assert.match(calc, /\{\(projectInfo\.logo \|\| projectInfo\.companyName\) && <div/, 'preview only renders when there is something to show')
+  assert.match(calc, /projectInfo\.logo && <span className="flex h-10 max-w-\[140px\]/, 'logo sits in a fixed-height chip that caps wide logos')
+  assert.match(calc, /alt=\{`Logo de \$\{projectInfo\.companyName \|\| 'la empresa'\}`\}/, 'logo has a descriptive alt')
+  assert.match(calc, /max-h-full w-auto max-w-\[132px\] object-contain/, 'logo keeps its aspect ratio')
+  assert.match(calc, /Membrete del PDF/, 'preview is labelled as the PDF letterhead')
 })

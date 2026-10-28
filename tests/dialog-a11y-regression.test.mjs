@@ -13,21 +13,21 @@ const dialog = read('components/ui/dialog.tsx')
 const button = read('components/ui/button.tsx')
 const globals = read('app/globals.css')
 
-test('S-dialog: all 5 calculator dialogs are controlled Base UI Dialog roots', () => {
+test('S-dialog: all 6 calculator dialogs are controlled Base UI Dialog roots', () => {
   const roots = calc.match(/<Dialog\s+open=\{[^}]+\}\s+onOpenChange=\{[^}]+\}>/g) ?? []
-  assert.equal(roots.length, 5, 'five <Dialog open= onOpenChange=> roots')
-  assert.equal(count(calc, /<DialogContent\b/g), 5, 'one DialogContent per dialog')
-  assert.equal(count(calc, /<DialogTitle\b/g), 5, 'DialogTitle per dialog (accessible name)')
-  assert.equal(count(calc, /<DialogDescription\b/g), 5, 'DialogDescription per dialog')
+  assert.equal(roots.length, 6, 'six <Dialog open= onOpenChange=> roots')
+  assert.equal(count(calc, /<DialogContent\b/g), 6, 'one DialogContent per dialog')
+  assert.equal(count(calc, /<DialogTitle\b/g), 6, 'DialogTitle per dialog (accessible name)')
+  assert.equal(count(calc, /<DialogDescription\b/g), 6, 'DialogDescription per dialog')
 })
 
 test('S-dialog: every dialog ships a custom DialogClose with a Spanish aria-label', () => {
   const closes = calc.match(/<DialogClose\b[^>]*>/g) ?? []
-  assert.equal(closes.length, 5, 'one custom close button per dialog')
+  assert.equal(closes.length, 6, 'one custom close button per dialog')
   for (const close of closes) {
     assert.match(close, /aria-label="Cerrar [^"]+"/, `close button keeps a Spanish aria-label: ${close.slice(0, 80)}`)
   }
-  assert.equal(count(calc, /showCloseButton=\{false\}/g), 5, 'default English close button disabled on all five')
+  assert.equal(count(calc, /showCloseButton=\{false\}/g), 6, 'default English close button disabled on every dialog')
 })
 
 test('S-dialog: no hand-rolled dialog scaffolding survives', () => {

@@ -84,7 +84,7 @@ function FieldRow({ htmlFor, text, tables, onOpenTables }: {
       {tables && onOpenTables && (
         <button
           type="button"
-          className="flex items-center gap-1 rounded-md border border-slate-200 px-1.5 py-0.5 text-[11px] font-medium text-slate-500 transition-colors hover:border-cyan-500 hover:text-cyan-700"
+          className="flex items-center gap-1 rounded-md border border-line px-1.5 py-0.5 text-[11px] font-medium text-ink-faint transition-colors hover:border-brand-mark hover:text-brand"
           aria-label={`Ver ${tables.length > 1 ? 'tablas' : 'tabla'} ${tables.join(', ')}`}
           onClick={() => onOpenTables(tables)}
         >
@@ -118,7 +118,7 @@ function NumberField({ id, label, value, suffix, step = 1, onChange, tables, onO
           value={Number.isFinite(value) ? value : 0}
           onChange={event => onChange(Number(event.target.value))}
         />
-        <span className="pointer-events-none absolute right-3 top-1.5 text-xs text-slate-400">{suffix}</span>
+        <span className="pointer-events-none absolute right-3 top-1.5 text-xs text-ink-ghost">{suffix}</span>
       </span>
     </div>
   )
@@ -138,7 +138,7 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
       <FieldRow htmlFor={id} text={label} tables={tables} onOpenTables={onOpenTables} />
       <select
         id={id}
-        className="h-8 w-full rounded-lg border border-slate-200 bg-transparent px-2.5 text-sm text-slate-900"
+        className="h-8 w-full rounded-lg border border-line bg-transparent px-2.5 text-sm text-ink-strong"
         value={value}
         onChange={event => onChange(event.target.value)}
       >
@@ -151,8 +151,8 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
 function ResultRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <span className="text-slate-400">{label}</span>
-      <strong className={strong ? 'tabular-nums text-cyan-300' : 'tabular-nums'}>{value}</strong>
+      <span className="text-ink-ghost">{label}</span>
+      <strong className={strong ? 'tabular-nums text-brand-on-panel' : 'tabular-nums'}>{value}</strong>
     </div>
   )
 }
@@ -163,14 +163,14 @@ function LineResult({ title, result, phaseLabel }: {
   phaseLabel: string
 }) {
   return (
-    <aside className="rounded-2xl bg-slate-950 p-6 text-white shadow-xl">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">{title}</p>
+    <aside className="rounded-2xl bg-panel p-6 text-panel-foreground shadow-xl">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
       <p className="mt-5 text-4xl font-bold tabular-nums">
         {result.finalSection == null ? '—' : fmt(result.finalSection)}
-        <span className="ml-1 text-lg font-medium text-slate-400">mm²</span>
+        <span className="ml-1 text-lg font-medium text-ink-ghost">mm²</span>
       </p>
-      <p className="mt-1 text-sm text-slate-400">{phaseLabel}</p>
-      <div className="my-5 h-px bg-white/10" />
+      <p className="mt-1 text-sm text-ink-ghost">{phaseLabel}</p>
+      <div className="my-5 h-px bg-panel-line" />
       <div className="flex flex-col gap-3 text-sm">
         <ResultRow label="Intensidad de línea (Ib)" value={`${fmt(result.ratedCurrent, 2)} A`} />
         <ResultRow label="Sección por caída" value={`${fmt(result.sectionByDrop, 2)} mm²`} />
@@ -181,7 +181,7 @@ function LineResult({ title, result, phaseLabel }: {
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
       </div>
       {result.problems.length > 0 && (
-        <div className="mt-5 rounded-lg bg-amber-400/10 p-3 text-xs leading-5 text-amber-200">
+        <div className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
           <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-3.5" /> Revisá estos puntos</p>
           <ul className="list-disc space-y-1 pl-4">
             {result.problems.map(problem => <li key={problem}>{problem}</li>)}
@@ -329,11 +329,11 @@ export function LgaPanel({ state, onChange, onOpenTables }: {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm">
+      <section className="rounded-2xl border border-line border-l-4 border-l-tab-lga bg-paper p-5 shadow-sm">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-bold">Línea General de Alimentación · ITC-BT-14</h3>
-            <p className="mt-1 text-sm text-slate-500">Trifásica. Caída máxima 0,5 % en instalaciones con contadores centralizados.</p>
+            <h3 className="font-bold">Línea General de Alimentación</h3>
+            <p className="mt-1 text-sm text-ink-faint">Trifásica. Caída máxima 0,5 % en instalaciones con contadores centralizados.</p>
           </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
@@ -366,11 +366,11 @@ export function DiPanel({ state, onChange, onOpenTables }: {
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl border border-slate-200 bg-paper p-5 shadow-sm">
+      <section className="rounded-2xl border border-line border-l-4 border-l-tab-di bg-paper p-5 shadow-sm">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h3 className="font-bold">Derivación Individual · ITC-BT-15</h3>
-            <p className="mt-1 text-sm text-slate-500">Monofásica. Caída máxima 1,5 % con contadores centralizados, 4,5 % con contador individual.</p>
+            <h3 className="font-bold">Derivación Individual</h3>
+            <p className="mt-1 text-sm text-ink-faint">Monofásica. Caída máxima 1,5 % con contadores centralizados, 4,5 % con contador individual.</p>
           </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
@@ -452,8 +452,8 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
       <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-5xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <DialogTitle className="text-xl font-bold text-slate-950">Tablas de referencia · ITC-BT-19</DialogTitle>
-            <DialogDescription className="mt-1 text-sm text-slate-500">
+            <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-19</DialogTitle>
+            <DialogDescription className="mt-1 text-sm text-ink-faint">
               Guía-BT-19 del Ministerio de Industria, Turismo y Comercio (feb 09, rev. 2). Reproduce las tablas de la UNE 20460-5-523:2004 que la instrucción aplica.
             </DialogDescription>
           </div>
@@ -462,15 +462,15 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
         {shows('A') && (
           <>
-            <h4 className="mb-2 text-sm font-semibold text-slate-700">Tabla A · Intensidades admisibles (A) — cobre, no enterrado, 40 °C de ambiente</h4>
+            <h4 className="mb-2 text-sm font-semibold text-ink-muted">Tabla A · Intensidades admisibles (A) — cobre, no enterrado, 40 °C de ambiente</h4>
             <SimpleTable
               head={['Sección mm²', ...columns.map(column => `Col. ${column}`)]}
               rows={sectionRows}
               minWidth={860}
             />
-            <div className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-2 grid gap-1 text-xs text-ink-subtle sm:grid-cols-2 lg:grid-cols-3">
               {columns.map(column => (
-                <p key={column}><b className="text-slate-900">Col. {column}:</b> {variantsByColumn.get(column)?.join(' · ')}</p>
+                <p key={column}><b className="text-ink-strong">Col. {column}:</b> {variantsByColumn.get(column)?.join(' · ')}</p>
               ))}
             </div>
           </>
@@ -478,7 +478,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
         {shows('D') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla D · Enterrado bajo tubo (A) — XLPE</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla D · Enterrado bajo tubo (A) — XLPE</h4>
             <SimpleTable
               head={['Sección mm²', 'Cu 3x', 'Al 3x', 'Cu 2x', 'Al 2x']}
               rows={SECTIONS.map((section, index) => [
@@ -487,13 +487,13 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
                   BURIED_TUBE_CURRENT[material][loaded][index] == null ? null : fmt(BURIED_TUBE_CURRENT[material][loaded][index] as number))),
               ])}
             />
-            <p className="mt-1 text-xs text-slate-500">Condiciones de cálculo: resistividad térmica del terreno 1,5 K·m/W, temperatura del terreno 25 °C, profundidad 70 cm.</p>
+            <p className="mt-1 text-xs text-ink-faint">Condiciones de cálculo: resistividad térmica del terreno 1,5 K·m/W, temperatura del terreno 25 °C, profundidad 70 cm.</p>
           </>
         )}
 
         {shows('E') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla E · Factor de reducción por agrupamiento de circuitos</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla E · Factor de reducción por agrupamiento de circuitos</h4>
             <SimpleTable
               head={['Disposición', ...GROUPING_COUNTS.map(String)]}
               rows={Object.values(GROUPING_LAYOUTS).map(layout => [
@@ -506,13 +506,13 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
               ])}
               minWidth={720}
             />
-            <p className="mt-1 text-xs text-slate-500">En las disposiciones 2 a 5 no hay reducción adicional por encima de 9 circuitos: se mantiene el valor de 9.</p>
+            <p className="mt-1 text-xs text-ink-faint">En las disposiciones 2 a 5 no hay reducción adicional por encima de 9 circuitos: se mantiene el valor de 9.</p>
           </>
         )}
 
         {shows('F') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla F · Factor adicional por varias capas</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla F · Factor adicional por varias capas</h4>
             <SimpleTable
               head={['Capas', ...LAYER_FACTORS.map(entry => String(entry.layers))]}
               rows={[['Factor', ...LAYER_FACTORS.map(entry => fmt(entry.factor, 2))]]}
@@ -522,7 +522,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
         {shows('G') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla G · Tubos en contacto, al aire</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla G · Tubos en contacto, al aire</h4>
             <SimpleTable
               head={['Capas \\ Tubos', 1, 2, 3, 4, 5, 6]}
               rows={TUBES_CONTACT_AIR.map((row, index) => [index + 1, ...row.map(value => fmt(value, 2))])}
@@ -532,18 +532,18 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
         {shows('I') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla I · Tubos en contacto, enterrados o embebidos en hormigón</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla I · Tubos en contacto, enterrados o embebidos en hormigón</h4>
             <SimpleTable
               head={['Capas \\ Tubos', 1, 2, 3, 4, 5, 6]}
               rows={Object.entries(TUBES_CONTACT_BURIED).map(([tubes, row]) => [tubes, ...row.map(value => fmt(value, 2))])}
             />
-            <p className="mt-1 text-xs text-slate-500">Las filas son el número de tubos en horizontal (de 2 a 6); las columnas, el número de capas verticales.</p>
+            <p className="mt-1 text-xs text-ink-faint">Las filas son el número de tubos en horizontal (de 2 a 6); las columnas, el número de capas verticales.</p>
           </>
         )}
 
         {shows('H') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla H · Cables multiconductores en tubos enterrados, uno por tubo</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla H · Cables multiconductores en tubos enterrados, uno por tubo</h4>
             <SimpleTable
               head={['Cables', ...BURIED_CABLE_SPACING.spacings.map(spacing => spacing === 0 ? 'Contacto' : `${fmt(spacing, 2)} m`)]}
               rows={Object.entries(BURIED_CABLE_SPACING.factors).map(([cables, row]) => [cables, ...row.map(value => fmt(value, 2))])}
@@ -553,7 +553,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
         {shows('C') && (
           <>
-            <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla C · Resistividad térmica del terreno</h4>
+            <h4 className="mt-6 mb-2 text-sm font-semibold text-ink-muted">Tabla C · Resistividad térmica del terreno</h4>
             <SimpleTable
               head={['Terreno', 'K·m/W']}
               rows={SOIL_RESISTIVITY.map(entry => [entry.terrain, fmt(entry.value, 2)])}
@@ -561,7 +561,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
           </>
         )}
 
-        <p className="mt-5 text-xs leading-5 text-slate-500">
+        <p className="mt-5 text-xs leading-5 text-ink-faint">
           Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
         </p>
       </DialogContent>

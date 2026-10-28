@@ -2,6 +2,11 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+/* La copia antigua de la app no forma parte del build: no debe escanearse ni aportar clases. */
+@source not "../conversion-de-planilla-a-web";
+/* La documentación de skills no es código de la app. */
+@source not "../.agents";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -44,6 +49,42 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Semánticos del proyecto: los componentes consumen estos nombres, nunca la paleta cruda. */
+  --color-surface-page: var(--surface-page);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-ink: var(--ink);
+  --color-ink-strong: var(--ink-strong);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-faint: var(--ink-faint);
+  --color-ink-ghost: var(--ink-ghost);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-line: var(--brand-line);
+  --color-brand-mark: var(--brand-mark);
+  --color-brand-on-panel: var(--brand-on-panel);
+  --color-panel: var(--panel);
+  --color-panel-foreground: var(--panel-foreground);
+  --color-panel-muted: var(--panel-muted);
+  --color-panel-line: var(--panel-line);
+  --color-panel-edge: var(--panel-edge);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-mark: var(--warning-mark);
+  --color-warning-on-panel: var(--warning-on-panel);
+  --color-danger: var(--danger);
+  --color-tab-lga: var(--tab-lga);
+  --color-tab-lga-soft: var(--tab-lga-soft);
+  --color-tab-lga-ink: var(--tab-lga-ink);
+  --color-tab-di: var(--tab-di);
+  --color-tab-di-soft: var(--tab-di-soft);
+  --color-tab-di-ink: var(--tab-di-ink);
 }
 
 :root {
@@ -80,6 +121,50 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Semánticos · superficies, líneas y tinta (equivalentes exactos de la paleta usada antes). */
+  --surface-page: oklch(97.5% 0.0025 228.8);
+  --surface-muted: oklch(98.4% 0.003 247.858);
+  --line: oklch(92.9% 0.013 255.508);
+  --line-soft: oklch(96.8% 0.007 247.896);
+  --ink: oklch(12.9% 0.042 264.695);
+  --ink-strong: oklch(20.8% 0.042 265.755);
+  --ink-soft: oklch(27.9% 0.041 260.031);
+  --ink-muted: oklch(37.2% 0.044 257.287);
+  --ink-subtle: oklch(44.6% 0.043 257.281);
+  --ink-faint: oklch(55.4% 0.046 257.417);
+  --ink-ghost: oklch(70.4% 0.04 256.788);
+
+  /* Semánticos · marca */
+  --brand: oklch(52% 0.105 223.128);
+  --brand-strong: oklch(60.9% 0.126 221.723);
+  --brand-ink: oklch(39.8% 0.07 227.392);
+  --brand-soft: oklch(98.4% 0.019 200.873);
+  --brand-line: oklch(86.5% 0.127 207.078);
+  --brand-mark: oklch(71.5% 0.143 215.221);
+  --brand-on-panel: oklch(86.5% 0.127 207.078);
+
+  /* Semánticos · panel oscuro de resultados */
+  --panel: oklch(12.9% 0.042 264.695);
+  --panel-foreground: oklch(100% 0 0);
+  --panel-muted: oklch(70.4% 0.04 256.788);
+  --panel-line: oklch(100% 0 0 / 10%);
+  --panel-edge: oklch(27.9% 0.041 260.031);
+
+  /* Semánticos · avisos y errores */
+  --warning-soft: oklch(98.7% 0.022 95.277);
+  --warning-ink: oklch(47.3% 0.137 46.201);
+  --warning-mark: oklch(82.8% 0.189 84.429);
+  --warning-on-panel: oklch(92.4% 0.12 95.746);
+  --danger: oklch(57.7% 0.245 27.325);
+
+  /* Semánticos · acento por pestaña (cargas usa los tokens de marca) */
+  --tab-lga: oklch(69.6% 0.17 162.48);
+  --tab-lga-soft: oklch(97.9% 0.021 166.113);
+  --tab-lga-ink: oklch(50.8% 0.118 165.612);
+  --tab-di: oklch(60.6% 0.25 292.717);
+  --tab-di-soft: oklch(96.9% 0.016 293.756);
+  --tab-di-ink: oklch(49.1% 0.27 292.581);
 }
 
 .dark {
@@ -132,6 +217,6 @@
 
 @layer components {
   .label {
-    @apply block text-xs font-semibold uppercase tracking-wide text-slate-500;
+    @apply block text-xs font-semibold uppercase tracking-wide text-ink-faint;
   }
 }
