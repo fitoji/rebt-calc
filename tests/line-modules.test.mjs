@@ -26,9 +26,20 @@ test('the three calculation modules are reachable through tabs', () => {
 
 test('each module offers its reference table viewer', () => {
   assert.ok(calc.includes('<LineTablesDialog '), 'table dialog rendered from the calculator')
-  assert.equal(count(modules, /onClick=\{onOpenTables\}/g), 2, 'one table button per module')
-  assert.equal(count(modules, /<Table2 data-icon="inline-start" \/> Tabla/g), 2, 'one table button per module')
+  assert.equal(count(modules, /onClick=\{\(\) => onOpenTables\(\)\}/g), 2, 'one general table button per module')
+  assert.equal(count(modules, /> Tablas\b/g), 2, 'the button reads Tablas')
   assert.ok(modules.includes('aria-label="Cerrar tablas de referencia"'), 'dialog close keeps a Spanish label')
+})
+
+test('each control opens only the tables it uses', () => {
+  assert.ok(modules.includes("label=\"Tipo de instalación\""), 'installation field present')
+  assert.ok(modules.includes("tables={['A', 'D']}"), 'installation offers tables A and D')
+  assert.ok(modules.includes("tables={['E', 'G']}"), 'disposition offers tables E and G')
+  assert.ok(modules.includes("tables={['E', 'F', 'G', 'I']}"), 'layers offer tables E, F, G and I')
+  assert.ok(modules.includes("tables={['G', 'H', 'I']}"), 'tubes offer tables G, H and I')
+  assert.ok(modules.includes('onOpenTables(tables)'), 'field button forwards its own table set')
+  assert.match(modules, /const shows = \(key: TableKey\) => !tables \|\| tables\.includes\(key\)/, 'dialog filters by requested tables')
+  assert.ok(calc.includes('tables={lineTableFocus ?? undefined}'), 'calculator passes the focused set to the dialog')
 })
 
 test('the panels size lines through the shared engine, not inline formula copies', () => {
