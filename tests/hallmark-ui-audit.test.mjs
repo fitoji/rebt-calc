@@ -54,12 +54,13 @@ test('numeric readouts use tabular figures while form fields stay out of scope',
   assert.doesNotMatch(globals, /\.field\s*\{[^}]*tabular-nums/, 'form fields deliberately out of scope')
 })
 
-test('section numbers read as eyebrows and housing metrics sit outside the card', () => {
+test('section numbers read as eyebrows and housing metrics live inside the card', () => {
   assert.ok(calc.includes('block text-xs font-bold tracking-wide text-cyan-600'), 'number renders as eyebrow')
   assert.doesNotMatch(calc, /mb-5 flex gap-3/, 'left-of-heading number tag removed')
   const firstSectionTitle = calc.indexOf('number="01"')
   assert.ok(firstSectionTitle > 0, 'section 01 present')
   const section01Close = calc.indexOf('</section>', firstSectionTitle)
-  assert.ok(calc.indexOf('<Metric label="Total viviendas"') > section01Close, 'metrics cluster after section close')
+  assert.ok(calc.indexOf('<Metric label="Total viviendas"') > 0, 'metrics cluster present')
+  assert.ok(calc.indexOf('<Metric label="Total viviendas"') < section01Close, 'metrics cluster inside the Viviendas card')
   assert.ok(calc.indexOf('<Metric label="P1 · Viviendas"') < section01Close, 'P1 metric stays with its controls')
 })
