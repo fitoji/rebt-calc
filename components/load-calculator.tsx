@@ -100,11 +100,13 @@ export function LoadCalculator() {
     powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
     neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
   const [di, setDi] = useState<LineState>({
     powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1.5, gamma: 48.5,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
   const updateLga = (patch: Partial<LineState>) => setLga(current => ({ ...current, ...patch }))
   const updateDi = (patch: Partial<LineState>) => setDi(current => ({ ...current, ...patch }))

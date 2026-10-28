@@ -2,11 +2,17 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   admissibleCurrent,
+  buriedAdmissibleCurrent,
+  buriedSpacingFactor,
   correctedAdmissibleCurrent,
   groupingFactor,
+  groupingReduction,
+  layerFactor,
   METHODS,
   SECTIONS,
   COLUMN_BY_VARIANT,
+  tubesContactAirFactor,
+  tubesContactBuriedFactor,
 } from '../lib/cable-tables.mjs'
 import { PROTECTION_SERIES, sizeLine } from '../lib/line-sizing.mjs'
 
@@ -147,4 +153,57 @@ test('the protection series starts at 6 A and is strictly increasing', () => {
   for (let i = 1; i < PROTECTION_SERIES.length; i += 1) {
     assert.ok(PROTECTION_SERIES[i] > PROTECTION_SERIES[i - 1])
   }
+})
+
+test('grouping table E covers every published layout and stops at nine circuits where the source does', () => {
+  assert.equal(groupingFactor(3, 'embedded'), 0.7)
+  assert.equal(groupingFactor(20, 'embedded'), 0.4)
+  assert.equal(groupingFactor(3, 'single-layer-wall'), 0.8)
+  assert.equal(groupingFactor(12, 'single-layer-wall'), 0.7, 'rows 2..5 keep the nine-circuit factor')
+  assert.equal(groupingFactor(3, 'single-layer-ceiling'), 0.7)
+  assert.equal(groupingFactor(4, 'perforated-tray'), 0.75)
+  assert.equal(groupingFactor(6, 'ladder-tray'), 0.8)
+})
+
+test('layers multiply the grouping factor with table F', () => {
+  assert.equal(layerFactor(1), 1)
+  assert.equal(layerFactor(2), 0.8)
+  assert.equal(layerFactor(3), 0.73)
+  assert.equal(layerFactor(4), 0.7)
+  assert.equal(layerFactor(8), 0.68)
+  assert.equal(layerFactor(12), 0.66)
+  near(groupingReduction({ circuits: 3, layers: 3 }), 0.7 * 0.73, 1e-9, 'E x F')
+})
+
+test('tube and buried grouping tables match the published values', () => {
+  assert.equal(tubesContactAirFactor(1, 1), 1)
+  assert.equal(tubesContactAirFactor(4, 2), 0.81)
+  assert.equal(tubesContactAirFactor(6, 6), 0.68)
+  assert.equal(tubesContactBuriedFactor(2, 1), 0.87)
+  assert.equal(tubesContactBuriedFactor(3, 2), 0.62)
+  assert.equal(tubesContactBuriedFactor(6, 6), 0.32)
+  assert.equal(buriedSpacingFactor(2, 0), 0.85)
+  assert.equal(buriedSpacingFactor(4, 0.5), 0.85)
+  assert.equal(buriedSpacingFactor(6, 1), 0.9)
+})
+
+test('the buried table D is used for buried installations', () => {
+  assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 3 }), 190)
+  assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 2 }), 225)
+  assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 2, material: 'aluminium' }), 170)
+  assert.equal(buriedAdmissibleCurrent(1.5, { loadedConductors: 2, material: 'aluminium' }), null)
+
+  const result = sizeLine(lgaInput({
+    installation: 'buried',
+    grouping: { kind: 'tubes-buried', tubes: 2, layers: 1 },
+  }))
+  assert.equal(result.finalSection, 70)
+  assert.equal(result.tableCurrent, 190, 'base current comes from table D, not table A')
+  near(result.correctedCurrent, 190 * 0.87, 0.01, 'table I reduction applied')
+  assert.equal(result.groupingFactor, 0.87)
+})
+
+test('an air installation ignores the buried tables', () => {
+  const air = sizeLine(lgaInput())
+  assert.equal(air.tableCurrent, 149, 'table A for B1 3x PVC 70')
 })

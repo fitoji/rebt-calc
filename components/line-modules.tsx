@@ -8,11 +8,18 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
+  BURIED_CABLE_SPACING,
+  BURIED_TUBE_CURRENT,
   COLUMN_BY_VARIANT,
   COLUMN_VALUES,
-  GROUPING_FACTORS,
+  GROUPING_COUNTS,
+  GROUPING_LAYOUTS,
+  LAYER_FACTORS,
   METHODS,
   SECTIONS,
+  SOIL_RESISTIVITY,
+  TUBES_CONTACT_AIR,
+  TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
 
@@ -34,7 +41,13 @@ export type LineState = {
   peSection: number
   controlSection: number
   tubeDiameter: number
+  installation: 'air' | 'buried'
+  layout: GroupingLayout
+  layers: number
+  tubes: number
 }
+
+export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
@@ -131,7 +144,8 @@ function LineResult({ title, result, phaseLabel }: {
       <div className="flex flex-col gap-3 text-sm">
         <ResultRow label="Intensidad de línea (Ib)" value={`${fmt(result.ratedCurrent, 2)} A`} />
         <ResultRow label="Sección por caída" value={`${fmt(result.sectionByDrop, 2)} mm²`} />
-        <ResultRow label={`Iz de tabla (${result.circuits} circuito/s)`} value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
+        <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
+        <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
         <ResultRow label="Iz corregida" value={result.correctedCurrent == null ? '—' : `${fmt(result.correctedCurrent, 1)} A`} />
         <ResultRow label="Caída resultante" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
@@ -156,6 +170,26 @@ function VariantFields({ idPrefix, state, onChange }: {
   return (
     <>
       <SelectField
+        id={`${idPrefix}-installation`}
+        label="Tipo de instalación"
+        value={state.installation}
+        options={[
+          { value: 'air', label: 'Al aire · Tabla A' },
+          { value: 'buried', label: 'Enterrada bajo tubo · Tabla D' },
+        ]}
+        onChange={value => onChange({ installation: value as 'air' | 'buried' })}
+      />
+      <SelectField
+        id={`${idPrefix}-layout`}
+        label="Disposición de los circuitos"
+        value={state.layout}
+        options={[
+          ...Object.entries(GROUPING_LAYOUTS).map(([value, entry]) => ({ value, label: `${entry.label} · Tabla E` })),
+          { value: 'tubes-air', label: 'Tubos en contacto al aire · Tabla G' },
+        ]}
+        onChange={value => onChange({ layout: value as GroupingLayout })}
+      />
+      <SelectField
         id={`${idPrefix}-method`}
         label="Método de instalación"
         value={state.method}
@@ -174,10 +208,24 @@ function VariantFields({ idPrefix, state, onChange }: {
       />
       <NumberField
         id={`${idPrefix}-circuits`}
-        label="Circuitos en el mismo tubo"
+        label="Circuitos agrupados"
         value={state.circuits}
         suffix="uds."
         onChange={value => onChange({ circuits: Math.max(1, Math.round(value)) })}
+      />
+      <NumberField
+        id={`${idPrefix}-layers`}
+        label="Capas"
+        value={state.layers}
+        suffix="uds."
+        onChange={value => onChange({ layers: Math.max(1, Math.round(value)) })}
+      />
+      <NumberField
+        id={`${idPrefix}-tubes`}
+        label="Tubos en horizontal (contacto)"
+        value={state.tubes}
+        suffix="uds."
+        onChange={value => onChange({ tubes: Math.max(1, Math.round(value)) })}
       />
       <NumberField
         id={`${idPrefix}-protection`}
@@ -188,6 +236,18 @@ function VariantFields({ idPrefix, state, onChange }: {
       />
     </>
   )
+}
+
+function groupingFor(state: LineState) {
+  if (state.installation === 'buried') {
+    return state.tubes > 1
+      ? { kind: 'tubes-buried' as const, tubes: state.tubes, layers: state.layers }
+      : { kind: 'buried-cables' as const, cables: Math.max(2, state.circuits), spacing: 0 }
+  }
+  if (state.layout === 'tubes-air') {
+    return { kind: 'tubes-air' as const, tubes: state.tubes, layers: state.layers }
+  }
+  return { layout: state.layout, circuits: state.circuits, layers: state.layers }
 }
 
 export function LgaPanel({ state, onChange, onOpenTables }: {
@@ -204,6 +264,8 @@ export function LgaPanel({ state, onChange, onOpenTables }: {
     maxDropPercent: state.maxDropPercent,
     gamma: state.gamma,
     variant: { method: state.method, loadedConductors: 3, insulation: state.insulation },
+    installation: state.installation,
+    grouping: groupingFor(state),
     circuits: state.circuits,
     protectionA: state.protectionA > 0 ? state.protectionA : null,
   }), [state])
@@ -249,6 +311,8 @@ export function DiPanel({ state, onChange, onOpenTables }: {
     maxDropPercent: state.maxDropPercent,
     gamma: state.gamma,
     variant: { method: state.method, loadedConductors: 2, insulation: state.insulation },
+    installation: state.installation,
+    grouping: groupingFor(state),
     circuits: state.circuits,
     protectionA: state.protectionA > 0 ? state.protectionA : null,
   }), [state])
@@ -287,14 +351,52 @@ export function DiPanel({ state, onChange, onOpenTables }: {
   )
 }
 
+function SimpleTable({ head, rows, minWidth = 0 }: {
+  head: (string | number)[]
+  rows: (string | number | null)[][]
+  minWidth?: number
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <Table className="text-xs" style={minWidth ? { minWidth } : undefined}>
+        <TableHeader>
+          <TableRow>
+            {head.map((cell, index) => <TableHead key={index} className="whitespace-nowrap px-2 py-2">{cell}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <TableCell key={cellIndex} className="whitespace-nowrap px-2 py-1.5 tabular-nums">
+                  {cell == null ? '—' : cell}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 export function LineTablesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const columnValues = COLUMN_VALUES as Record<number, (number | null)[]>
   const columns = Object.keys(COLUMN_VALUES).map(Number)
+
   const variantsByColumn = new Map<number, string[]>()
   for (const [key, column] of Object.entries(COLUMN_BY_VARIANT)) {
     const [method, conductors, insulation] = key.split('|')
     variantsByColumn.set(column, [...(variantsByColumn.get(column) ?? []), `${method} ${conductors}x ${insulation}`])
   }
+
+  const sectionRows = SECTIONS.map((section, index) => [
+    fmt(section, 1),
+    ...columns.map(column => {
+      const value = columnValues[column][index]
+      return value == null ? null : fmt(value)
+    }),
+  ])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -303,63 +405,83 @@ export function LineTablesDialog({ open, onOpenChange }: { open: boolean; onOpen
           <div>
             <DialogTitle className="text-xl font-bold text-slate-950">Tablas de referencia · ITC-BT-19</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-slate-500">
-              Intensidades admisibles para cobre, instalaciones no enterradas, 40 °C de temperatura ambiente. Reproduce la Tabla A.52-1bis de la UNE 20460-5-523:2004 tal como aparece en la Guía-BT-19 del Ministerio de Industria (feb 09, rev. 2).
+              Guía-BT-19 del Ministerio de Industria, Turismo y Comercio (feb 09, rev. 2). Reproduce las tablas de la UNE 20460-5-523:2004 que la instrucción aplica.
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas de referencia" />}><X /></DialogClose>
         </div>
 
-        <h4 className="mb-2 text-sm font-semibold text-slate-700">Intensidades admisibles (A)</h4>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[860px] text-xs">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="px-2 py-2">Sección mm²</TableHead>
-                {columns.map(column => <TableHead key={column} className="px-2 py-2 text-right">Col. {column}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {SECTIONS.map((section, index) => (
-                <TableRow key={section}>
-                  <TableCell className="px-2 py-1.5 font-medium tabular-nums">{fmt(section, 1)}</TableCell>
-                  {columns.map(column => {
-                    const value = columnValues[column][index]
-                    return <TableCell key={column} className="px-2 py-1.5 text-right tabular-nums">{value == null ? '—' : fmt(value)}</TableCell>
-                  })}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-
-        <h4 className="mt-5 mb-2 text-sm font-semibold text-slate-700">Qué variante usa cada columna</h4>
-        <div className="grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
+        <h4 className="mb-2 text-sm font-semibold text-slate-700">Tabla A · Intensidades admisibles (A) — cobre, no enterrado, 40 °C de ambiente</h4>
+        <SimpleTable
+          head={['Sección mm²', ...columns.map(column => `Col. ${column}`)]}
+          rows={sectionRows}
+          minWidth={860}
+        />
+        <div className="mt-2 grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-3">
           {columns.map(column => (
             <p key={column}><b className="text-slate-900">Col. {column}:</b> {variantsByColumn.get(column)?.join(' · ')}</p>
           ))}
         </div>
 
-        <h4 className="mt-5 mb-2 text-sm font-semibold text-slate-700">Factor de reducción por agrupamiento</h4>
-        <p className="mb-2 text-xs text-slate-500">Tabla E de la Guía-BT-19: circuitos empotrados o embutidos. Para un número de circuitos no tabulado se toma la columna siguiente.</p>
-        <div className="overflow-x-auto">
-          <Table className="min-w-[520px] text-xs">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="px-2 py-2">Circuitos</TableHead>
-                {GROUPING_FACTORS.map(entry => <TableHead key={entry.circuits} className="px-2 py-2 text-right">{entry.circuits}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="px-2 py-1.5 font-medium">Factor</TableCell>
-                {GROUPING_FACTORS.map(entry => <TableCell key={entry.circuits} className="px-2 py-1.5 text-right tabular-nums">{fmt(entry.factor, 2)}</TableCell>)}
-              </TableRow>
-            </TableBody>
-          </Table>
-        </div>
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla E · Factor de reducción por agrupamiento de circuitos</h4>
+        <SimpleTable
+          head={['Disposición', ...GROUPING_COUNTS.map(String)]}
+          rows={Object.values(GROUPING_LAYOUTS).map(layout => [
+            layout.label,
+            ...GROUPING_COUNTS.map((count, index) => {
+              const limit = layout.cappedAtNine ? 9 : Infinity
+              if (count > limit) return null
+              return fmt(layout.factors[index], 2)
+            }),
+          ])}
+          minWidth={720}
+        />
+        <p className="mt-1 text-xs text-slate-500">En las disposiciones 2 a 5 no hay reducción adicional por encima de 9 circuitos: se mantiene el valor de 9.</p>
 
-        <p className="mt-4 text-xs leading-5 text-slate-500">
-          Los valores son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en esta tabla: la Guía-BT-19 remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla F · Factor adicional por varias capas</h4>
+        <SimpleTable
+          head={['Capas', ...LAYER_FACTORS.map(entry => String(entry.layers))]}
+          rows={[['Factor', ...LAYER_FACTORS.map(entry => fmt(entry.factor, 2))]]}
+        />
+
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla G · Tubos en contacto, al aire</h4>
+        <SimpleTable
+          head={['Capas \\ Tubos', 1, 2, 3, 4, 5, 6]}
+          rows={TUBES_CONTACT_AIR.map((row, index) => [index + 1, ...row.map(value => fmt(value, 2))])}
+        />
+
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla I · Tubos en contacto, enterrados o embebidos en hormigón</h4>
+        <SimpleTable
+          head={['Capas \\ Tubos', 1, 2, 3, 4, 5, 6]}
+          rows={Object.entries(TUBES_CONTACT_BURIED).map(([tubes, row]) => [tubes, ...row.map(value => fmt(value, 2))])}
+        />
+        <p className="mt-1 text-xs text-slate-500">Las filas son el número de tubos en horizontal (de 2 a 6); las columnas, el número de capas verticales.</p>
+
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla H · Cables multiconductores en tubos enterrados, uno por tubo</h4>
+        <SimpleTable
+          head={['Cables', ...BURIED_CABLE_SPACING.spacings.map(spacing => spacing === 0 ? 'Contacto' : `${fmt(spacing, 2)} m`)]}
+          rows={Object.entries(BURIED_CABLE_SPACING.factors).map(([cables, row]) => [cables, ...row.map(value => fmt(value, 2))])}
+        />
+
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla D · Enterrado bajo tubo (A) — XLPE</h4>
+        <SimpleTable
+          head={['Sección mm²', 'Cu 3x', 'Al 3x', 'Cu 2x', 'Al 2x']}
+          rows={SECTIONS.map((section, index) => [
+            fmt(section, 1),
+            ...(['copper', 'aluminium'] as const).flatMap(material => ([3, 2] as const).map(loaded =>
+              BURIED_TUBE_CURRENT[material][loaded][index] == null ? null : fmt(BURIED_TUBE_CURRENT[material][loaded][index] as number))),
+          ])}
+        />
+        <p className="mt-1 text-xs text-slate-500">Condiciones de cálculo: resistividad térmica del terreno 1,5 K·m/W, temperatura del terreno 25 °C, profundidad 70 cm.</p>
+
+        <h4 className="mt-6 mb-2 text-sm font-semibold text-slate-700">Tabla C · Resistividad térmica del terreno</h4>
+        <SimpleTable
+          head={['Terreno', 'K·m/W']}
+          rows={SOIL_RESISTIVITY.map(entry => [entry.terrain, fmt(entry.value, 2)])}
+        />
+
+        <p className="mt-5 text-xs leading-5 text-slate-500">
+          Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
         </p>
       </DialogContent>
     </Dialog>
