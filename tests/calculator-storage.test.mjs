@@ -116,3 +116,15 @@ test('ignores unsupported or malformed calculator snapshots', () => {
   }))
   assert.equal(loadCalculatorInputs(storage), null)
 })
+
+test('persists and restores the enlace scenario', () => {
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, installationType: 'partial' })
+  assert.equal(loadCalculatorInputs(storage).installationType, 'partial', 'the scenario survives a reload')
+
+  saveCalculatorInputs(storage, { ...sampleInputs, installationType: 'invented' })
+  const loaded = loadCalculatorInputs(storage)
+  assert.notEqual(loaded, null, 'an unknown scenario does not discard the project')
+  assert.equal(loaded.installationType, undefined, 'it falls back to the calculator default')
+})

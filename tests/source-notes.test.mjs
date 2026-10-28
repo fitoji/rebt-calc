@@ -29,8 +29,10 @@ test('source notes cite the verified sections', () => {
 })
 
 test('BOE links point to the consolidated regulation', () => {
-  assert.match(calc, /https:\/\/www\.boe\.es\/buscar\/act\.php\?id=BOE-A-2002-18099/, 'REBT consolidated text')
-  assert.match(calc, /https:\/\/www\.boe\.es\/buscar\/doc\.php\?id=BOE-A-2014-13681/, 'RD 1053/2014 for the EV section')
+  const shared = readFileSync(path.join(root, 'components/source-note.tsx'), 'utf8')
+
+  assert.match(shared, /https:\/\/www\.boe\.es\/buscar\/act\.php\?id=BOE-A-2002-18099/, 'REBT consolidated text')
+  assert.match(shared, /https:\/\/www\.boe\.es\/buscar\/doc\.php\?id=BOE-A-2014-13681/, 'RD 1053/2014 for the EV section')
 })
 
 test('source notes can be switched off from the calculation settings', () => {
@@ -47,4 +49,23 @@ test('source notes can be switched off from the calculation settings', () => {
     [...calc.matchAll(/\{settings\.showSourceNotes && <SourceNote>/g)].length,
     'no note renders unconditionally',
   )
+})
+
+test('the line modules cite their own norm and follow the same toggle', () => {
+  const lines = readFileSync(path.join(root, 'components/line-modules.tsx'), 'utf8')
+  const notes = [...lines.matchAll(/<SourceNote>([\s\S]*?)<\/SourceNote>/g)].map(match => match[1])
+
+  assert.equal(notes.length, 2, 'LGA and DI each carry a source note')
+  assert.match(notes[0], /ITC-BT-14 §3/, 'LGA cites ITC-BT-14')
+  assert.match(notes[0], /0,5 %/, 'LGA cites the centralised-meter limit')
+  assert.match(notes[1], /ITC-BT-15 §3/, 'DI cites ITC-BT-15')
+  assert.match(notes[1], /0,5 %[\s\S]*1 %[\s\S]*1,5 %/, 'DI cites all three drop limits')
+  for (const note of notes) assert.match(note, /BoeLink/, 'each note links to the BOE')
+
+  assert.equal(
+    [...lines.matchAll(/\{showSourceNotes && <SourceNote>/g)].length,
+    2,
+    'both notes are behind the settings toggle',
+  )
+  assert.match(lines, /showSourceNotes\?: boolean/, 'the panels accept the toggle as a prop')
 })

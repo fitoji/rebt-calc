@@ -37,6 +37,11 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className="antialiased">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "try{if(localStorage.getItem('electrocalc-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}",
+          }}
+        />
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

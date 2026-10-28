@@ -63,6 +63,7 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 - **Nota de fuente en cada card**: el apartado del BOE del que sale el criterio, con enlace al texto consolidado. Se puede ocultar desde *Parámetros de cálculo* («Leyendas en el pie de cada card»).
 - **Membrete del proyecto**: la card de datos de la memoria muestra en miniatura el logo y el nombre de empresa tal como saldrán en el PDF.
 - **Acciones**: cargar el ejemplo, limpiar los datos del proyecto y descargar en cuatro formatos.
+- **Modo día/noche**: botón en la cabecera; la preferencia se guarda y se aplica antes del primer pintado, sin parpadeo. El sistema operativo no cambia el tema por su cuenta.
 - **Accesibilidad**: diálogos de [Base UI](https://base-ui.com/) con foco atrapado, cierre con `Escape` y etiquetas asociadas a cada control.
 
 ---
@@ -180,11 +181,21 @@ S_caída = (m × P × L) / (γ × U × ΔUadm)    m = 1 (trifásica) · 2 (monof
 
 La caída se plantea directamente como sección: al sustituir `I = P / (k × U × cos φ)` en la fórmula de caída, el `cos φ` se cancela. Por eso el trifásico no lleva `√3` en la sección y el monofásico lleva el factor 2 del retorno.
 
-1. Se recorre la serie comercial y se elige la **primera sección** que cumpla a la vez `S ≥ S_caída` y `Iz_corregida ≥ Ib`.
+1. Se recorre la serie comercial y se elige la **primera sección** que cumpla a la vez `S ≥ S_caída`, `Iz_corregida ≥ Ib` y la sección mínima normativa (10 mm² en cobre para LGA, 6 mm² para DI).
 2. `Iz_corregida = Iz_tabla × factor de reducción`, con el factor de agrupamiento, capas, tubos o resistividad del terreno según el caso (`lib/cable-tables.mjs`).
 3. Si no se fija una protección, se propone la de la serie normalizada y se verifica `Ib ≤ In ≤ Iz_corregida`.
 4. Cuando ninguna sección cumple, el módulo lo dice y explica cuál de los dos criterios falla; no devuelve en silencio la mayor.
 5. El conductor de protección se deriva de la sección de fase y el neutro parte de ella; ambos quedan editables en el formulario.
+
+Caída de tensión máxima admisible, según el supuesto de enlace:
+
+| Supuesto de enlace | LGA (ITC-BT-14 §3) | DI (ITC-BT-15 §3) |
+|--------------------|--------------------|-------------------|
+| Contadores totalmente centralizados | 0,5 % | 1 % |
+| Contadores concentrados en más de un lugar | 1 % | 0,5 % |
+| Único usuario sin LGA | no existe | 1,5 % |
+
+El supuesto se elige una vez por proyecto («Supuesto de enlace» en los módulos LGA y DI) y fija **los dos límites a la vez** (`lib/installation-config.mjs`); el valor se guarda con el proyecto. Si después editás el porcentaje a mano, el módulo avisa de que no coincide con el límite del supuesto, y en el caso de único usuario indica que no hay línea general. El módulo no inventa un supuesto: sin elección, arranca en contadores totalmente centralizados.
 
 ---
 
@@ -209,9 +220,10 @@ Todo vive en `localStorage`, con claves propias y validación al leer:
 
 | Clave | Contenido |
 |-------|-----------|
-| `electrocalc-inputs:v1` | Filas de entrada y estado de LGA/DI, en un snapshot versionado |
+| `electrocalc-inputs:v1` | Filas de entrada, supuesto de enlace y estado de LGA/DI, en un snapshot versionado |
 | `electrocalc-settings` | Parámetros de cálculo y preferencias de la interfaz |
 | `electrocalc-project-info` | Empresa, contacto, dirección de obra y logo |
+| `electrocalc-theme` | `light` o `dark`, aplicado por el script de arranque antes de hidratar |
 
 - El snapshot de entradas se valida fila por fila; un snapshot antiguo sin filas de alumbrado carga con los valores por defecto en vez de descartarse.
 - **Limpiar** borra las entradas y los datos del proyecto, pero **conserva** los parámetros de cálculo.
@@ -232,6 +244,8 @@ Los componentes **no usan la paleta cruda de Tailwind**. Cada color es un token 
 | Panel oscuro | `panel-foreground` · `panel-muted` | Texto sobre el panel de resultados |
 | Estados | `warning-soft` · `warning-ink` · `warning-mark` · `warning-on-panel` · `danger` | Avisos normativos y acciones destructivas |
 | Pestañas | `tab-lga` · `tab-lga-soft` · `tab-lga-ink` · `tab-di` · `tab-di-soft` · `tab-di-ink` | Identidad de LGA y DI (cargas usa los tokens de marca) |
+
+El bloque `.dark` redefine **los mismos tokens** con otras luces, así que ningún componente sabe que existe el modo noche.
 
 Reglas:
 

@@ -207,3 +207,11 @@ test('an air installation ignores the buried tables', () => {
   const air = sizeLine(lgaInput())
   assert.equal(air.tableCurrent, 149, 'table A for B1 3x PVC 70')
 })
+
+test('the normative minimum section floors LGA and DI', () => {
+  const tinyLga = sizeLine(lgaInput({ powerW: 2000, lengthM: 1, maxDropPercent: 5 }))
+  assert.equal(tinyLga.finalSection, 10, 'ITC-BT-14 sets 10 mm² of copper as the LGA minimum')
+
+  const tinyDi = sizeLine(diInput({ powerW: 1000, lengthM: 1, maxDropPercent: 5 }))
+  assert.equal(tinyDi.finalSection, 6, 'ITC-BT-15 sets 6 mm² of copper as the DI minimum')
+})

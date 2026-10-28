@@ -4,6 +4,8 @@ import { useMemo } from 'react'
 import { Table2, X, TriangleAlert } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -22,6 +24,7 @@ import {
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
+import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
 
 export type InstallationMethod = (typeof METHODS)[number]
 export type Insulation = 'PVC' | 'XLPE'
@@ -320,12 +323,33 @@ export function computeLine(state: LineState, system: 'three-phase' | 'single-ph
   })
 }
 
-export function LgaPanel({ state, onChange, onOpenTables }: {
+function formatLimit(value: number) { return `${value.toString().replace('.', ',')} %` }
+
+function InstallationField({ value, onChange, limit, configured }: { value: InstallationType; onChange: (type: InstallationType) => void; limit: number | null; configured: number }) {
+  const mismatch = mismatchesLimit(limit, configured)
+
+  return <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-surface-muted px-3 py-2">
+    <label htmlFor="installation-type" className="text-xs font-semibold text-ink-muted">Supuesto de enlace</label>
+    <Select value={value} onValueChange={next => { if (next != null) onChange(String(next) as InstallationType) }}>
+      <SelectTrigger id="installation-type" className="h-8 w-full min-w-0 text-xs sm:w-auto sm:min-w-[16rem]"><SelectValue>{(selected: string | null) => INSTALLATION_SCENARIOS.find(scenario => scenario.id === selected)?.label ?? 'Supuesto de enlace'}</SelectValue></SelectTrigger>
+      <SelectContent alignItemWithTrigger={false} className="w-max max-w-[20rem]"><SelectGroup>{INSTALLATION_SCENARIOS.map(scenario => <SelectItem key={scenario.id} value={scenario.id}>{scenario.label}</SelectItem>)}</SelectGroup></SelectContent>
+    </Select>
+    {limit == null
+      ? <span className="text-xs text-ink-faint">Este supuesto no tiene línea general.</span>
+      : mismatch && <span className="flex items-center gap-1 text-xs font-semibold text-warning-ink"><TriangleAlert className="size-3.5" aria-hidden="true" />El supuesto fija {formatLimit(limit)}</span>}
+  </div>
+}
+
+export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
+  showSourceNotes?: boolean
+  installationType: InstallationType
+  onInstallationTypeChange: (type: InstallationType) => void
 }) {
   const result = useMemo(() => computeLine(state, 'three-phase'), [state])
+  const limits = limitsForInstallation(installationType)
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -333,12 +357,13 @@ export function LgaPanel({ state, onChange, onOpenTables }: {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3 className="font-bold">Línea General de Alimentación</h3>
-            <p className="mt-1 text-sm text-ink-faint">Trifásica. Caída máxima 0,5 % en instalaciones con contadores centralizados.</p>
+            <p className="mt-1 text-sm text-ink-faint">Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</p>
           </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
+        <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
@@ -348,18 +373,23 @@ export function LgaPanel({ state, onChange, onOpenTables }: {
           <NumberField id="lga-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" onChange={value => onChange({ gamma: value })} />
           <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} />
         </div>
+        {showSourceNotes && <SourceNote>ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio); intensidad admisible según UNE 20.460-5-523 con los factores de corrección del montaje. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" />
     </div>
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
+  showSourceNotes?: boolean
+  installationType: InstallationType
+  onInstallationTypeChange: (type: InstallationType) => void
 }) {
   const result = useMemo(() => computeLine(state, 'single-phase'), [state])
+  const limits = limitsForInstallation(installationType)
 
   const phase = result.finalSection
   const pe = phase == null ? state.peSection : protectiveSection(phase)
@@ -370,12 +400,13 @@ export function DiPanel({ state, onChange, onOpenTables }: {
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h3 className="font-bold">Derivación Individual</h3>
-            <p className="mt-1 text-sm text-ink-faint">Monofásica. Caída máxima 1,5 % con contadores centralizados, 4,5 % con contador individual.</p>
+            <p className="mt-1 text-sm text-ink-faint">Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.</p>
           </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
+        <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="di-voltage" label="Tensión fase-neutro" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
@@ -389,6 +420,7 @@ export function DiPanel({ state, onChange, onOpenTables }: {
           <NumberField id="di-control" label="Fil de comandament" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
           <NumberField id="di-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
         </div>
+        {showSourceNotes && <SourceNote>ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando; intensidad admisible según ITC-BT-19. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" />
     </div>

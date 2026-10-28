@@ -50,7 +50,7 @@ test('S-button: every py-3 full-width action button cancels the base h-8', () =>
   assert.match(button, /default:\s*"h-8 /, 'base size still declares h-8 (so h-auto is required)')
   const buttons = calc.match(/<Button\b[^>]*>/g) ?? []
   const action = buttons.filter(tag => /w-full/.test(tag) && /py-3/.test(tag))
-  assert.equal(action.length, 15, 'fifteen full-width multiline action buttons')
+  assert.equal(action.length, 14, 'fourteen full-width multiline action buttons')
   for (const tag of action) {
     assert.match(tag, /\bh-auto\b/, `action button needs h-auto so h-8 cannot squeeze py-3: ${tag.slice(0, 90)}`)
   }
@@ -94,8 +94,8 @@ test('S-css: legacy helper classes are gone and nothing still references them', 
   assert.ok(legacyLabelUses >= 13, `.label still used by the migrated markup (${legacyLabelUses} sites)`)
 })
 
-test('S-theme: the app stays light whatever the OS color scheme is', () => {
+test('S-theme: the OS color scheme never flips the app by itself', () => {
   assert.doesNotMatch(globals, /@media\s*\(prefers-color-scheme:\s*dark\)/,
-    'no OS-driven dark token flip: migrated primitives consume tokens and would invert text on the light paper surfaces')
-  assert.match(globals, /\.dark\s*\{/, '.dark block kept for an explicit future opt-in')
+    'no OS-driven dark token flip: the explicit .dark class is the only switch')
+  assert.match(globals, /\.dark\s*\{/, '.dark block drives the opt-in night mode')
 })

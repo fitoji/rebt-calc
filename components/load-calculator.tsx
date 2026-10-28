@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType } from 'lucide-react'
+import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
+import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
+import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,6 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type LineState, type TableKey } from '@/components/line-modules'
+import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
 
 type ProjectInfo = {
   companyName: string
@@ -122,8 +125,6 @@ const exampleGarages: GarageRow[] = [
 const fmt = (value: number, digits = 0) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(value)
 const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15' }
-const BOE_REBT = 'https://www.boe.es/buscar/act.php?id=BOE-A-2002-18099'
-const BOE_ITC_BT_52 = 'https://www.boe.es/buscar/doc.php?id=BOE-A-2014-13681'
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
 
 export function LoadCalculator() {
@@ -137,6 +138,8 @@ export function LoadCalculator() {
   const [parking, setParking] = useState(0)
   const [irveOption, setIrveOption] = useState(1)
   const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
+  const [installationType, setInstallationType] = useState<InstallationType>('centralized')
+  const [theme, setTheme] = useState<Theme>('light')
   const [showLineTables, setShowLineTables] = useState(false)
   const [lineTableFocus, setLineTableFocus] = useState<TableKey[] | null>(null)
   const [lineTouched, setLineTouched] = useState(false)
@@ -147,7 +150,7 @@ export function LoadCalculator() {
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
   const [di, setDi] = useState<LineState>({
-    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1.5, gamma: 48.5,
+    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1, gamma: 48.5,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
@@ -155,6 +158,20 @@ export function LoadCalculator() {
   const openLineTables = (tables?: TableKey[]) => { setLineTableFocus(tables ?? null); setShowLineTables(true) }
   const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); setLga(current => ({ ...current, ...patch })) }
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
+  const changeInstallationType = (type: InstallationType) => {
+    const limits = limitsForInstallation(type)
+    setInstallationType(type)
+    setLineTouched(true)
+    if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
+    setDi(current => ({ ...current, maxDropPercent: limits.di }))
+    if (limits.lga == null) setActiveTab(current => current === 'lga' ? 'di' : current)
+  }
+  const toggleTheme = () => {
+    const next = nextTheme(theme)
+    setTheme(next)
+    document.documentElement.classList.toggle('dark', next === 'dark')
+    try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+  }
   const [showReferences, setShowReferences] = useState(false)
   const [showDownload, setShowDownload] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -164,6 +181,15 @@ export function LoadCalculator() {
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   const [storageLoaded, setStorageLoaded] = useState(false)
+
+  useEffect(() => {
+    let stored: string | null = null
+    try { stored = window.localStorage.getItem(THEME_STORAGE_KEY) } catch { /* storage can be unavailable */ }
+    const applied = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+    const initial = resolveInitialTheme(stored ?? applied)
+    setTheme(initial)
+    document.documentElement.classList.toggle('dark', initial === 'dark')
+  }, [])
 
   useEffect(() => {
     try {
@@ -176,6 +202,7 @@ export function LoadCalculator() {
         setMotors(savedInputs.motors)
         setOtherLoads(savedInputs.otherLoads)
         if (savedInputs.lighting) setLighting(savedInputs.lighting)
+        if (savedInputs.installationType) setInstallationType(savedInputs.installationType)
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
         if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
@@ -204,12 +231,12 @@ export function LoadCalculator() {
     if (!storageLoaded) return
     try {
       saveCalculatorInputs(window.localStorage, {
-        housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption,
+        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption,
         lga: lineTouched ? lga : null,
         di: lineTouched ? di : null,
       })
     } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, lga, di, lineTouched])
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, di, lineTouched])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -257,7 +284,7 @@ export function LoadCalculator() {
     return { homes, average, cs, p1, p2, p3, p4, p5, total: p1 + p2 + p3 + p4 + p5, plazas, lightingPower, motorIncrement }
   }, [housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, settings])
 
-  const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 3680, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setParking(30); setIrveOption(1) }
+  const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 3680, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1) }
   const clear = () => {
     try { clearProjectData(window.localStorage) } catch { /* In-memory reset still applies when storage is unavailable. */ }
     setHousing([])
@@ -267,6 +294,7 @@ export function LoadCalculator() {
     setMotors([])
     setOtherLoads([])
     setLighting(emptyLighting)
+    setInstallationType('centralized')
     setParking(0)
     setIrveOption(1)
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
@@ -381,7 +409,7 @@ export function LoadCalculator() {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, lga, di },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, di },
       settings,
       calculations: result,
       lines: {
@@ -506,7 +534,7 @@ export function LoadCalculator() {
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
           <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-panel ring-1 ring-panel-edge"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
-          <div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div>
+          <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button></div>
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
@@ -566,7 +594,7 @@ export function LoadCalculator() {
               <label><span className="label">Dirección de obra</span><Input className="w-full" value={projectInfo.workAddress} onChange={event => updateProjectInfo('workAddress', event.target.value)} placeholder="Emplazamiento del proyecto" /></label>
               <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-line object-contain p-1" /><Button type="button" variant="link" className="px-0 text-sm font-semibold text-danger" onClick={() => updateProjectInfo('logo', '')}>Quitar logo</Button></div>}</label>
             </div>
-            <div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowProjectInfo(false)}>Guardar datos</Button></div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Guardar datos</Button></div>
           </DialogContent>
         </Dialog>
         <Dialog open={showSimultaneityTable} onOpenChange={setShowSimultaneityTable}>
@@ -626,10 +654,10 @@ export function LoadCalculator() {
           </DialogContent>
         </Dialog>
         <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'cargas' | 'lga' | 'di')} className="gap-6">
-          <TabsList className="h-auto w-fit gap-1 rounded-xl border border-line bg-paper p-1">
-            <TabsTrigger value="cargas" className="group/tab h-auto rounded-lg px-4 py-2 text-sm font-semibold data-active:bg-brand-soft data-active:text-brand!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-brand-mark/40 transition-colors group-data-[active]/tab:bg-brand-mark" />Previsión de cargas</TabsTrigger>
-            <TabsTrigger value="lga" className="group/tab h-auto rounded-lg px-4 py-2 text-sm font-semibold data-active:bg-tab-lga-soft data-active:text-tab-lga-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-tab-lga/40 transition-colors group-data-[active]/tab:bg-tab-lga" />LGA</TabsTrigger>
-            <TabsTrigger value="di" className="group/tab h-auto rounded-lg px-4 py-2 text-sm font-semibold data-active:bg-tab-di-soft data-active:text-tab-di-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-tab-di/40 transition-colors group-data-[active]/tab:bg-tab-di" />DI</TabsTrigger>
+          <TabsList className="h-auto w-full items-stretch gap-1 rounded-xl border border-line bg-paper p-1 sm:w-fit sm:items-center">
+            <TabsTrigger value="cargas" className="group/tab h-auto whitespace-normal rounded-lg px-3 py-2 text-center text-[13px] font-semibold leading-tight data-active:bg-brand-soft data-active:text-brand!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-brand-mark/40 transition-colors group-data-[active]/tab:bg-brand-mark" />Previsión de cargas</TabsTrigger>
+            <TabsTrigger value="lga" disabled={installationType === 'single-user'} title={installationType === 'single-user' ? 'El supuesto de único usuario no tiene línea general de alimentación' : undefined} className="group/tab h-auto whitespace-normal rounded-lg px-3 py-2 text-center text-[13px] font-semibold leading-tight data-active:bg-tab-lga-soft data-active:text-tab-lga-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-tab-lga/40 transition-colors group-data-[active]/tab:bg-tab-lga" />LGA</TabsTrigger>
+            <TabsTrigger value="di" className="group/tab h-auto whitespace-normal rounded-lg px-3 py-2 text-center text-[13px] font-semibold leading-tight data-active:bg-tab-di-soft data-active:text-tab-di-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-tab-di/40 transition-colors group-data-[active]/tab:bg-tab-di" />DI</TabsTrigger>
           </TabsList>
           <TabsContent value="cargas">
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -725,10 +753,10 @@ export function LoadCalculator() {
         </div>
           </TabsContent>
           <TabsContent value="lga">
-            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} />
+            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} />
           </TabsContent>
           <TabsContent value="di">
-            <DiPanel state={di} onChange={updateDi} onOpenTables={openLineTables} />
+            <DiPanel state={di} onChange={updateDi} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
@@ -750,9 +778,7 @@ export function LoadCalculator() {
 
 function SectionTitle({ number, title, subtitle }: { number: string; title: string; subtitle: string }) { return <div className="mb-5"><span className="block text-xs font-bold tracking-wide text-brand-strong">{number}</span><h3 className="mt-1 font-bold">{title}</h3><p className="mt-1 text-sm text-ink-faint">{subtitle}</p></div> }
 function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) { return <div className={`rounded-xl p-3 ${accent ? 'bg-brand-soft' : 'bg-surface-muted'}`}><p className="text-xs text-ink-faint">{label}</p><p className={`mt-1 font-bold tabular-nums ${accent ? 'text-brand' : ''}`}>{value}</p></div> }
-function SourceNote({ children }: { children: React.ReactNode }) { return <p className="mt-5 border-t border-line-soft pt-3 text-xs leading-5 text-ink-faint"><span className="font-semibold text-ink-subtle">Fuente: </span>{children}</p> }
 function DownloadOption({ label, hint, icon: Icon, onClick }: { label: string; hint: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void }) { return <Button type="button" variant="outline" className="h-auto w-full justify-start gap-3 rounded-xl px-4 py-3 text-left font-semibold" onClick={onClick}><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4" /></span><span className="flex min-w-0 flex-col items-start"><span>{label}</span><span className="text-xs font-normal text-ink-faint">{hint}</span></span></Button> }
-function BoeLink({ href, label }: { href: string; label: string }) { return <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline-offset-4 hover:underline">{label}</a> }
 function ChoiceSelect({ id, className, value, onChange, items }: { id?: string; className?: string; value: string; onChange: (value: string) => void; items: string[] }) { return <Select value={value} onValueChange={next => onChange(next == null ? value : String(next))}><SelectTrigger id={id} className={className}><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{items.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent></Select> }
 function LabeledInput({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-12" value={value} onChange={onChange} type={onChange ? 'number' : 'text'} readOnly={!onChange} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-ghost">{suffix}</span></span></label> }
 function SettingInput({ label, value, suffix, step = '1', onChange }: { label: string; value: number; suffix: string; step?: string; onChange: (value: number) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-16" type="number" min="0" step={step} value={value} onChange={event => onChange(Number(event.target.value))} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-ghost">{suffix}</span></span></label> }
@@ -771,7 +797,7 @@ function LightingTable({ rows, settings, onChange }: { rows: LightingRow[]; sett
     <div className="mt-3 flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"><span className="text-ink-faint">Subtotal alumbrado</span><strong className="tabular-nums">{fmt(sumLightingPowers(rows, settings))} W</strong></div>
   </div>
 }
-function ServiceTable({ title, addLabel, onAdd, headers, rows }: { title: string; addLabel: string; onAdd: () => void; headers: string[]; rows: React.ReactNode[][] }) { return <div><div className="mb-2 flex items-center justify-between"><h4 className="text-sm font-semibold text-ink-muted">{title}</h4><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold px-3 py-2 text-xs" onClick={onAdd}><Plus data-icon="inline-start" /> {addLabel}</Button></div><EditableTable headers={headers} rows={rows} />{rows.length === 0 && <p className="py-3 text-center text-sm text-ink-faint">No hay elementos añadidos.</p>}</div> }
+function ServiceTable({ title, addLabel, onAdd, headers, rows }: { title: string; addLabel: string; onAdd: () => void; headers: string[]; rows: React.ReactNode[][] }) { return <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold text-ink-muted">{title}</h4><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-3 py-2 text-xs font-semibold sm:w-auto" onClick={onAdd}><Plus data-icon="inline-start" /> {addLabel}</Button></div><EditableTable headers={headers} rows={rows} />{rows.length === 0 && <p className="py-3 text-center text-sm text-ink-faint">No hay elementos añadidos.</p>}</div> }
 function EditableTable({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {
   return <>
     <div className="grid gap-3 md:hidden">
