@@ -64,7 +64,7 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 - **Membrete del proyecto**: la card de datos de la memoria muestra en miniatura el logo y el nombre de empresa tal como saldrán en el PDF.
 - **Acciones**: cargar el ejemplo, limpiar los datos del proyecto y descargar en cuatro formatos.
 - **Modo día/noche**: botón en la cabecera; la preferencia se guarda y se aplica antes del primer pintado, sin parpadeo. El sistema operativo no cambia el tema por su cuenta.
-- **Accesibilidad**: diálogos de [Base UI](https://base-ui.com/) con foco atrapado, cierre con `Escape` y etiquetas asociadas a cada control.
+- **Accesibilidad**: diálogos de [Base UI](https://base-ui.com/) con foco atrapado, cierre con `Escape`, etiquetas asociadas a cada control (incluidos los de las tablas) y contraste AA verificado por test.
 
 ---
 
@@ -247,6 +247,13 @@ Los componentes **no usan la paleta cruda de Tailwind**. Cada color es un token 
 
 El bloque `.dark` redefine **los mismos tokens** con otras luces, así que ningún componente sabe que existe el modo noche.
 
+### Accesibilidad del color
+
+- **Texto**: todos los pares texto/fondo que se renderizan superan **4,5:1** en ambos temas (`ink`…`ink-faint`). `ink-ghost` queda reservado a marcas decorativas —el guion de celda vacía— y no se usa para texto informativo.
+- **Contornos de campo y foco**: `--input` y `--ring` están ajustados a **3:1** contra la tarjeta (1.4.11). El anillo de foco usa la marca a plena opacidad: se quitó el `/50` de las primitivas de shadcn porque a media opacidad ningún color alcanza 3:1 sobre fondo claro. Es la única desviación deliberada del registry, junto con la paleta del PDF.
+- **Por qué los campos se ven más marcados**: en un tema claro, llegar a 3:1 obliga a un borde relativamente oscuro; no hay atajo con rellenos claros, porque el relleno también tendría que contrastar 3:1. Es una decisión consciente: se acepta el cambio de carácter visual a cambio de cumplir 1.4.11. Si algún día se revierte, hay que hacerlo con el criterio documentado, no bajando el valor "un poco" (quedaría igual de oscuro y seguiría fallando).
+- Un test (`tests/contrast.test.mjs`) recalcula estos ratios desde `globals.css`: si alguien retoca la paleta y un par baja de AA, falla antes de llegar al build.
+
 Reglas:
 
 - En `components/**` y `app/**` un `bg-slate-500`, un `text-cyan-700` o un `bg-[#f5f7f8]` es un bug: usá el token equivalente.
@@ -313,6 +320,7 @@ Sin framework: `node:test` + `node:assert/strict`, sin dependencias.
 | `export-formats.test.mjs` | Informe Markdown y texto |
 | `source-notes.test.mjs` | Cada card cita su apartado del BOE y el toggle las oculta |
 | `design-tokens.test.mjs` | Ningún color de paleta cruda ni token sin declarar |
+| `contrast.test.mjs` | Contraste AA de los pares texto/fondo y 3:1 de bordes y foco, más el nombre accesible de cada control de tabla |
 | `dialog-a11y-regression.test.mjs` | Diálogos accesibles y botones de acción |
 | `shadcn-migration.test.mjs` | Primitivas shadcn en lugar de controles nativos |
 | `hallmark-ui-audit.test.mjs` | Regresiones de interfaz (tablas, membrete, jerarquía) |

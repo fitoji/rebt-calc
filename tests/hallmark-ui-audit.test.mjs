@@ -16,12 +16,13 @@ const sourceFiles = ['app', 'components', 'lib']
   .filter(file => /\.(ts|tsx|css|mjs)$/.test(file) && existsSync(path.join(root, file)))
 const allSource = sourceFiles.map(read).join('\n')
 
-test('mobile tables keep desktop tables and clip root overflow', () => {
+test('mobile tables keep desktop tables and never trap overflowing content', () => {
   assert.ok(calc.includes('grid gap-3 md:hidden'), 'mobile card layouts present')
   assert.ok(calc.includes('hidden overflow-x-auto md:block'), 'desktop tables kept for md and up')
-  assert.match(globals, /html,\s*body\s*{\s*overflow-x: clip;/, 'root clips horizontal overflow')
+  assert.match(globals, /html\s*{\s*overflow-x: clip;/, 'the root clips decorative bleed')
   assert.ok(calc.includes('min-w-[620px]'), 'housing desktop min-width preserved')
   assert.ok(calc.includes('min-w-[580px]'), 'editable desktop min-width preserved')
+  assert.match(globals, /body\s*{\s*overflow-x: auto;/, 'the body scrolls instead of hiding content (WCAG 1.4.10)')
 })
 
 test('shadcn button component is installed and referenced', () => {

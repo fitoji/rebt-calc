@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Table2, X, TriangleAlert } from 'lucide-react'
+import { Info, Table2, TriangleAlert, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -121,7 +121,7 @@ function NumberField({ id, label, value, suffix, step = 1, onChange, tables, onO
           value={Number.isFinite(value) ? value : 0}
           onChange={event => onChange(Number(event.target.value))}
         />
-        <span className="pointer-events-none absolute right-3 top-1.5 text-xs text-ink-ghost">{suffix}</span>
+        <span className="pointer-events-none absolute right-3 top-1.5 text-xs text-ink-faint">{suffix}</span>
       </span>
     </div>
   )
@@ -154,7 +154,7 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
 function ResultRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <span className="text-ink-ghost">{label}</span>
+      <span className="text-ink-faint">{label}</span>
       <strong className={strong ? 'tabular-nums text-brand-on-panel' : 'tabular-nums'}>{value}</strong>
     </div>
   )
@@ -170,9 +170,9 @@ function LineResult({ title, result, phaseLabel }: {
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
       <p className="mt-5 text-4xl font-bold tabular-nums">
         {result.finalSection == null ? '—' : fmt(result.finalSection)}
-        <span className="ml-1 text-lg font-medium text-ink-ghost">mm²</span>
+        <span className="ml-1 text-lg font-medium text-panel-muted">mm²</span>
       </p>
-      <p className="mt-1 text-sm text-ink-ghost">{phaseLabel}</p>
+      <p className="mt-1 text-sm text-panel-muted">{phaseLabel}</p>
       <div className="my-5 h-px bg-panel-line" />
       <div className="flex flex-col gap-3 text-sm">
         <ResultRow label="Intensidad de línea (Ib)" value={`${fmt(result.ratedCurrent, 2)} A`} />
@@ -184,7 +184,7 @@ function LineResult({ title, result, phaseLabel }: {
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
       </div>
       {result.problems.length > 0 && (
-        <div className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
+        <div role="status" aria-live="polite" className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
           <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-3.5" /> Revisá estos puntos</p>
           <ul className="list-disc space-y-1 pl-4">
             {result.problems.map(problem => <li key={problem}>{problem}</li>)}
@@ -354,15 +354,13 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <section className="rounded-2xl border border-line border-l-4 border-l-tab-lga bg-paper p-5 shadow-sm">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="font-bold">Línea General de Alimentación</h3>
-            <p className="mt-1 text-sm text-ink-faint">Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</p>
-          </div>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <h3 className="font-bold">Línea General de Alimentación</h3>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
+        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
@@ -373,7 +371,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
           <NumberField id="lga-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" onChange={value => onChange({ gamma: value })} />
           <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} />
         </div>
-        {showSourceNotes && <SourceNote>ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio); intensidad admisible según UNE 20.460-5-523 con los factores de corrección del montaje. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+        {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio); intensidad admisible según UNE 20.460-5-523 con los factores de corrección del montaje. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" />
     </div>
@@ -397,15 +395,13 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <section className="rounded-2xl border border-line border-l-4 border-l-tab-di bg-paper p-5 shadow-sm">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h3 className="font-bold">Derivación Individual</h3>
-            <p className="mt-1 text-sm text-ink-faint">Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.</p>
-          </div>
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <h3 className="font-bold">Derivación Individual</h3>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
+        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
@@ -420,7 +416,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           <NumberField id="di-control" label="Fil de comandament" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
           <NumberField id="di-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
         </div>
-        {showSourceNotes && <SourceNote>ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando; intensidad admisible según ITC-BT-19. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+        {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando; intensidad admisible según ITC-BT-19. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" />
     </div>
@@ -437,7 +433,7 @@ function SimpleTable({ head, rows, minWidth = 0 }: {
       <Table className="text-xs" style={minWidth ? { minWidth } : undefined}>
         <TableHeader>
           <TableRow>
-            {head.map((cell, index) => <TableHead key={index} className="whitespace-nowrap px-2 py-2">{cell}</TableHead>)}
+            {head.map((cell, index) => <TableHead scope="col" key={index} className="whitespace-nowrap px-2 py-2">{cell}</TableHead>)}
           </TableRow>
         </TableHeader>
         <TableBody>

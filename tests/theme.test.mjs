@@ -54,6 +54,7 @@ test('the dark theme overrides every semantic token', () => {
     'brand', 'brand-strong', 'brand-ink', 'brand-soft', 'brand-line', 'brand-mark', 'brand-on-panel',
     'panel', 'panel-foreground', 'panel-muted', 'panel-line', 'panel-edge',
     'warning-soft', 'warning-ink', 'warning-mark', 'warning-on-panel', 'danger',
+    'note-sand', 'note-sand-ink',
     'tab-lga', 'tab-lga-soft', 'tab-lga-ink', 'tab-di', 'tab-di-soft', 'tab-di-ink',
   ]
 

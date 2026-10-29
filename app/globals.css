@@ -79,6 +79,8 @@
   --color-warning-mark: var(--warning-mark);
   --color-warning-on-panel: var(--warning-on-panel);
   --color-danger: var(--danger);
+  --color-note-sand: var(--note-sand);
+  --color-note-sand-ink: var(--note-sand-ink);
   --color-tab-lga: var(--tab-lga);
   --color-tab-lga-soft: var(--tab-lga-soft);
   --color-tab-lga-ink: var(--tab-lga-ink);
@@ -105,8 +107,8 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --input: oklch(66% 0.01 250);          /* borde de campo: 3,1:1 sobre tarjeta */
+  --ring: var(--brand);                  /* anillo de foco con marca: 5,2:1 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -138,7 +140,7 @@
 
   /* Semánticos · marca */
   --brand: oklch(52% 0.105 223.128);
-  --brand-strong: oklch(60.9% 0.126 221.723);
+  --brand-strong: oklch(54% 0.12 223);    /* texto pequeño sobre tarjeta: 4,7:1 */
   --brand-ink: oklch(39.8% 0.07 227.392);
   --brand-soft: oklch(98.4% 0.019 200.873);
   --brand-line: oklch(86.5% 0.127 207.078);
@@ -158,6 +160,10 @@
   --warning-mark: oklch(82.8% 0.189 84.429);
   --warning-on-panel: oklch(92.4% 0.12 95.746);
   --danger: oklch(57.7% 0.245 27.325);
+
+  /* Semánticos · nota de fuente (arena) */
+  --note-sand: oklch(95.5% 0.028 86);
+  --note-sand-ink: oklch(46% 0.05 70);
 
   /* Semánticos · acento por pestaña (cargas usa los tokens de marca) */
   --tab-lga: oklch(69.6% 0.17 162.48);
@@ -186,8 +192,8 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --input: oklch(51% 0.01 250);
+  --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -232,6 +238,8 @@
   --warning-mark: oklch(82.8% 0.189 84.429);
   --warning-on-panel: oklch(92.4% 0.12 95.746);
   --danger: oklch(70.4% 0.191 22.216);
+  --note-sand: oklch(29% 0.028 82);
+  --note-sand-ink: oklch(88% 0.045 88);
   --tab-lga: oklch(76.5% 0.177 163.223);
   --tab-lga-soft: oklch(27% 0.05 165);
   --tab-lga-ink: oklch(84% 0.12 164);
@@ -244,9 +252,12 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html,
-  body {
+  /* El recorte silencioso esconde contenido (1.4.10): el body scrollea si algo desborda. */
+  html {
     overflow-x: clip;
+  }
+  body {
+    overflow-x: auto;
   }
   body {
     @apply bg-background text-foreground;

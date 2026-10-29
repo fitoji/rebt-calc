@@ -56,7 +56,8 @@ test('the tab edges keep their accent colour after the token migration', () => {
   const calc = read('components/load-calculator.tsx')
 
   for (const token of ['brand-mark', 'tab-lga', 'tab-di']) {
-    assert.ok(calc.includes(`absolute inset-y-1 left-0 w-[3px] rounded-r-full bg-${token}/40`), `edge base colour uses ${token}`)
+    assert.ok(calc.includes(`absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-${token}/40`), `edge base colour uses ${token}`)
+    assert.ok(calc.includes('group-data-[active]/tab:inset-y-0'), 'the active tab changes shape, not only colour (1.4.1)')
     assert.ok(calc.includes(`group-data-[active]/tab:bg-${token}`), `edge active colour uses ${token}`)
   }
   assert.doesNotMatch(calc, /-soft\d/, 'no token name was truncated while renaming')
