@@ -160,10 +160,11 @@ function ResultRow({ label, value, strong = false }: { label: string; value: str
   )
 }
 
-function LineResult({ title, result, phaseLabel }: {
+function LineResult({ title, result, phaseLabel, elements }: {
   title: string
   result: ReturnType<typeof sizeLine>
   phaseLabel: string
+  elements?: { element: string; detail: string }[]
 }) {
   return (
     <aside className="rounded-2xl bg-panel p-6 text-panel-foreground shadow-xl">
@@ -183,6 +184,27 @@ function LineResult({ title, result, phaseLabel }: {
         <ResultRow label="Caída resultante" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
       </div>
+      {elements && elements.length > 0 && (
+        <div className="mt-5 border-t border-panel-line pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-panel-muted">
+                <th className="pb-1.5 font-medium">Element de la Instalación</th>
+                <th className="pb-1.5 font-medium">Especificación Tècnica y Dimensionado Final</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-panel-line">
+              {elements.map(item => (
+                <tr key={item.element}>
+                  <td className="py-1.5 pr-2 align-top text-panel-foreground">{item.element}</td>
+                  <td className="py-1.5 align-top tabular-nums text-panel-foreground">{item.detail}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       {result.problems.length > 0 && (
         <div role="status" aria-live="polite" className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
           <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-3.5" /> Revisá estos puntos</p>
@@ -373,7 +395,12 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio); intensidad admisible según UNE 20.460-5-523 con los factores de corrección del montaje. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" />
+      <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" elements={[
+        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(state.peSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Tubo Protector Incubat', detail: `${fmt(state.tubeDiameter)} mm Diàmetre exterior mínimo` },
+      ]} />
     </div>
   )
 }
@@ -418,7 +445,12 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando; intensidad admisible según ITC-BT-19. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" />
+      <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" elements={[
+        { element: "Conductors d'Alimentació (Fase + Neutre)", detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor de Protecció (Terra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (Tipus ES07Z1-K, verd-i-groc)` },
+        { element: 'Fil de Comandament (Tarifació)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (Tipus ES07Z1-K, color vermell)` },
+        { element: 'Canalització i Tub Protector', detail: `Tub protector encastat de diàmetre exterior Ø ${fmt(state.tubeDiameter)} mm` },
+      ]} />
     </div>
   )
 }
