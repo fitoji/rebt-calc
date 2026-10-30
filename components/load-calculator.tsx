@@ -686,7 +686,7 @@ export function LoadCalculator() {
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
-        <div className="mb-8 max-w-3xl"><p className="mb-2 text-sm font-semibold text-brand">Herramienta de ingeniería</p><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Calcula la previsión de cargas de tu edificio</h2><p className="mt-3 text-base leading-7 text-ink-subtle">Introduce los datos del proyecto y obtén el desglose de potencia conforme a las tablas y criterios de la hoja de cálculo original.</p></div>
+        <div className="mb-8 max-w-3xl"><p className="mb-2 text-sm font-semibold text-brand">Herramienta de ingeniería</p><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">De la previsión de cargas a cada derivación</h2><p className="mt-3 text-base leading-7 text-ink-subtle">Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda, local, garaje o servicios generales.</p></div>
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-3xl">
             <div className="mb-6 flex items-start justify-between gap-4"><div><DialogTitle id="settings-title" className="text-xl font-bold text-ink">Parámetros de cálculo</DialogTitle><DialogDescription id="settings-description" className="mt-1 text-sm text-ink-faint">Ajusta los valores utilizados en las previsiones. Los cambios se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar parámetros de cálculo" />}><X /></DialogClose></div>
@@ -961,8 +961,7 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <p className="mb-2 text-sm font-semibold text-ink">{selectedDerivation ? `Editando: ${selectedDerivation.label}` : 'Derivación individual'}</p>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />

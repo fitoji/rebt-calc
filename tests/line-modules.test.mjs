@@ -78,3 +78,10 @@ test('the table viewer shows the reference source instead of an unattributed lis
   assert.ok(modules.includes('SOIL_RESISTIVITY'), 'soil resistivity shown')
   assert.ok(modules.includes('LAYER_FACTORS'), 'layer factor shown')
 })
+
+test('the selected derivation label lives inside the DI card header', () => {
+  assert.ok(modules.includes('editingLabel?: string'), 'DiPanel accepts the selected label')
+  assert.ok(modules.includes('Editando: {editingLabel}'), 'the label renders as a chip inside the card')
+  assert.ok(calc.includes('editingLabel={selectedDerivation?.label}'), 'the calculator forwards the selected derivation')
+  assert.doesNotMatch(calc, /<p className="mb-2 text-sm font-semibold text-ink">\{selectedDerivation/, 'the old label outside the card is gone')
+})

@@ -389,7 +389,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase' }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase', editingLabel }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -398,6 +398,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   onInstallationTypeChange: (type: InstallationType) => void
   explanationMode?: ExplanationMode
   system?: 'single-phase' | 'three-phase'
+  editingLabel?: string
 }) {
   const result = useMemo(() => computeLine(state, system), [state, system])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di' }), [state, result, system])
@@ -411,7 +412,12 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
     <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
       <section className="min-w-0 rounded-2xl border border-line bg-paper p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivación Individual</h3>
+          <div className="min-w-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivación Individual</h3>
+              {editingLabel && <span className="max-w-full truncate rounded-full bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
+            </div>
+          </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
