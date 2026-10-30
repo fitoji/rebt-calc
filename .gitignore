@@ -21,3 +21,8 @@ mcp-excel-server/node_modules/
 public/icons8-electricity-sci-fi/
 # Local AI runtime state
 .atl/
+.agents/
+skills-lock.json
+
+# Reference material kept on disk only (excluded from tsconfig)
+conversion-de-planilla-a-web/
