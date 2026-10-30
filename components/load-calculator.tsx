@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
-import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
+import { Check, Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
 import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
@@ -728,7 +728,7 @@ export function LoadCalculator() {
                 <SettingInput label="Conversión de CV" value={settings.cvToWatts} suffix="W/CV" step="0.1" onChange={value => updateSetting('cvToWatts', value)} />
               </div></section>
             </div>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"><Button type="button" variant="link" className="px-0 text-sm font-semibold text-brand underline-offset-4 hover:underline" onClick={() => setSettings(defaultSettings)}>Restaurar valores predeterminados</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:min-w-28" onClick={() => setShowSettings(false)}>Listo</Button></div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"><Button type="button" variant="link" className="gap-2 px-0 text-sm font-semibold text-brand underline-offset-4 hover:underline" onClick={() => setSettings(defaultSettings)}><RotateCcw data-icon="inline-start" /> Restaurar valores predeterminados</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:min-w-28" onClick={() => setShowSettings(false)}>Listo</Button></div>
           </DialogContent>
         </Dialog>
         <Dialog open={showProjectInfo} onOpenChange={setShowProjectInfo}>
@@ -740,9 +740,9 @@ export function LoadCalculator() {
               <label><span className="label">Teléfono</span><Input className="w-full" value={projectInfo.phone} onChange={event => updateProjectInfo('phone', event.target.value)} placeholder="+34 900 000 000" /></label>
               <label><span className="label">Correo electrónico</span><Input className="w-full" type="email" value={projectInfo.email} onChange={event => updateProjectInfo('email', event.target.value)} placeholder="contacto@empresa.es" /></label>
               <label><span className="label">Dirección de obra</span><Input className="w-full" value={projectInfo.workAddress} onChange={event => updateProjectInfo('workAddress', event.target.value)} placeholder="Emplazamiento del proyecto" /></label>
-              <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-line object-contain p-1" /><Button type="button" variant="link" className="px-0 text-sm font-semibold text-danger" onClick={() => updateProjectInfo('logo', '')}>Quitar logo</Button></div>}</label>
+              <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-line object-contain p-1" /><Button type="button" variant="link" className="gap-2 px-0 text-sm font-semibold text-danger" onClick={() => updateProjectInfo('logo', '')}><Trash2 data-icon="inline-start" /> Quitar logo</Button></div>}</label>
             </div>
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Guardar datos</Button></div>
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}><Check data-icon="inline-start" /> Guardar datos</Button></div>
           </DialogContent>
         </Dialog>
         <Dialog open={showSimultaneityTable} onOpenChange={setShowSimultaneityTable}>

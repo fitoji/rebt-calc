@@ -211,7 +211,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
       )}
       {result.problems.length > 0 && (
         <div role="status" aria-live="polite" className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
-          <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-3.5" /> Revisá estos puntos</p>
+          <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-4" aria-hidden="true" /> Revisá estos puntos</p>
           <ul className="list-disc space-y-1 pl-4">
             {result.problems.map(problem => <li key={problem}>{problem}</li>)}
           </ul>
