@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { BOE_ITC_BT_52, BOE_REBT } from '@/components/source-note'
 import { SiteFooter } from '@/components/site-footer'
@@ -132,7 +133,8 @@ export function HelpDoc() {
     <>
       <a href="#contenido" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-paper focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink focus:shadow-lg">Saltar al contenido</a>
       <SiteHeader>
-        <Link href="/" className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-brand-mark hover:text-brand">
+        <Link href="/" className="group inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-ink transition-colors hover:border-brand-mark hover:text-brand">
+          <ArrowLeft aria-hidden="true" className="size-4 transition-transform motion-safe:group-hover:-translate-x-0.5" />
           Volver a la calculadora
         </Link>
       </SiteHeader>
@@ -522,7 +524,7 @@ export function HelpDoc() {
           </div>
 
           <div className="mt-14 border-t border-line pt-6">
-            <Link href="/" className={LINK}>Volver a la calculadora</Link>
+            <Link href="/" className={`group inline-flex items-center gap-2 ${LINK}`}><ArrowLeft aria-hidden="true" className="size-4 transition-transform motion-safe:group-hover:-translate-x-0.5" />Volver a la calculadora</Link>
           </div>
         </div>
       </main>
