@@ -13,6 +13,7 @@ import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats
 import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
 import { explainLineCalculation, explainLoadForecast } from '../lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
+import { SiteHeader } from '@/components/site-header'
 import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
 import { EXPLANATION_MODE_STORAGE_KEY, explanationModeLabel, resolveExplanationMode } from '../lib/explanation-mode.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
@@ -679,12 +680,9 @@ export function LoadCalculator() {
 
   return (
     <main className="min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
-      <header className="border-b border-line bg-paper">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
-          <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-panel ring-1 ring-panel-edge"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
-          <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button></div>
-        </div>
-      </header>
+      <SiteHeader titleAs="h1">
+        <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button></div>
+      </SiteHeader>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <div className="mb-8 max-w-3xl"><p className="mb-2 text-sm font-semibold text-brand">Herramienta de ingeniería</p><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">De la previsión de cargas a cada derivación</h2><p className="mt-3 text-base leading-7 text-ink-subtle">Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda, local, garaje o servicios generales.</p></div>
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
