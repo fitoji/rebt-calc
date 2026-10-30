@@ -24,6 +24,7 @@ import {
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
+import { lineInputFromState } from '@/lib/line-state.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
@@ -311,41 +312,12 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables }: {
   )
 }
 
-function groupingFor(state: LineState) {
-  if (state.installation === 'buried') {
-    return state.tubes > 1
-      ? { kind: 'tubes-buried' as const, tubes: state.tubes, layers: state.layers }
-      : { kind: 'buried-cables' as const, cables: Math.max(2, state.circuits), spacing: 0 }
-  }
-  if (state.layout === 'tubes-air') {
-    return { kind: 'tubes-air' as const, tubes: state.tubes, layers: state.layers }
-  }
-  return { layout: state.layout, circuits: state.circuits, layers: state.layers }
-}
-
 /**
  * Sizing result for a line module. Shared by the panels, the JSON export and
  * the PDF so all three report the same numbers.
  */
 export function computeLine(state: LineState, system: 'three-phase' | 'single-phase') {
-  return sizeLine({
-    system,
-    powerW: state.powerW,
-    voltageV: state.voltageV,
-    cosPhi: state.cosPhi,
-    lengthM: state.lengthM,
-    maxDropPercent: state.maxDropPercent,
-    gamma: state.gamma,
-    variant: {
-      method: state.method,
-      loadedConductors: system === 'three-phase' ? 3 : 2,
-      insulation: state.insulation,
-    },
-    installation: state.installation,
-    grouping: groupingFor(state),
-    circuits: state.circuits,
-    protectionA: state.protectionA > 0 ? state.protectionA : null,
-  })
+  return sizeLine(lineInputFromState(state, system))
 }
 
 function formatLimit(value: number) { return `${value.toString().replace('.', ',')} %` }
@@ -365,7 +337,7 @@ function InstallationField({ value, onChange, limit, configured }: { value: Inst
   </div>
 }
 
-export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation' }: {
+export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', powerMode = 'auto', onPowerModeChange, loadTotal = 0 }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -373,6 +345,9 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   installationType: InstallationType
   onInstallationTypeChange: (type: InstallationType) => void
   explanationMode?: ExplanationMode
+  powerMode?: 'auto' | 'manual'
+  onPowerModeChange?: (mode: 'auto' | 'manual') => void
+  loadTotal?: number
 }) {
   const result = useMemo(() => computeLine(state, 'three-phase'), [state])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga' }), [state, result])
@@ -380,16 +355,17 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
 
   return (
     <>
-    <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl border border-line border-l-4 border-l-tab-lga bg-paper p-5 shadow-sm">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
+      <section className="min-w-0 rounded-2xl border border-line bg-paper p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="font-bold">Línea General de Alimentación</h3>
+          <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-lga" />Línea General de Alimentación</h3>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
         <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${fmt(loadTotal)} W` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
@@ -413,7 +389,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation' }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -421,9 +397,10 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   installationType: InstallationType
   onInstallationTypeChange: (type: InstallationType) => void
   explanationMode?: ExplanationMode
+  system?: 'single-phase' | 'three-phase'
 }) {
-  const result = useMemo(() => computeLine(state, 'single-phase'), [state])
-  const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'single-phase', line: 'di' }), [state, result])
+  const result = useMemo(() => computeLine(state, system), [state, system])
+  const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di' }), [state, result, system])
   const limits = limitsForInstallation(installationType)
 
   const phase = result.finalSection
@@ -431,19 +408,19 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
 
   return (
     <>
-    <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl border border-line border-l-4 border-l-tab-di bg-paper p-5 shadow-sm">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
+      <section className="min-w-0 rounded-2xl border border-line bg-paper p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="font-bold">Derivación Individual</h3>
+          <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivación Individual</h3>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
-        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.</span></p>
+        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
-          <NumberField id="di-voltage" label="Tensión fase-neutro" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
+          <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="di-cosphi" label="Factor de potencia (cos φ)" value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />

@@ -25,11 +25,11 @@ const fmt = (value: number, digits = 0) =>
 
 export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
   return (
-    <section className="mt-6 rounded-2xl border border-line bg-paper p-5 shadow-sm" aria-label="Desarrollo del cálculo">
+    <section className="mt-6 border-t border-line pt-5" aria-label="Desarrollo del cálculo">
       <h3 className="mb-4 text-sm font-bold text-ink-soft">Desarrollo del cálculo</h3>
       <div className="flex flex-col gap-4">
         {steps.map(step => (
-          <article key={step.id} className="rounded-xl border border-line bg-surface-muted p-4">
+          <article key={step.id} className="border-b border-line py-4 last:border-b-0">
             <h4 className="mb-2 text-sm font-semibold text-ink">{step.title}</h4>
             {step.kind === 'table' && (
               <dl className="grid gap-1.5 text-sm sm:grid-cols-2">

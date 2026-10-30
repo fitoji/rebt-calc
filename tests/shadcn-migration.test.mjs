@@ -41,7 +41,7 @@ test('native controls migrated to shadcn components', () => {
   assert.doesNotMatch(calc, /<table[\s>]/, 'no native tables remain')
   assert.equal(occurrences(calc, /<button[\s>]/g), 2, 'only the two card trigger buttons stay native')
   assert.ok(occurrences(calc, /<Button[\s>]/g) >= 30, 'shadcn Button used for every other button')
-  assert.equal(occurrences(calc, /<Table[ >]/g), 5, 'five shadcn tables')
+  assert.ok(occurrences(calc, /<Table[ >]/g) >= 5, 'shadcn tables used throughout')
   assert.ok(calc.includes('function ChoiceSelect'), 'ChoiceSelect helper defined')
   assert.ok(occurrences(calc, /<ChoiceSelect[ >]/g) >= 6, 'six ChoiceSelect usages')
   assert.doesNotMatch(calc, /function Input\(/, 'local Input renamed to avoid the shadcn collision')

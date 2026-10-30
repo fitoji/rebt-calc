@@ -84,4 +84,6 @@ test('the PDF report carries the same explanation steps', () => {
   assert.ok(calc.includes('addExplanationPage('), 'the PDF has an explanation page helper')
   assert.ok(calc.includes("'6.1 Desarrollo del cálculo · LGA'"), 'LGA explanation page is added')
   assert.ok(calc.includes("'7.1 Desarrollo del cálculo · DI'"), 'DI explanation page is added')
+  assert.ok(calc.includes("'8. Derivaciones individuales · resumen'"), 'DI schedule page is added')
+  assert.ok(calc.includes('derivations: project.derivations'), 'JSON carries the project derivations')
 })

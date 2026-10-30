@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
+import { METHODS } from '../lib/cable-tables.mjs'
 import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
@@ -26,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
+import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
 
 type ProjectInfo = {
@@ -55,6 +57,9 @@ type MotorRow = { name: string; power: number; unit: 'W' | 'CV' }
 type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
 type LightingRow = { id: LightingId; area: number; lamp: 'Incandescencia' | 'Fluorescencia/LED'; power: number }
+type DerivationKind = 'dwelling' | 'local' | 'common-services' | 'garage' | 'irve' | 'custom'
+type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase' }
+const DERIVATION_LABELS: Record<DerivationKind, string> = { dwelling: 'Vivienda', local: 'Local', 'common-services': 'Servicios generales', garage: 'Garaje', irve: 'IRVE', custom: 'Manual' }
 type PdfExplanationStep = {
   id: string
   title: string
@@ -173,8 +178,12 @@ export function LoadCalculator() {
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
+  const [derivations, setDerivations] = useState<Derivation[]>([])
+  const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null)
+  const [lgaPowerMode, setLgaPowerMode] = useState<'auto' | 'manual'>('auto')
   const openLineTables = (tables?: TableKey[]) => { setLineTableFocus(tables ?? null); setShowLineTables(true) }
-  const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); setLga(current => ({ ...current, ...patch })) }
+  const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); if ('powerW' in patch) setLgaPowerMode('manual'); setLga(current => ({ ...current, ...patch })) }
+  const changeLgaPowerMode = (mode: 'auto' | 'manual') => { setLgaPowerMode(mode); setLineTouched(true) }
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
   const changeInstallationType = (type: InstallationType) => {
     const limits = limitsForInstallation(type)
@@ -182,6 +191,7 @@ export function LoadCalculator() {
     setLineTouched(true)
     if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
     setDi(current => ({ ...current, maxDropPercent: limits.di }))
+    setDerivations(current => current.map(derivation => ({ ...derivation, maxDropPercent: limits.di })))
     if (limits.lga == null) setActiveTab(current => current === 'lga' ? 'di' : current)
   }
   const toggleTheme = () => {
@@ -237,7 +247,9 @@ export function LoadCalculator() {
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
         if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
+        if (savedInputs.lgaPowerMode) setLgaPowerMode(savedInputs.lgaPowerMode)
         if (savedInputs.di) { setDi(savedInputs.di as LineState); setLineTouched(true) }
+        if (savedInputs.derivations) { setDerivations(savedInputs.derivations as Derivation[]); setSelectedDerivationId((savedInputs.derivations as Derivation[])[0]?.id ?? null) }
       }
     } catch { /* Local storage may be unavailable in private browsing. */ }
 
@@ -264,10 +276,12 @@ export function LoadCalculator() {
       saveCalculatorInputs(window.localStorage, {
         housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption,
         lga: lineTouched ? lga : null,
+        lgaPowerMode,
         di: lineTouched ? di : null,
+        derivations: derivations.length > 0 ? derivations : undefined,
       })
     } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, di, lineTouched])
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -328,7 +342,40 @@ export function LoadCalculator() {
     [housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, result, settings],
   )
 
-  const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 3680, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1) }
+  const project = useMemo(
+    () => calculateProject({ loadTotal: result.total, lga, lgaPowerMode, derivations }),
+    [result.total, lga, lgaPowerMode, derivations],
+  )
+  const calculatedDerivations = project.derivations as Array<Derivation & { result: ReturnType<typeof computeLine> }>
+
+  useEffect(() => {
+    if (lgaPowerMode !== 'auto') return
+    setLga(current => current.powerW === result.total ? current : { ...current, powerW: result.total })
+  }, [result.total, lgaPowerMode])
+
+  const generateDerivations = () => {
+    const next = buildDerivations({ housing, locals, garages, parking, irveOption }, result, di) as Derivation[]
+    setDerivations(next)
+    setSelectedDerivationId(next[0]?.id ?? null)
+  }
+
+  const updateDerivation = (id: string, patch: Partial<Derivation>) => {
+    setDerivations(current => current.map(derivation => derivation.id === id ? { ...derivation, ...patch } : derivation))
+  }
+
+  const selectedDerivation = derivations.find(derivation => derivation.id === selectedDerivationId) ?? null
+  const selectedState = selectedDerivation ?? di
+  const selectedSystem = selectedDerivation?.system ?? 'single-phase'
+  const updateSelectedDerivation = (patch: Partial<LineState>) => {
+    if (selectedDerivation) updateDerivation(selectedDerivation.id, patch)
+    else updateDi(patch)
+  }
+
+  useEffect(() => {
+    setDerivations(current => syncDerivationPowers(current, { housing, locals, garages, parking, irveOption }, result))
+  }, [housing, locals, garages, parking, irveOption, result])
+
+  const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 3680, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1); setDerivations([]); setLgaPowerMode('auto') }
   const clear = () => {
     try { clearProjectData(window.localStorage) } catch { /* In-memory reset still applies when storage is unavailable. */ }
     setHousing([])
@@ -341,6 +388,8 @@ export function LoadCalculator() {
     setInstallationType('centralized')
     setParking(0)
     setIrveOption(1)
+    setDerivations([])
+    setLgaPowerMode('auto')
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   }
 
@@ -462,12 +511,17 @@ export function LoadCalculator() {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, di },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, lgaPowerMode, di, derivations },
       settings,
       calculations: result,
       lines: {
         lga: { inputs: lga, result: lgaResult },
         di: { inputs: di, result: diResult },
+      },
+      project: {
+        lga: project.lga,
+        derivations: project.derivations,
+        summary: project.summary,
       },
     }
     downloadFile('json', 'application/json;charset=utf-8', JSON.stringify(exportData, null, 2))
@@ -614,6 +668,7 @@ export function LoadCalculator() {
       ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
     addExplanationPage('7.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
+    addDetailPage('8. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${fmt(derivation.powerW)} W`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
@@ -716,7 +771,7 @@ export function LoadCalculator() {
                   </dl>
                 </article>)}
               </div>
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden min-w-0 overflow-x-auto md:block">
                 <Table className="w-full text-left text-sm">
                   <TableHeader>
                     <TableRow className="border-b border-line bg-surface-muted text-xs uppercase tracking-wide text-ink-faint">
@@ -753,10 +808,10 @@ export function LoadCalculator() {
             <TabsTrigger value="di" className="group/tab h-auto flex-none whitespace-nowrap rounded-lg px-3 py-2 text-center text-xs font-semibold data-active:bg-tab-di-soft sm:px-4 sm:text-sm data-active:text-tab-di-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-tab-di/40 transition-colors group-data-[active]/tab:bg-tab-di" />DI</TabsTrigger>
           </TabsList>
           <TabsContent value="cargas">
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <div className="flex flex-col gap-6">
-            <section className="rounded-2xl border border-line border-l-4 border-l-brand-mark bg-paper p-5 shadow-sm">
-              <SectionTitle number="01" title="Viviendas" subtitle="Añade cada vivienda y selecciona su grado de electrificación" />
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
+              <SectionTitle title="Viviendas" subtitle="Añade cada vivienda y selecciona su grado de electrificación" />
               <div className="grid gap-3 md:hidden">
                 {housing.map((row, i) => <article key={`mobile-${i}`} className="rounded-xl border border-line bg-paper p-4">
                   <div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold">Vivienda {i + 1}</h4><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></Button></div>
@@ -768,7 +823,7 @@ export function LoadCalculator() {
                   </div>
                 </article>)}
               </div>
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden min-w-0 overflow-x-auto md:block">
                 <Table className="w-full min-w-[620px] text-left text-sm">
                   <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="pb-3">Vivienda</TableHead><TableHead scope="col" className="pb-3">Electrificación</TableHead><TableHead scope="col" className="pb-3">Potencia (W)</TableHead><TableHead scope="col" className="pb-3">Viviendas (uds.)</TableHead><TableHead scope="col" className="pb-3 text-right">Subtotal (W)</TableHead><TableHead scope="col" className="pb-3" /></TableRow></TableHeader>
                   <TableBody>{housing.map((row, i) => <TableRow key={i} className="border-b border-line-soft">
@@ -789,10 +844,10 @@ export function LoadCalculator() {
             </div></div>
             {settings.showSourceNotes && <SourceNote label="ITC-BT-10 §2.2 y §3.1">ITC-BT-10 §2.2 (5.750 W en electrificación básica y 9.200 W en elevada) y §3.1, que aplica la tabla 1 de coeficientes de simultaneidad sobre la potencia media por vivienda. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
             </section>
-            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm border-l-4 border-l-brand-mark"><SectionTitle number="02" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e as ElevatorRow['ita'] } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {fmt(result.motorIncrement)} W. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm border-l-4 border-l-brand-mark"><SectionTitle number="03" title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (W) · ${row.name}`} className="w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm border-l-4 border-l-brand-mark"><SectionTitle number="04" title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm border-l-4 border-l-brand-mark"><SectionTitle number="05" title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
+            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: 0, unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: e as ElevatorRow['ita'] } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {fmt(result.motorIncrement)} W. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (W) · ${row.name}`} className="w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
           <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-panel text-panel-foreground shadow-xl"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-panel-muted">W</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{fmt(result.total)} W</span></div></div></div>
             <button type="button" className="flex w-full items-center gap-4 rounded-2xl border border-line bg-paper p-5 text-left shadow-sm transition-colors hover:border-brand-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-brand-soft/40" onClick={() => setShowSettings(true)}>
@@ -847,10 +902,67 @@ export function LoadCalculator() {
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga">
-            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} />
+            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} />
           </TabsContent>
           <TabsContent value="di">
-            <DiPanel state={di} onChange={updateDi} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} />
+            <section className="mb-6 rounded-2xl border border-line bg-paper p-5 shadow-sm">
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivaciones del proyecto</h3>
+                  <p className="mt-1 text-sm text-ink-faint">Una DI por consumidor. Se generan desde la previsión y se dimensionan con su propia potencia.</p>
+                </div>
+                <Button type="button" variant="outline" className="h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={generateDerivations}><Plus data-icon="inline-start" /> Generar desde previsión</Button>
+              </div>
+              {calculatedDerivations.length === 0 ? (
+                <p className="py-4 text-sm text-ink-faint">Todavía no hay derivaciones. Generarlas desde la previsión para ver la lista.</p>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <Table className="text-xs">
+                      <TableHeader>
+                        <TableRow className="border-b border-line text-left text-ink-faint">
+                          <TableHead className="pb-2">Tipo</TableHead>
+                          <TableHead className="pb-2">Elemento</TableHead>
+                          <TableHead className="pb-2">Sistema</TableHead>
+                          <TableHead className="pb-2 text-right">Potencia</TableHead>
+                          <TableHead className="pb-2">Longitud</TableHead>
+                          <TableHead className="pb-2">Método</TableHead>
+                          <TableHead className="pb-2">Protección</TableHead>
+                          <TableHead className="pb-2 text-right">Sección</TableHead>
+                          <TableHead className="pb-2 text-right">Caída</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {calculatedDerivations.map(derivation => (
+                          <TableRow key={derivation.id} className={`cursor-pointer border-b border-line-soft ${selectedDerivationId === derivation.id ? 'bg-brand-soft' : ''}`} onClick={() => setSelectedDerivationId(derivation.id)}>
+                            <TableCell className="py-2">{DERIVATION_LABELS[derivation.kind]}</TableCell>
+                            <TableCell className="py-2 font-medium"><Button type="button" variant="link" aria-pressed={selectedDerivationId === derivation.id} className="h-auto whitespace-normal p-0 text-left font-medium text-ink underline-offset-4 hover:underline" onClick={() => setSelectedDerivationId(derivation.id)}>{derivation.label}</Button></TableCell>
+                            <TableCell className="py-2">{derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica'}</TableCell>
+                            <TableCell className="py-2 text-right tabular-nums">{fmt(derivation.powerW)} W</TableCell>
+                            <TableCell className="py-2"><Input aria-label={`Longitud · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.lengthM} onChange={event => updateDerivation(derivation.id, { lengthM: Math.max(0, Number(event.target.value)) })} /></TableCell>
+                            <TableCell className="py-2"><ChoiceSelect label={`Método · ${derivation.label}`} value={derivation.method} onChange={value => updateDerivation(derivation.id, { method: value as LineState['method'] })} items={[...METHODS]} /></TableCell>
+                            <TableCell className="py-2"><Input aria-label={`Protección · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.protectionA || ''} onChange={event => updateDerivation(derivation.id, { protectionA: Math.max(0, Number(event.target.value)) })} /></TableCell>
+                            <TableCell className="py-2 text-right tabular-nums">{derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`}</TableCell>
+                            <TableCell className="py-2 text-right tabular-nums">{derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <p className="mt-3 text-xs text-ink-faint">{project.summary.derivationCount} derivaciones · {fmt(project.summary.derivationPower)} W instalados. La LGA se calcula aparte con la simultaneidad del edificio.</p>
+                  {project.summary.warnings.length > 0 && (
+                    <div role="status" aria-live="polite" className="mt-3 rounded-lg bg-warning-soft p-3 text-xs leading-5 text-warning-ink">
+                      <p className="mb-1 font-semibold">Revisá estos puntos</p>
+                      <ul className="list-disc space-y-1 pl-4">
+                        {project.summary.warnings.map(warning => <li key={warning}>{warning}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+            <p className="mb-2 text-sm font-semibold text-ink">{selectedDerivation ? `Editando: ${selectedDerivation.label}` : 'Derivación individual'}</p>
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
@@ -870,7 +982,7 @@ export function LoadCalculator() {
   )
 }
 
-function SectionTitle({ number, title, subtitle }: { number: string; title: string; subtitle: string }) { return <div className="mb-5"><span className="block text-xs font-bold tracking-wide text-brand-strong">{number}</span><h3 className="mt-1 font-bold">{title}</h3><p className="mt-1 text-sm text-ink-faint">{subtitle}</p></div> }
+function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) { return <div className="mb-5"><h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-sm bg-brand-mark" />{title}</h3><p className="mt-1 text-sm text-ink-faint">{subtitle}</p></div> }
 function Metric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) { return <div className={`rounded-xl p-3 ${accent ? 'bg-brand-soft' : 'bg-surface-muted'}`}><p className="text-xs text-ink-faint">{label}</p><p className={`mt-1 font-bold tabular-nums ${accent ? 'text-brand' : ''}`}>{value}</p></div> }
 function DownloadOption({ label, hint, icon: Icon, onClick }: { label: string; hint: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void }) { return <Button type="button" variant="outline" className="h-auto w-full justify-start gap-3 rounded-xl px-4 py-3 text-left font-semibold" onClick={onClick}><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4" /></span><span className="flex min-w-0 flex-col items-start"><span>{label}</span><span className="text-xs font-normal text-ink-faint">{hint}</span></span></Button> }
 function ChoiceSelect({ id, className, value, onChange, items, label }: { id?: string; className?: string; value: string; onChange: (value: string) => void; items: string[]; label?: string }) { return <Select value={value} onValueChange={next => onChange(next == null ? value : String(next))}><SelectTrigger id={id} aria-label={label} className={className}><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{items.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent></Select> }
@@ -906,7 +1018,7 @@ function EditableTable({ headers, rows }: { headers: string[]; rows: React.React
         </div>
       </article>)}
     </div>
-    <div className="hidden overflow-x-auto md:block">
+    <div className="hidden min-w-0 overflow-x-auto md:block">
       <Table className="w-full min-w-[580px] text-left text-sm">
         <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">{headers.map((header, index) => <TableHead scope="col" key={`${header}-${index}`} className="pb-3">{header}</TableHead>)}</TableRow></TableHeader>
         <TableBody>{rows.map((row, rowIndex) => <TableRow key={rowIndex} className="border-b border-line-soft">{row.map((cell, columnIndex) => <TableCell key={columnIndex} className="py-3">{cell}</TableCell>)}</TableRow>)}</TableBody>

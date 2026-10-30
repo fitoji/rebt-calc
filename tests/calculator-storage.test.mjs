@@ -39,13 +39,39 @@ const sampleInputs = {
   irveOption: 2,
 }
 
+const sampleDerivation = {
+  id: 'dwelling-0-0',
+  kind: 'dwelling',
+  label: 'Vivienda 1',
+  sourceKey: 'housing:0',
+  system: 'single-phase',
+  powerW: 5750,
+  voltageV: 230,
+  cosPhi: 1,
+  lengthM: 20,
+  maxDropPercent: 1,
+  gamma: 48.5,
+  method: 'B1',
+  insulation: 'PVC',
+  circuits: 1,
+  protectionA: 0,
+  neutralSection: 16,
+  peSection: 16,
+  controlSection: 1.5,
+  tubeDiameter: 40,
+  installation: 'air',
+  layout: 'embedded',
+  layers: 1,
+  tubes: 1,
+}
+
 test('persists calculator inputs using a versioned snapshot', () => {
   const storage = createMemoryStorage()
 
   saveCalculatorInputs(storage, sampleInputs)
 
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 1)
+  assert.equal(snapshot.version, 2)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
 })
 
@@ -102,7 +128,7 @@ test('clears project inputs and technical data while preserving calculation sett
 
 test('ignores unsupported or malformed calculator snapshots', () => {
   const storage = createMemoryStorage({
-    [CALCULATOR_INPUTS_STORAGE_KEY]: '{"version":2}',
+    [CALCULATOR_INPUTS_STORAGE_KEY]: '{"version":99}',
   })
   assert.equal(loadCalculatorInputs(storage), null)
 
@@ -127,4 +153,52 @@ test('persists and restores the enlace scenario', () => {
   const loaded = loadCalculatorInputs(storage)
   assert.notEqual(loaded, null, 'an unknown scenario does not discard the project')
   assert.equal(loaded.installationType, undefined, 'it falls back to the calculator default')
+})
+
+test('persists the derivation list in a v2 snapshot', () => {
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [sampleDerivation] })
+  const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
+  assert.equal(snapshot.version, 2)
+  assert.deepEqual(snapshot.derivations, [sampleDerivation])
+  assert.deepEqual(loadCalculatorInputs(storage).derivations, [sampleDerivation])
+})
+
+test('migrates a v1 single DI into a derivation seed', () => {
+  const { id, kind, label, sourceKey, system, ...di } = sampleDerivation
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 1, ...sampleInputs, di }),
+  })
+
+  const loaded = loadCalculatorInputs(storage)
+  assert.equal(loaded.di.powerW, 5750, 'the legacy single DI still loads')
+  assert.equal(loaded.derivations.length, 1, 'the legacy DI becomes a derivation seed')
+  assert.equal(loaded.derivations[0].id, 'legacy-di')
+  assert.equal(loaded.derivations[0].kind, 'custom')
+  assert.equal(loaded.derivations[0].system, 'single-phase')
+})
+
+test('ignores invalid derivations instead of discarding the project', () => {
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+      version: 2,
+      ...sampleInputs,
+      derivations: [{ ...sampleDerivation, system: 'invented' }],
+    }),
+  })
+
+  const loaded = loadCalculatorInputs(storage)
+  assert.equal(loaded.derivations, undefined, 'invalid derivations are ignored')
+  assert.deepEqual(loaded.housing, sampleInputs.housing, 'the rest of the project survives')
+})
+
+test('persists the LGA power mode', () => {
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, lgaPowerMode: 'manual' })
+  assert.equal(loadCalculatorInputs(storage).lgaPowerMode, 'manual')
+
+  saveCalculatorInputs(storage, { ...sampleInputs, lgaPowerMode: 'auto' })
+  assert.equal(loadCalculatorInputs(storage).lgaPowerMode, 'auto')
 })

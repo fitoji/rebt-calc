@@ -9,6 +9,8 @@ const read = p => readFileSync(path.join(root, p), 'utf8')
 
 const globals = read('app/globals.css')
 const calc = read('components/load-calculator.tsx')
+const modules = read('components/line-modules.tsx')
+const tabs = read('components/ui/tabs.tsx')
 
 const sourceFiles = ['app', 'components', 'lib']
   .flatMap(dir => readdirSync(path.join(root, dir), { recursive: true })
@@ -18,7 +20,12 @@ const allSource = sourceFiles.map(read).join('\n')
 
 test('mobile tables keep desktop tables and never trap overflowing content', () => {
   assert.ok(calc.includes('grid gap-3 md:hidden'), 'mobile card layouts present')
-  assert.ok(calc.includes('hidden overflow-x-auto md:block'), 'desktop tables kept for md and up')
+  assert.match(calc, /hidden(?: min-w-0)? overflow-x-auto md:block/, 'desktop tables kept for md and up')
+  assert.ok(calc.includes('flex min-w-0 flex-col gap-6'), 'the cargas column can shrink inside the grid')
+  assert.ok(calc.includes('grid min-w-0 gap-6'), 'the grid track can shrink instead of widening the tab')
+  assert.ok(modules.includes('grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]'), 'LGA and DI use the same shrinkable grid')
+  assert.ok(modules.includes('min-w-0 rounded-2xl border border-line bg-paper'), 'LGA and DI cards can shrink with the grid')
+  assert.ok(tabs.includes('min-w-0 flex-1 text-sm outline-none'), 'TabsContent itself can shrink')
   assert.match(globals, /html\s*{\s*overflow-x: clip;/, 'the root clips decorative bleed')
   assert.ok(calc.includes('min-w-[620px]'), 'housing desktop min-width preserved')
   assert.ok(calc.includes('min-w-[580px]'), 'editable desktop min-width preserved')
@@ -55,11 +62,11 @@ test('numeric readouts use tabular figures while form fields stay out of scope',
   assert.doesNotMatch(globals, /\.field\s*\{[^}]*tabular-nums/, 'form fields deliberately out of scope')
 })
 
-test('section numbers read as eyebrows and housing metrics live inside the card', () => {
-  assert.ok(calc.includes('block text-xs font-bold tracking-wide text-brand-strong'), 'number renders as eyebrow')
-  assert.doesNotMatch(calc, /mb-5 flex gap-3/, 'left-of-heading number tag removed')
-  const firstSectionTitle = calc.indexOf('number="01"')
-  assert.ok(firstSectionTitle > 0, 'section 01 present')
+test('section headings use an accent mark instead of eyebrows', () => {
+  assert.doesNotMatch(calc, /number="0[1-5]"/, 'section numbers removed')
+  assert.ok(calc.includes('size-2 rounded-sm bg-brand-mark'), 'accent mark replaces the eyebrow')
+  const firstSectionTitle = calc.indexOf('<SectionTitle title="Viviendas"')
+  assert.ok(firstSectionTitle > 0, 'section title present')
   const section01Close = calc.indexOf('</section>', firstSectionTitle)
   assert.ok(calc.indexOf('<Metric label="Total viviendas"') > 0, 'metrics cluster present')
   assert.ok(calc.indexOf('<Metric label="Total viviendas"') < section01Close, 'metrics cluster inside the Viviendas card')

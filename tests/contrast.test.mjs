@@ -23,7 +23,7 @@ function block(start) {
 
 function rawTokens(source) {
   const tokens = new Map()
-  for (const match of source.matchAll(/--([a-z0-9-]+):\s*(oklch\([^)]*\)|var\(--[a-z0-9-]+\));/g)) {
+  for (const match of source.matchAll(/--([a-z0-9-]+):\s*(oklch\([^)]*\)|var\(--[a-z0-9-]+\)|#[0-9a-fA-F]{3,8});/g)) {
     tokens.set(match[1], match[2])
   }
   return tokens
@@ -33,7 +33,7 @@ function resolve(tokens, name) {
   let value = tokens.get(name)
   assert.ok(value, `--${name} is declared`)
   if (value.startsWith('var(')) value = tokens.get(value.slice(6, -1))
-  assert.ok(value && value.startsWith('oklch('), `--${name} resolves to oklch`)
+  assert.ok(value && (value.startsWith('oklch(') || value.startsWith('#')), `--${name} resolves to a colour`)
   return value
 }
 
@@ -43,7 +43,15 @@ function parseOklch(value) {
   return { l: lightness, c: Number.parseFloat(c), h: Number.parseFloat(h ?? '0') }
 }
 
-function toSrgb({ l, c, h }) {
+function parseHex(value) {
+  const hex = value.slice(1)
+  const full = hex.length === 3 ? hex.split('').map(channel => channel + channel).join('') : hex
+  return [0, 2, 4].map(index => Number.parseInt(full.slice(index, index + 2), 16) / 255)
+}
+
+function toSrgb(value) {
+  if (typeof value === 'string') return parseHex(value)
+  const { l, c, h } = value
   const rad = (h * Math.PI) / 180
   const a = c * Math.cos(rad)
   const b = c * Math.sin(rad)
@@ -62,7 +70,7 @@ function toSrgb({ l, c, h }) {
 }
 
 function luminance(value) {
-  const [r, g, b] = toSrgb(parseOklch(value)).map(channel =>
+  const [r, g, b] = toSrgb(value.startsWith('#') ? value : parseOklch(value)).map(channel =>
     channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4)
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
@@ -100,7 +108,16 @@ const UI_PAIRS = [
   ['ring', 'paper'],
 ]
 
-for (const [name, start] of [['light', ':root {'], ['dark', '.dark {']]) {
+const BLOCKS = [
+  ['light', ':root {'],
+  ['dark', '.dark {'],
+  ['didactic light', 'html[data-explanation-mode="didactic"] {'],
+  ['didactic dark', 'html.dark[data-explanation-mode="didactic"] {'],
+  ['calculation light', 'html[data-explanation-mode="calculation"] {'],
+  ['calculation dark', 'html.dark[data-explanation-mode="calculation"] {'],
+]
+
+for (const [name, start] of BLOCKS) {
   const tokens = rawTokens(block(start))
 
   test(`${name} theme: body text keeps AA contrast`, () => {

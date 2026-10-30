@@ -272,7 +272,7 @@ html[data-explanation-mode="didactic"] {
   --destructive-foreground: #ffffff;
   --border: #000000;
   --input: #737373;
-  --ring: #a5b4fc;
+  --ring: #4f46e5;
   --paper: #ffffff;
   --surface-page: #f7f9f3;
   --surface-muted: #f0f0f0;
@@ -298,10 +298,10 @@ html[data-explanation-mode="didactic"] {
   --panel-line: #545454;
   --panel-edge: #333333;
   --warning-soft: #f0f0f0;
-  --warning-ink: #ef4444;
+  --warning-ink: #000000;
   --warning-mark: #f59e0b;
   --warning-on-panel: #f59e0b;
-  --danger: #ef4444;
+  --danger: #b91c1c;
   --note-sand: #f59e0b;
   --note-sand-ink: #000000;
   --tab-lga: #14b8a6;
@@ -413,8 +413,8 @@ html[data-explanation-mode="calculation"] {
   --destructive: #ef4444;
   --destructive-foreground: #fafafa;
   --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #d87943;
+  --input: #6b7280;
+  --ring: #527575;
   --paper: #ffffff;
   --surface-page: #ffffff;
   --surface-muted: #f3f4f6;
@@ -425,7 +425,7 @@ html[data-explanation-mode="calculation"] {
   --ink-soft: #111827;
   --ink-muted: #6b7280;
   --ink-subtle: #6b7280;
-  --ink-faint: #6b7280;
+  --ink-faint: #5f6673;
   --ink-ghost: #6b7280;
   --brand: #527575;
   --brand-strong: #527575;
@@ -439,6 +439,13 @@ html[data-explanation-mode="calculation"] {
   --panel-muted: #888888;
   --panel-line: #222222;
   --panel-edge: #333333;
+  --warning-soft: #f3f4f6;
+  --warning-ink: #111827;
+  --warning-mark: #d87943;
+  --warning-on-panel: #d87943;
+  --danger: #b91c1c;
+  --note-sand: #eeeeee;
+  --note-sand-ink: #111827;
   --tab-lga: #527575;
   --tab-lga-soft: #f3f4f6;
   --tab-lga-ink: #111827;
@@ -477,7 +484,7 @@ html.dark[data-explanation-mode="calculation"] {
   --destructive: #5f8787;
   --destructive-foreground: #121113;
   --border: #222222;
-  --input: #222222;
+  --input: #888888;
   --ring: #e78a53;
   --paper: #121212;
   --surface-page: #121113;
@@ -489,7 +496,7 @@ html.dark[data-explanation-mode="calculation"] {
   --ink-soft: #c1c1c1;
   --ink-muted: #888888;
   --ink-subtle: #888888;
-  --ink-faint: #888888;
+  --ink-faint: #8f8f8f;
   --ink-ghost: #888888;
   --brand: #5f8787;
   --brand-strong: #5f8787;
@@ -503,6 +510,13 @@ html.dark[data-explanation-mode="calculation"] {
   --panel-muted: #888888;
   --panel-line: #222222;
   --panel-edge: #333333;
+  --warning-soft: #222222;
+  --warning-ink: #c1c1c1;
+  --warning-mark: #e78a53;
+  --warning-on-panel: #e78a53;
+  --danger: #f87171;
+  --note-sand: #333333;
+  --note-sand-ink: #c1c1c1;
   --tab-lga: #5f8787;
   --tab-lga-soft: #222222;
   --tab-lga-ink: #c1c1c1;

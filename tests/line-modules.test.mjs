@@ -44,11 +44,12 @@ test('each control opens only the tables it uses', () => {
 
 test('the panels size lines through the shared engine, not inline formula copies', () => {
   assert.match(modules, /import \{ sizeLine \} from '@\/lib\/line-sizing\.mjs'/, 'engine imported')
-  assert.equal(count(modules, /sizeLine\(\{/g), 1, 'one sizing call, inside computeLine')
+  assert.match(modules, /import \{ lineInputFromState \} from '@\/lib\/line-state\.mjs'/, 'line input builder imported')
+  assert.equal(count(modules, /sizeLine\(lineInputFromState/g), 1, 'one sizing call, inside computeLine')
   assert.equal(count(modules, /export function computeLine/g), 1, 'one shared helper')
   assert.ok(modules.includes("computeLine(state, 'three-phase')"), 'LGA panel uses the helper')
-  assert.ok(modules.includes("computeLine(state, 'single-phase')"), 'DI panel uses the helper')
-  assert.match(modules, /loadedConductors: system === 'three-phase' \? 3 : 2/, 'loaded conductors follow the system')
+  assert.ok(modules.includes('computeLine(state, system)'), 'DI panel uses the helper with its own system')
+  assert.match(read('lib/line-state.mjs'), /loadedConductors:.*system === 'three-phase' \? 3 : 2/, 'loaded conductors follow the system')
   assert.ok(calc.includes("computeLine(lga, 'three-phase')"), 'JSON and PDF use the same LGA result')
   assert.ok(calc.includes("computeLine(di, 'single-phase')"), 'JSON and PDF use the same DI result')
   assert.doesNotMatch(modules, /Math\.max\([^)]*\* 100/, 'no hardcoded 100 W/m2 ladder')
