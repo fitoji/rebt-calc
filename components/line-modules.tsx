@@ -158,7 +158,7 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
 function ResultRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <span className="text-ink-faint">{label}</span>
+      <span className="text-panel-muted">{label}</span>
       <strong className={strong ? 'tabular-nums text-brand-on-panel' : 'tabular-nums'}>{value}</strong>
     </div>
   )
