@@ -19,3 +19,5 @@ mcp-excel-server/node_modules/
 
 # Extracted icon archives (source .zip is tracked)
 public/icons8-electricity-sci-fi/
+# Local AI runtime state
+.atl/
