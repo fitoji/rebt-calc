@@ -56,3 +56,11 @@ test('each mode carries its own subtle UI treatment', () => {
   assert.match(css, /--radius: 0\.375rem/, 'calculation mode uses less curved cards')
   assert.match(calc, /data-explanation-mode=\{explanationMode\}/, 'the main element exposes the active mode')
 })
+
+test('the PDF report carries the same explanation steps', () => {
+  const calc = read('components/load-calculator.tsx')
+  assert.ok(calc.includes('explainLineCalculation'), 'the PDF consumes the explanation module')
+  assert.ok(calc.includes('addExplanationPage('), 'the PDF has an explanation page helper')
+  assert.ok(calc.includes("'6.1 Desarrollo del cálculo · LGA'"), 'LGA explanation page is added')
+  assert.ok(calc.includes("'7.1 Desarrollo del cálculo · DI'"), 'DI explanation page is added')
+})

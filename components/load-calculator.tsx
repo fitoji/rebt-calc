@@ -10,6 +10,7 @@ import { previewGaragePower, previewLightingPower, previewLocalPower, sumGarageP
 import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
 import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
+import { explainLineCalculation } from '../lib/calculation-explanations.mjs'
 import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
 import { EXPLANATION_MODE_STORAGE_KEY, explanationModeLabel, resolveExplanationMode } from '../lib/explanation-mode.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
@@ -53,6 +54,19 @@ type MotorRow = { name: string; power: number; unit: 'W' | 'CV' }
 type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
 type LightingRow = { id: LightingId; area: number; lamp: 'Incandescencia' | 'Fluorescencia/LED'; power: number }
+type PdfExplanationStep = {
+  id: string
+  title: string
+  kind: 'table' | 'formula' | 'selection' | 'text' | 'list'
+  rows?: Array<{ label?: string; value?: string; section?: number; reason?: string }>
+  formula?: string
+  substitution?: string
+  result?: string
+  note?: string
+  criterion?: string
+  text?: string
+  items?: string[]
+}
 type CalculationSettings = {
   basicHousingPower: number
   elevatedHousingPower: number
@@ -315,6 +329,8 @@ export function LoadCalculator() {
 
   const lgaResult = useMemo(() => computeLine(lga, 'three-phase'), [lga])
   const diResult = useMemo(() => computeLine(di, 'single-phase'), [di])
+  const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga' }), [lga, lgaResult])
+  const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di' }), [di, diResult])
 
   const downloadFile = (extension: string, mime: string, content: string) => {
     const blob = new Blob([content], { type: mime })
@@ -512,6 +528,35 @@ export function LoadCalculator() {
       let top = section(title, 38)
       autoTable(doc, { startY: top, head: [head], body, theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 8 }, margin: { left: 15, right: 15 } })
     }
+    const addExplanationPage = (title: string, explanation: { steps: PdfExplanationStep[] }) => {
+      doc.addPage()
+      addHeader()
+      const top = section(title, 38)
+      const body: string[][] = []
+      for (const step of explanation.steps) {
+        if (step.id === 'inputs') continue
+        if (step.kind === 'table') {
+          body.push([step.title, ''])
+          for (const row of step.rows ?? []) body.push([row.label ?? '', row.value ?? ''])
+        } else if (step.kind === 'formula') {
+          body.push([`${step.title} · Fórmula`, step.formula ?? ''])
+          if (step.substitution) body.push([`${step.title} · Sustitución`, step.substitution])
+          if (step.result) body.push([`${step.title} · Resultado`, step.result])
+          if (step.note) body.push([`${step.title} · Nota`, step.note])
+        } else if (step.kind === 'selection') {
+          body.push([`${step.title} · Resultado`, step.result ?? ''])
+          if (step.criterion) body.push([`${step.title} · Criterio`, step.criterion])
+          for (const row of step.rows ?? []) {
+            body.push([`${step.title} · ${row.section == null ? '—' : `${fmt(row.section, 1)} mm²`}`, row.reason ?? ''])
+          }
+        } else if (step.kind === 'text') {
+          body.push([step.title, step.text ?? ''])
+        } else if (step.kind === 'list') {
+          body.push([step.title, (step.items ?? []).join(' ')])
+        }
+      }
+      autoTable(doc, { startY: top, head: [['Concepto', 'Desarrollo']], body, theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 8 }, margin: { left: 15, right: 15 } })
+    }
     addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ...motors.map(row => [row.name, 'Motor', `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${fmt(result.motorIncrement)} W`], ...otherLoads.map(row => [row.name, 'Otra carga', `${fmt(row.power)} W`]), ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${fmt(previewLightingPower(row, settings))} W`]), ['Subtotal alumbrado', `×${fmtDec(settings.dischargeLampCoefficient)} lámparas de descarga`, `${fmt(result.lightingPower)} W`]])
     addDetailPage('4. Locales y oficinas', ['Descripción', 'Tipo', 'Superficie', 'Previsión'], locals.map(row => [row.name, row.type, `${row.area} m²`, `${fmt(previewLocalPower(row, settings))} W`]))
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
@@ -532,6 +577,7 @@ export function LoadCalculator() {
       ['Método · aislamiento', `${lga.method} · ${lga.insulation}`],
       ['Observaciones', lgaResult.problems.length > 0 ? lgaResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
+    addExplanationPage('6.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })
     addDetailPage('7. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
       ['Potencia prevista', `${fmt(di.powerW)} W`],
       ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
@@ -549,6 +595,7 @@ export function LoadCalculator() {
       ['Método · aislamiento', `${di.method} · ${di.insulation}`],
       ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
+    addExplanationPage('7.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
