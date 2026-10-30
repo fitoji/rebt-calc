@@ -11,6 +11,7 @@ import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-l
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
 import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
 import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
+import { EXPLANATION_MODE_STORAGE_KEY, explanationModeLabel, resolveExplanationMode } from '../lib/explanation-mode.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,8 +21,9 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type LineState, type TableKey } from '@/components/line-modules'
+import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
 
 type ProjectInfo = {
@@ -140,6 +142,7 @@ export function LoadCalculator() {
   const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
   const [installationType, setInstallationType] = useState<InstallationType>('centralized')
   const [theme, setTheme] = useState<Theme>('light')
+  const [explanationMode, setExplanationMode] = useState<ExplanationMode>('calculation')
   const [showLineTables, setShowLineTables] = useState(false)
   const [lineTableFocus, setLineTableFocus] = useState<TableKey[] | null>(null)
   const [lineTouched, setLineTouched] = useState(false)
@@ -172,6 +175,10 @@ export function LoadCalculator() {
     document.documentElement.classList.toggle('dark', next === 'dark')
     try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
   }
+  const changeExplanationMode = (next: ExplanationMode) => {
+    setExplanationMode(next)
+    try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+  }
   const [showReferences, setShowReferences] = useState(false)
   const [showDownload, setShowDownload] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
@@ -189,6 +196,12 @@ export function LoadCalculator() {
     const initial = resolveInitialTheme(stored ?? applied)
     setTheme(initial)
     document.documentElement.classList.toggle('dark', initial === 'dark')
+  }, [])
+
+  useEffect(() => {
+    let stored: string | null = null
+    try { stored = window.localStorage.getItem(EXPLANATION_MODE_STORAGE_KEY) } catch { /* storage can be unavailable */ }
+    setExplanationMode(resolveExplanationMode(stored) as ExplanationMode)
   }, [])
 
   useEffect(() => {
@@ -545,11 +558,11 @@ export function LoadCalculator() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-page text-ink">
+    <main className="min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
           <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-panel ring-1 ring-panel-edge"><img src="/icons/electricity.png" alt="" className="size-7 object-contain" /></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Electro-cálculos</p><h1 className="text-lg font-bold tracking-tight">Previsión de cargas</h1></div></div>
-          <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button></div>
+          <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button></div>
         </div>
       </header>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
@@ -768,10 +781,10 @@ export function LoadCalculator() {
         </div>
           </TabsContent>
           <TabsContent value="lga">
-            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} />
+            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} />
           </TabsContent>
           <TabsContent value="di">
-            <DiPanel state={di} onChange={updateDi} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} />
+            <DiPanel state={di} onChange={updateDi} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />

@@ -24,10 +24,12 @@ import {
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
+import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
 
 export type InstallationMethod = (typeof METHODS)[number]
 export type Insulation = 'PVC' | 'XLPE'
+export type ExplanationMode = 'calculation' | 'didactic'
 
 export type LineState = {
   powerW: number
@@ -345,6 +347,96 @@ export function computeLine(state: LineState, system: 'three-phase' | 'single-ph
   })
 }
 
+type ExplanationStep = {
+  id: string
+  title: string
+  kind: 'table' | 'formula' | 'selection' | 'text' | 'list'
+  rows?: Array<{
+    label?: string
+    value?: string
+    section?: number
+    correctedCurrent?: number
+    dropPercent?: number
+    status?: 'chosen' | 'discarded'
+    reason?: string
+  }>
+  formula?: string
+  substitution?: string
+  result?: string
+  note?: string
+  criterion?: string
+  text?: string
+  items?: string[]
+}
+
+function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
+  return (
+    <section className="mt-6 rounded-2xl border border-line bg-paper p-5 shadow-sm" aria-label="Desarrollo del cálculo">
+      <h3 className="mb-4 text-sm font-bold text-ink-soft">Desarrollo del cálculo</h3>
+      <div className="flex flex-col gap-4">
+        {steps.map(step => (
+          <article key={step.id} className="rounded-xl border border-line bg-surface-muted p-4">
+            <h4 className="mb-2 text-sm font-semibold text-ink">{step.title}</h4>
+            {step.kind === 'table' && (
+              <dl className="grid gap-1.5 text-sm sm:grid-cols-2">
+                {step.rows?.map(row => (
+                  <div key={row.label} className="flex justify-between gap-4">
+                    <dt className="text-ink-faint">{row.label}</dt>
+                    <dd className="tabular-nums font-medium text-ink">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {step.kind === 'formula' && (
+              <div className="flex flex-col gap-1.5 text-sm">
+                <code className="rounded bg-paper px-2 py-1 font-mono text-xs text-ink-strong">{step.formula}</code>
+                {step.substitution && <p className="font-mono text-xs text-ink-subtle">{step.substitution}</p>}
+                <p className="font-semibold text-ink-strong">{step.result}</p>
+                {step.note && <p className="text-xs text-ink-faint">{step.note}</p>}
+              </div>
+            )}
+            {step.kind === 'selection' && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-ink-faint">
+                        <th className="pb-1.5">Sección</th>
+                        <th className="pb-1.5">Iz corregida</th>
+                        <th className="pb-1.5">Caída</th>
+                        <th className="pb-1.5">Resultado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      {step.rows?.map(row => (
+                        <tr key={row.section} className={row.status === 'chosen' ? 'font-semibold text-ink-strong' : 'text-ink-subtle'}>
+                          <td className="py-1.5 tabular-nums">{row.section == null ? '—' : `${fmt(row.section, 1)} mm²`}</td>
+                          <td className="py-1.5 tabular-nums">{row.correctedCurrent == null ? '—' : `${fmt(row.correctedCurrent, 0)} A`}</td>
+                          <td className="py-1.5 tabular-nums">{row.dropPercent == null ? '—' : `${fmt(row.dropPercent, 2)} %`}</td>
+                          <td className="py-1.5">{row.status === 'chosen' ? `Adoptada. ${row.reason}` : row.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-xs font-semibold text-ink-strong">{step.result} · {step.criterion}</p>
+              </>
+            )}
+            {step.kind === 'text' && <p className="text-xs leading-5 text-ink-subtle">{step.text}</p>}
+            {step.kind === 'list' && (
+              <ul className="list-disc space-y-1 pl-4 text-xs text-warning-ink">
+                {step.items?.map(item => <li key={item}>{item}</li>)}
+              </ul>
+            )}
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+
+
 function formatLimit(value: number) { return `${value.toString().replace('.', ',')} %` }
 
 function InstallationField({ value, onChange, limit, configured }: { value: InstallationType; onChange: (type: InstallationType) => void; limit: number | null; configured: number }) {
@@ -362,18 +454,21 @@ function InstallationField({ value, onChange, limit, configured }: { value: Inst
   </div>
 }
 
-export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange }: {
+export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
   showSourceNotes?: boolean
   installationType: InstallationType
   onInstallationTypeChange: (type: InstallationType) => void
+  explanationMode?: ExplanationMode
 }) {
   const result = useMemo(() => computeLine(state, 'three-phase'), [state])
+  const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga' }), [state, result])
   const limits = limitsForInstallation(installationType)
 
   return (
+    <>
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <section className="rounded-2xl border border-line border-l-4 border-l-tab-lga bg-paper p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -402,24 +497,29 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         { element: 'Tubo Protector Incubat', detail: `${fmt(state.tubeDiameter)} mm Diàmetre exterior mínimo` },
       ]} />
     </div>
+    {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
+    </>
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
   showSourceNotes?: boolean
   installationType: InstallationType
   onInstallationTypeChange: (type: InstallationType) => void
+  explanationMode?: ExplanationMode
 }) {
   const result = useMemo(() => computeLine(state, 'single-phase'), [state])
+  const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'single-phase', line: 'di' }), [state, result])
   const limits = limitsForInstallation(installationType)
 
   const phase = result.finalSection
   const pe = phase == null ? state.peSection : protectiveSection(phase)
 
   return (
+    <>
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <section className="rounded-2xl border border-line border-l-4 border-l-tab-di bg-paper p-5 shadow-sm">
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -452,6 +552,8 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         { element: 'Canalització i Tub Protector', detail: `Tub protector encastat de diàmetre exterior Ø ${fmt(state.tubeDiameter)} mm` },
       ]} />
     </div>
+    {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
+    </>
   )
 }
 

@@ -248,6 +248,32 @@
   --tab-di-ink: oklch(84% 0.12 293);
 }
 
+/*
+ * Cambio sutil de interfaz entre los dos niveles de detalle.
+ * - Didáctico: recupera el contraste suave de campos y foco previo a la auditoría.
+ * - Cálculo: reduce el radio de las tarjetas para una lectura más compacta.
+ */
+main[data-explanation-mode="didactic"] {
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+}
+
+.dark main[data-explanation-mode="didactic"] {
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+}
+
+main[data-explanation-mode="calculation"] {
+  --radius: 0.375rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
