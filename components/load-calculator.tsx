@@ -10,7 +10,8 @@ import { previewGaragePower, previewLightingPower, previewLocalPower, sumGarageP
 import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
 import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
-import { explainLineCalculation } from '../lib/calculation-explanations.mjs'
+import { explainLineCalculation, explainLoadForecast } from '../lib/calculation-explanations.mjs'
+import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
 import { EXPLANATION_MODE_STORAGE_KEY, explanationModeLabel, resolveExplanationMode } from '../lib/explanation-mode.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
@@ -293,23 +294,36 @@ export function LoadCalculator() {
 
   const result = useMemo(() => {
     const homes = housing.reduce((sum, row) => sum + Math.max(0, row.homes), 0)
-    const average = homes ? housing.reduce((sum, row) => sum + row.power * Math.max(0, row.homes), 0) / homes : 0
+    const housingPower = housing.reduce((sum, row) => sum + row.power * Math.max(0, row.homes), 0)
+    const average = homes ? housingPower / homes : 0
     const cs = getSimultaneityCoefficient(homes)
     const p1 = average * cs
     const toWatts = (power: number, unit: 'W' | 'CV') => unit === 'CV' ? power * settings.cvToWatts : power
     const elevatorPower = elevators.reduce((sum, row) => sum + toWatts(row.power, row.unit), 0)
     const motorPowers = motors.map(row => toWatts(row.power, row.unit))
+    const motorPower = motorPowers.reduce((sum, power) => sum + Math.max(0, power || 0), 0)
+    const largestMotorPower = motorPowers.reduce((max, power) => Math.max(max, power || 0), 0)
     const otherPower = otherLoads.reduce((sum, row) => sum + Math.max(0, row.power), 0)
     const lightingPower = sumLightingPowers(lighting, settings)
     const p2 = sumServiceGeneralPowers({ elevatorPower, motorPowers, otherPower, lightingPower }, settings)
     const motorIncrement = largestMotorIncrement(motorPowers, settings.motorCoefficient)
+    const localPowers = locals.map(row => previewLocalPower(row, settings))
+    const garagePowers = garages.map(row => previewGaragePower(row, settings))
     const p3 = sumLocalPowers(locals, settings)
     const p4 = sumGaragePowers(garages, settings)
     const irveCs = irveOption === 2 ? 0.3 : 1
     const plazas = irveOption === 3 ? Math.max(1, Math.ceil(parking * 0.1)) : parking
     const p5 = plazas * settings.evChargerPower * irveCs
-    return { homes, average, cs, p1, p2, p3, p4, p5, total: p1 + p2 + p3 + p4 + p5, plazas, lightingPower, motorIncrement }
+    return {
+      homes, housingPower, average, cs, p1, p2, p3, p4, p5, total: p1 + p2 + p3 + p4 + p5,
+      plazas, lightingPower, motorIncrement, elevatorPower, motorPower, largestMotorPower, otherPower, localPowers, garagePowers, irveCs,
+    }
   }, [housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, settings])
+
+  const loadExplanation = useMemo(
+    () => explainLoadForecast({ housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption }, result, settings),
+    [housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, result, settings],
+  )
 
   const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: 3680, unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1) }
   const clear = () => {
@@ -557,6 +571,7 @@ export function LoadCalculator() {
       }
       autoTable(doc, { startY: top, head: [['Concepto', 'Desarrollo']], body, theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 8 }, margin: { left: 15, right: 15 } })
     }
+    addExplanationPage('2.1 Desarrollo del cálculo · Previsión de cargas', loadExplanation as { steps: PdfExplanationStep[] })
     addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ...motors.map(row => [row.name, 'Motor', `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${fmt(result.motorIncrement)} W`], ...otherLoads.map(row => [row.name, 'Otra carga', `${fmt(row.power)} W`]), ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${fmt(previewLightingPower(row, settings))} W`]), ['Subtotal alumbrado', `×${fmtDec(settings.dischargeLampCoefficient)} lámparas de descarga`, `${fmt(result.lightingPower)} W`]])
     addDetailPage('4. Locales y oficinas', ['Descripción', 'Tipo', 'Superficie', 'Previsión'], locals.map(row => [row.name, row.type, `${row.area} m²`, `${fmt(previewLocalPower(row, settings))} W`]))
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
@@ -826,6 +841,7 @@ export function LoadCalculator() {
               </DialogContent>
             </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button></div></aside>
         </div>
+        {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga">
             <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} />
