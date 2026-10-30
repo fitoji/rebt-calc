@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
+import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const calc = readFileSync(path.join(root, 'components/load-calculator.tsx'), 'utf8')
@@ -54,4 +54,19 @@ test('the calculator assembles P2 through the shared helpers', () => {
   assert.match(calc, /largestMotorIncrement\(/, 'the motor increment is rendered through the shared helper')
   assert.doesNotMatch(calc, /otherLoadCoefficient/, 'other loads no longer carry a coefficient')
   assert.doesNotMatch(calc, /motorPower \* settings\.motorCoefficient/, 'the motor coefficient is not applied to every motor')
+})
+
+test('ITA reference powers match the ITC-BT-10 table', () => {
+  assert.equal(ITA_POWER_KW['ITA-1'], 4.5)
+  assert.equal(ITA_POWER_KW['ITA-6'], 46)
+  assert.equal(itaPowerW('ITA-1'), 4500, 'ITA-1 preloads 4.500 W')
+  assert.equal(itaPowerW('ITA-3'), 11500, 'ITA-3 preloads 11.500 W')
+  assert.equal(itaPowerW('unknown'), 0, 'unknown ITA has no power')
+})
+
+test('the elevator ITA select preloads the reference power and exposes a real-power field', () => {
+  assert.match(calc, /itaPowerW\(value as ElevatorRow\['ita'\]\)/, 'ITA change preloads its reference power')
+  assert.match(calc, /Potencia ITA/, 'the table shows the ITA reference column')
+  assert.match(calc, /Potencia real/, 'the table shows the real-power field')
+  assert.match(calc, /aria-label=\{`Potencia real · \$\{row.name\}`\}/, 'the real-power input is labelled')
 })
