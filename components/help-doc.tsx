@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { BOE_ITC_BT_52, BOE_REBT } from '@/components/source-note'
+import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { HELP_GROUPS } from '@/lib/help-sections.mjs'
 import { HELP_SHOTS } from '@/lib/help-shots.mjs'
@@ -525,6 +526,7 @@ export function HelpDoc() {
           </div>
         </div>
       </main>
+      <SiteFooter />
     </>
   )
 }

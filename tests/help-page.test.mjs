@@ -12,6 +12,7 @@ const read = p => readFileSync(path.join(root, p), 'utf8')
 const helpDoc = read('components/help-doc.tsx')
 const helpPage = read('app/ayuda/page.tsx')
 const siteHeader = read('components/site-header.tsx')
+const siteFooter = read('components/site-footer.tsx')
 const calculator = read('components/load-calculator.tsx')
 const capture = read('scripts/capture-help-shots.mjs')
 
@@ -61,11 +62,17 @@ test('the capture script documents the same shots the manifest ships', () => {
   }
 })
 
-test('both pages share one masthead and the guide is linked from the calculator', () => {
+test('both pages share one masthead and one footer, and the guide is linked from the calculator', () => {
   assert.match(calculator, /<SiteHeader titleAs="h1">/, 'the calculator renders the shared masthead as its h1')
   assert.match(helpDoc, /<SiteHeader>/, 'the guide renders the shared masthead')
   assert.match(calculator, /import \{ SiteHeader \} from '@\/components\/site-header'/, 'the calculator imports the shared masthead')
   assert.match(helpDoc, /import \{ SiteHeader \} from '@\/components\/site-header'/, 'the guide imports the shared masthead')
+  assert.match(calculator, /<SiteFooter \/>/, 'the calculator renders the shared footer')
+  assert.match(helpDoc, /<SiteFooter \/>/, 'the guide renders the shared footer')
+  assert.match(helpDoc, /<\/main>\s*<SiteFooter \/>/, 'the footer sits outside the main landmark')
+  assert.match(siteFooter, /https:\/\/github\.com\/fitoji\/rebt-calc/, 'the footer keeps the source link')
+  assert.match(siteFooter, /aria-label="Ver el código fuente en GitHub"/, 'the source link has an accessible name')
+  assert.doesNotMatch(calculator, /<footer/, 'the calculator no longer keeps a private footer')
   assert.match(calculator, /<Link href="\/ayuda"[^>]*aria-label="Cómo usar la app"/, 'the calculator header links to the guide with an accessible name')
   assert.match(helpPage, /import \{ HelpDoc \} from '@\/components\/help-doc'/, 'the /ayuda route renders the guide')
   assert.doesNotMatch(siteHeader, /<h1/, 'the masthead never hardcodes a heading level')
