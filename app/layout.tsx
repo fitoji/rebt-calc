@@ -1,6 +1,12 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
+import { DM_Sans, Geist_Mono, JetBrains_Mono, Space_Mono } from 'next/font/google'
 import './globals.css'
+
+const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono', display: 'swap' })
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains-mono', display: 'swap' })
+const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', display: 'swap' })
+const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-space-mono', display: 'swap' })
 
 export const metadata: Metadata = {
   title: 'Electro-cálculos | Previsión de cargas ITC-BT-10',
@@ -35,11 +41,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es">
+    <html lang="es" className={`${geistMono.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${spaceMono.variable}`}>
       <body className="antialiased">
         <script
           dangerouslySetInnerHTML={{
-            __html: "try{if(localStorage.getItem('electrocalc-theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}",
+            __html: "try{if(localStorage.getItem('electrocalc-theme')==='dark')document.documentElement.classList.add('dark');var m=localStorage.getItem('electrocalc-explanation-mode');document.documentElement.dataset.explanationMode=m==='didactic'?'didactic':'calculation'}catch(e){}",
           }}
         />
         {children}

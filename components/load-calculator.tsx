@@ -192,6 +192,7 @@ export function LoadCalculator() {
   }
   const changeExplanationMode = (next: ExplanationMode) => {
     setExplanationMode(next)
+    document.documentElement.dataset.explanationMode = next
     try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
   }
   const [showReferences, setShowReferences] = useState(false)
@@ -216,7 +217,9 @@ export function LoadCalculator() {
   useEffect(() => {
     let stored: string | null = null
     try { stored = window.localStorage.getItem(EXPLANATION_MODE_STORAGE_KEY) } catch { /* storage can be unavailable */ }
-    setExplanationMode(resolveExplanationMode(stored) as ExplanationMode)
+    const initial = resolveExplanationMode(stored) as ExplanationMode
+    setExplanationMode(initial)
+    document.documentElement.dataset.explanationMode = initial
   }, [])
 
   useEffect(() => {

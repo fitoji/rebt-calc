@@ -45,16 +45,37 @@ test('the didactic mode renders the shared explanation steps', () => {
   assert.ok(modules.includes('<CalculationSteps steps={explanation.steps'), 'the shared steps render')
 })
 
-test('each mode carries its own subtle UI treatment', () => {
+test('each mode carries its own theme', () => {
   const css = read('app/globals.css')
   const calc = read('components/load-calculator.tsx')
 
-  assert.match(css, /main\[data-explanation-mode="didactic"\]/, 'didactic mode scopes its tokens')
-  assert.match(css, /--input: oklch\(0\.922 0 0\)/, 'didactic mode restores the soft field border')
-  assert.match(css, /--ring: oklch\(0\.708 0 0\)/, 'didactic mode restores the soft focus ring')
-  assert.match(css, /main\[data-explanation-mode="calculation"\]/, 'calculation mode scopes its radius')
-  assert.match(css, /--radius: 0\.375rem/, 'calculation mode uses less curved cards')
+  assert.match(css, /html\[data-explanation-mode="didactic"\]/, 'didactic mode scopes its tokens')
+  assert.match(css, /--background: #f7f9f3/, 'didactic mode uses the Soft Pop light background')
+  assert.match(css, /--accent: #f59e0b/, 'didactic mode uses the Soft Pop amber accent')
+  assert.match(css, /--font-sans: var\(--font-dm-sans\)/, 'didactic mode uses the Soft Pop sans stack')
+  assert.match(css, /html\.dark\[data-explanation-mode="didactic"\]/, 'didactic mode has a dark variant')
+  assert.match(css, /--background: #000000/, 'the dark variant uses the Soft Pop dark background')
+  assert.match(css, /--radius: 1rem/, 'didactic mode uses the Soft Pop radius')
+  assert.match(css, /html\[data-explanation-mode="calculation"\]/, 'calculation mode scopes its radius')
+  assert.match(css, /--radius: 0\.75rem/, 'calculation mode uses the Darkmatter radius')
+  assert.match(css, /--primary: #d87943/, 'calculation mode uses the Darkmatter light primary')
+  assert.match(css, /html\.dark\[data-explanation-mode="calculation"\]/, 'calculation mode has a dark variant')
+  assert.match(css, /--primary: #e78a53/, 'the dark variant uses the Darkmatter dark primary')
+  assert.match(css, /--font-sans: var\(--font-geist-mono\)/, 'calculation mode uses the Darkmatter mono stack')
   assert.match(calc, /data-explanation-mode=\{explanationMode\}/, 'the main element exposes the active mode')
+  assert.match(calc, /document\.documentElement\.dataset\.explanationMode/, 'the document root carries the mode for portals')
+})
+
+test('the mode fonts load through next/font', () => {
+  const layout = read('app/layout.tsx')
+  assert.ok(layout.includes('Geist_Mono'), 'Geist Mono is imported')
+  assert.ok(layout.includes('JetBrains_Mono'), 'JetBrains Mono is imported')
+  assert.ok(layout.includes('DM_Sans'), 'DM Sans is imported')
+  assert.ok(layout.includes('Space_Mono'), 'Space Mono is imported')
+  assert.ok(layout.includes('--font-geist-mono'), 'the Geist Mono variable is exposed')
+  assert.ok(layout.includes('--font-jetbrains-mono'), 'the JetBrains Mono variable is exposed')
+  assert.ok(layout.includes('--font-dm-sans'), 'the DM Sans variable is exposed')
+  assert.ok(layout.includes('--font-space-mono'), 'the Space Mono variable is exposed')
 })
 
 test('the PDF report carries the same explanation steps', () => {
