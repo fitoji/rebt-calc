@@ -25,6 +25,7 @@ import {
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
 import { lineInputFromState } from '@/lib/line-state.mjs'
+import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
@@ -72,12 +73,7 @@ const METHOD_LABEL: Record<InstallationMethod, string> = {
   F: 'F · conductores sueltos al aire',
 }
 
-/** ITC-BT-18 table 2: protective conductor cross-section. */
-export function protectiveSection(phaseSection: number) {
-  if (phaseSection <= 16) return phaseSection
-  if (phaseSection <= 35) return 16
-  return Math.ceil(phaseSection / 2)
-}
+export { protectiveSection }
 
 function FieldRow({ htmlFor, text, tables, onOpenTables }: {
   htmlFor: string
@@ -379,8 +375,8 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
       </section>
       <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" elements={[
         { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(state.peSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)` },
         { element: 'Tubo Protector Incubat', detail: `${fmt(state.tubeDiameter)} mm Diàmetre exterior mínimo` },
       ]} />
     </div>

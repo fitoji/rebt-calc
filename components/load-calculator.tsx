@@ -31,6 +31,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
+import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
 
 type ProjectInfo = {
@@ -398,6 +399,10 @@ export function LoadCalculator() {
 
   const lgaResult = useMemo(() => computeLine(lga, 'three-phase', 'lga'), [lga])
   const diResult = useMemo(() => computeLine(di, 'single-phase', 'di'), [di])
+  // ITC-BT-14 tabla 1 and ITC-BT-18 tabla 2 derive these from the phase
+  // section, so the report can never print a neutral thinner than the norm.
+  const lgaNeutral = lgaNeutralSection(lgaResult.finalSection) ?? lga.neutralSection
+  const lgaProtective = lgaResult.finalSection == null ? lga.peSection : protectiveSection(lgaResult.finalSection)
   const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga' }), [lga, lgaResult])
   const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di' }), [di, diResult])
 
@@ -482,8 +487,8 @@ export function LoadCalculator() {
           ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
           ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
           ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-          ['Conductor Neutro (N)', `1 x ${fmt(lga.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-          ['Conductor de Protección (PE)', `1 x ${fmt(lga.peSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
+          ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
+          ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (RZ1-K 0,6/1 kV)`],
           ['Tubo Protector Incubat', `${fmt(lga.tubeDiameter)} mm Diàmetre exterior mínimo`],
           ['Protección (In)', lgaResult.protection == null ? '—' : `${fmt(lgaResult.protection)} A`],
           ['Caída resultante', lgaResult.dropPercent == null ? '—' : `${fmt(lgaResult.dropPercent, 2)} %`],
@@ -641,8 +646,8 @@ export function LoadCalculator() {
       ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
       ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
       ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-      ['Conductor Neutro (N)', `1 x ${fmt(lga.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-      ['Conductor de Protección (PE)', `1 x ${fmt(lga.peSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
+      ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
+      ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (RZ1-K 0,6/1 kV)`],
       ['Tubo Protector Incubat', `${fmt(lga.tubeDiameter)} mm Diàmetre exterior mínimo`],
       ['Iz de tabla', lgaResult.tableCurrent == null ? '—' : `${fmt(lgaResult.tableCurrent)} A`],
       ['Factor de agrupamiento', fmt(lgaResult.groupingFactor, 2)],
