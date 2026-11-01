@@ -48,3 +48,15 @@ L5. T4 extended the engine beyond the user's explicit list (P6 in the audit): th
 L6. Verified: `pnpm typecheck` clean, `pnpm test` 179/179, `pnpm build` compiles and prerenders `/` and `/ayuda`. CI on main runs the same three steps.
 
 L7. Still open for the user: the default gamma (44 LGA / 48.5 DI) was left untouched by request. With gamma 52.1 the engine reproduces BT-15 Tabla H exactly at every length; with the current defaults it lands one section above the guide for a 5750 W dwelling.
+
+L8. Closing verification with the engine, after every task:
+```
+LGA 194,7 kW / 25 m / 0,5 % / γ 44 (default)   S=150  neutro=70  PE=75  manda caída
+LGA same, γ 47,2 (70 °C)                       S=150  neutro=70  PE=75  manda caída
+LGA same, γ 52,1 (40 °C, guía)                 S=120  neutro=70  PE=60  manda corriente
+DI 5750 W / 14 m / 1 % / γ 48,5 (default)      S= 10  Iz tabla=50 A  caída=0,63 %
+DI same, γ 52,1 (guía BT-15 tabla H: 6 mm²)    S=  6  Iz tabla=36 A  caída=0,97 %
+DI trifásica 10 kW / 10 m                      S=  6  (antes 10 por el mínimo del sistema)
+DI enterrada 9200 W / 20 m                     S= 16  Iz tabla=113 A  (antes 64 A)
+```
+The headline LGA section is still governed by the default γ: with 44 the 194,7 kW line lands on 150 mm² and with the guide's 52,1 on 120 mm². Everything else the audit flagged is fixed; that one number stays open by explicit request.
