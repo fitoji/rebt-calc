@@ -93,7 +93,7 @@ test('the explanation lists every step and keeps the engine result', () => {
   const explanation = explainLineCalculation(lgaState(), result, { system: 'three-phase', line: 'lga' })
 
   assert.deepEqual(explanation.steps.map(step => step.id), [
-    'inputs', 'current', 'drop', 'thermal', 'selection', 'protection', 'reference',
+    'inputs', 'current', 'drop', 'thermal', 'minimum', 'selection', 'conductors', 'protection', 'reference',
   ])
 
   const current = explanation.steps.find(step => step.id === 'current')
@@ -163,4 +163,48 @@ test('the DI explanation cites ITC-BT-15 and uses the single-phase formula', () 
 
   const reference = explanation.steps.find(step => step.id === 'reference')
   assert.match(reference.text, /ITC-BT-15/)
+})
+
+test('the didactic steps name the rule that governs the minimum section', () => {
+  const lga = explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
+  const lgaMinimum = lga.steps.find(step => step.id === 'minimum')
+  assert.match(lgaMinimum.text, /ITC-BT-14 §3/, 'the LGA cites its own instruction')
+  assert.match(lgaMinimum.text, /10 mm2 en cobre o 16 mm2 en aluminio/, 'the quote is verbatim')
+  assert.match(lgaMinimum.text, /Se aplica 10 mm²\.$/, 'the applied floor is stated')
+
+  const threePhaseDi = sizeLine(diInput({
+    system: 'three-phase',
+    voltageV: 400,
+    variant: { method: 'B1', loadedConductors: 3, insulation: 'PVC' },
+  }))
+  const di = explainLineCalculation(diState(), threePhaseDi, { system: 'three-phase', line: 'di' })
+  const diMinimum = di.steps.find(step => step.id === 'minimum')
+  assert.match(diMinimum.text, /ITC-BT-15 §3/)
+  assert.match(diMinimum.text, /6 mm2 para los cables polares/, 'the quote is verbatim')
+  assert.match(diMinimum.text, /Se aplica 6 mm²\.$/, 'a three-phase DI still floors at 6 mm²')
+})
+
+test('the didactic steps derive the neutral from the phase section', () => {
+  const lga = explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
+  const lgaConductors = lga.steps.find(step => step.id === 'conductors')
+  const lgaRows = Object.fromEntries(lgaConductors.rows.map(row => [row.label, row.value]))
+  assert.equal(lgaRows['Fase (R, S, T)'], '3 x 70 mm² Cu')
+  assert.equal(lgaRows.Neutro, '35 mm² Cu', 'ITC-BT-14 tabla 1: 70 mm2 of phase, 35 mm2 of neutral')
+  assert.equal(lgaRows['Protección (PE)'], '35 mm² Cu', 'ITC-BT-18 tabla 2')
+  assert.match(lgaConductors.note, /tabla 1/, 'the table that fixes the neutral is named')
+
+  const di = explainLineCalculation(diState(), sizeLine(diInput()), { system: 'single-phase', line: 'di' })
+  const diRows = Object.fromEntries(di.steps.find(step => step.id === 'conductors').rows.map(row => [row.label, row.value]))
+  assert.equal(diRows.Neutro, diRows.Fase, 'the DI neutral repeats the phase section')
+  assert.equal(diRows['Hilo de mando'], '1,5 mm² Cu')
+})
+
+test('the inputs step states which conductor temperature the conductivity implies', () => {
+  const explanation = explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
+  const inputs = explanation.steps.find(step => step.id === 'inputs')
+  assert.match(inputs.note, /≈ 52/, 'the guide reference value is stated')
+  assert.match(inputs.note, /70 °C/, 'the 70 C correction is stated')
+
+  const isolation = Object.fromEntries(inputs.rows.map(row => [row.label, row.value]))
+  assert.equal(isolation.Aislamiento, 'XLPE · RZ1-K', 'the LGA reports the cable the engine used')
 })

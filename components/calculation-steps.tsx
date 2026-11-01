@@ -41,6 +41,7 @@ export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
                 ))}
               </dl>
             )}
+            {step.kind === 'table' && step.note && <p className="mt-1.5 text-xs leading-5 text-ink-faint">{step.note}</p>}
             {step.kind === 'formula' && (
               <div className="flex flex-col gap-1.5 text-sm">
                 <code className="rounded bg-paper px-2 py-1 font-mono text-xs text-ink-strong">{step.formula}</code>
