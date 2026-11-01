@@ -83,3 +83,12 @@ test('the project letterhead preview shows the uploaded logo without stretching 
   assert.match(calc, /max-h-full w-auto max-w-\[132px\] object-contain/, 'logo keeps its aspect ratio')
   assert.match(calc, /Membrete del PDF/, 'preview is labelled as the PDF letterhead')
 })
+
+test('the example building starts from the legal IRVE minimum', () => {
+  // El 10 % de las plazas es el mínimo legal (ITC-BT-10 §5.2). El ejemplo es el
+  // documento de referencia de la primera visita: si arrancara con "todas las
+  // plazas", P5 se comería más de la mitad del total y enseñaría un edificio
+  // desproporcionado como si fuera lo normal.
+  assert.match(calc, /setParking\(30\); setIrveOption\(3\);/, 'the example seeds 30 plazas with the legal 10 % minimum')
+  assert.match(calc, /setParking\(0\)\n\s*setIrveOption\(1\)/, 'a cleared project still resets to the plain option')
+})

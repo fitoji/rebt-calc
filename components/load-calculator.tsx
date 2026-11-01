@@ -223,7 +223,7 @@ export function LoadCalculator() {
   // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
   // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
   // que ese vaciado deliberado sobreviva a la recarga.
-  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1); setDerivations([]); setLgaPowerMode('auto') }
+  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
 
   useEffect(() => {
     let stored: string | null = null
