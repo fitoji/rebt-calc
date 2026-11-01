@@ -28,7 +28,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
@@ -152,6 +152,9 @@ const exampleGarages: GarageRow[] = [
 const fmt = (value: number, digits = 0) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 }).format(value)
 const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15' }
+// Orden de los módulos: decide hacia dónde entra el panel al cambiar de pestaña.
+const TAB_ORDER = ['cargas', 'lga', 'di'] as const
+type TabValue = (typeof TAB_ORDER)[number]
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
 
 export function LoadCalculator() {
@@ -165,6 +168,7 @@ export function LoadCalculator() {
   const [parking, setParking] = useState(0)
   const [irveOption, setIrveOption] = useState(1)
   const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
+  const [tabDirection, setTabDirection] = useState<'forward' | 'back'>('forward')
   const [installationType, setInstallationType] = useState<InstallationType>('centralized')
   const [theme, setTheme] = useState<Theme>('light')
   const [explanationMode, setExplanationMode] = useState<ExplanationMode>('calculation')
@@ -209,6 +213,11 @@ export function LoadCalculator() {
     setExplanationMode(next)
     document.documentElement.dataset.explanationMode = next
     try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+  }
+  // El panel entra desde el lado hacia el que viaja el indicador.
+  const changeTab = (next: TabValue) => {
+    setTabDirection(TAB_ORDER.indexOf(next) >= TAB_ORDER.indexOf(activeTab) ? 'forward' : 'back')
+    setActiveTab(next)
   }
   const [showReferences, setShowReferences] = useState(false)
   const [showDownload, setShowDownload] = useState(false)
@@ -698,11 +707,12 @@ export function LoadCalculator() {
   }
 
   if (!storageLoaded) {
-    return <main className="min-h-screen bg-surface-page text-ink" aria-busy="true"><div className="mx-auto max-w-7xl px-5 py-10 text-sm text-ink-faint" role="status">Cargando datos guardados…</div></main>
+    return <main className="mode-shell relative isolate min-h-screen bg-surface-page text-ink" aria-busy="true"><ModeBackdrop /><div className="mx-auto max-w-7xl px-5 py-10 text-sm text-ink-faint" role="status">Cargando datos guardados…</div></main>
   }
 
   return (
-    <main className="min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
+    <main className="mode-shell relative isolate min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
+      <ModeBackdrop />
       <SiteHeader titleAs="h1">
         <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button><Link href="/ayuda" aria-label="Cómo usar la app" title="Cómo usar la app" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><HelpCircle aria-hidden="true" className="size-4" /></Link></div>
       </SiteHeader>
@@ -822,13 +832,14 @@ export function LoadCalculator() {
               <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
           </DialogContent>
         </Dialog>
-        <Tabs value={activeTab} onValueChange={value => setActiveTab(value as 'cargas' | 'lga' | 'di')} className="gap-6">
-          <TabsList className="h-auto w-fit max-w-full items-center gap-1 rounded-xl border border-line bg-paper p-1">
-            <TabsTrigger value="cargas" className="group/tab h-auto flex-none whitespace-nowrap rounded-lg px-3 py-2 text-center text-xs font-semibold data-active:bg-brand-soft sm:px-4 sm:text-sm data-active:text-brand!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-brand-mark/40 transition-colors group-data-[active]/tab:bg-brand-mark" />Previsión de cargas</TabsTrigger>
-            <TabsTrigger value="lga" disabled={installationType === 'single-user'} title={installationType === 'single-user' ? 'El supuesto de único usuario no tiene línea general de alimentación' : undefined} className="group/tab h-auto flex-none whitespace-nowrap rounded-lg px-3 py-2 text-center text-xs font-semibold data-active:bg-tab-lga-soft sm:px-4 sm:text-sm data-active:text-tab-lga-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-tab-lga/40 transition-colors group-data-[active]/tab:bg-tab-lga" />LGA</TabsTrigger>
-            <TabsTrigger value="di" className="group/tab h-auto flex-none whitespace-nowrap rounded-lg px-3 py-2 text-center text-xs font-semibold data-active:bg-tab-di-soft sm:px-4 sm:text-sm data-active:text-tab-di-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-tab-di/40 transition-colors group-data-[active]/tab:bg-tab-di" />DI</TabsTrigger>
+        <Tabs value={activeTab} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
+          <TabsList data-active-tab={activeTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 rounded-full border border-line bg-paper p-1 shadow-sm">
+            <TabsIndicator />
+            <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
+            <TabsTrigger value="lga" disabled={installationType === 'single-user'} title={installationType === 'single-user' ? 'El supuesto de único usuario no tiene línea general de alimentación' : undefined} className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
+            <TabsTrigger value="di" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />DI</TabsTrigger>
           </TabsList>
-          <TabsContent value="cargas">
+          <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
             total a la vista mientras se editan los bloques de la previsión. Es sticky
             y no fixed para no tapar el pie ni exigir relleno extra al final. */}
@@ -937,10 +948,10 @@ export function LoadCalculator() {
         </div>
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
-          <TabsContent value="lga">
+          <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
             <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} />
           </TabsContent>
-          <TabsContent value="di">
+          <TabsContent value="di" data-dir={tabDirection} className="tab-panel">
             <section className="mb-6 rounded-2xl border border-line bg-paper p-5 shadow-sm">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -1004,6 +1015,18 @@ export function LoadCalculator() {
       </div>
       <SiteFooter />
     </main>
+  )
+}
+
+function ModeBackdrop() {
+  return (
+    <div aria-hidden="true" className="mode-backdrop">
+      <div className="mode-backdrop-grid" />
+      <div className="mode-backdrop-dots" />
+      <span className="mode-blob mode-blob-a" />
+      <span className="mode-blob mode-blob-b" />
+      <span className="mode-blob mode-blob-c" />
+    </div>
   )
 }
 

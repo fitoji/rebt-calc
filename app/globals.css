@@ -552,10 +552,286 @@ html.dark[data-explanation-mode="calculation"] {
   body {
     @apply bg-background text-foreground;
   }
+  /* El fondo de modo vive en un hijo con z-index -1: sin un contexto de apilado
+     propio en `main`, ese hijo caería por detrás del color de página. */
+  main {
+    isolation: isolate;
+  }
 }
 
 @layer components {
   .label {
     @apply block text-xs font-semibold uppercase tracking-wide text-ink-faint;
+  }
+
+  /*
+   * Fondo de la superficie activa.
+   *
+   * Cálculo: papel milimetrado. La retícula de una memoria técnica, presente
+   * pero nunca por delante del dato.
+   * Didáctico: masas de color que derivan despacio, el mundo de las
+   * explicaciones. Ambas capas viven por detrás del contenido: `main` aísla el
+   * contexto de apilado y el backdrop queda en z-index -1, sobre el color de
+   * página y por debajo de tarjetas y cabecera.
+   */
+  .mode-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /*
+   * Las dos capas conviven siempre y se cruzan al cambiar de modo: el papel
+   * milimetrado se disuelve en el campo cálido del didáctico y vuelve. Así el
+   * cambio de nivel de detalle también se ve, no solo se lee en la etiqueta.
+   */
+  .mode-backdrop-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to right, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px);
+    background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 85%), rgb(0 0 0 / 30%) 55%, rgb(0 0 0 / 8%));
+    opacity: 0;
+    transition: opacity 520ms ease;
+  }
+
+  .mode-backdrop-dots {
+    position: absolute;
+    inset: -12%;
+    background-image: radial-gradient(color-mix(in oklab, var(--ink) 10%, transparent) 1px, transparent 1.4px);
+    background-size: 26px 26px;
+    opacity: 0;
+    transition: opacity 620ms ease;
+  }
+
+  /* El atributo del <html> lo escribe el script de arranque antes del primer
+     pintado, así que el fondo correcto ya está en el marco inicial. */
+  html[data-explanation-mode='calculation'] .mode-shell .mode-backdrop-grid {
+    opacity: 1;
+  }
+
+  html[data-explanation-mode='didactic'] .mode-shell .mode-backdrop-dots {
+    opacity: 0.22;
+  }
+
+  .mode-blob {
+    --blob-alpha: 26%;
+    position: absolute;
+    width: 48vmax;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in oklab, var(--blob-color) var(--blob-strength, var(--blob-alpha)), transparent),
+      transparent 68%
+    );
+    opacity: 0;
+    transition: opacity 620ms ease;
+    will-change: transform;
+  }
+
+  .dark .mode-blob {
+    --blob-alpha: 34%;
+  }
+
+  .dark .mode-blob-b {
+    --blob-strength: 26%;
+  }
+
+  .dark .mode-blob-c {
+    --blob-strength: 16%;
+  }
+
+  html[data-explanation-mode='didactic'] .mode-shell .mode-blob {
+    opacity: 1;
+    animation: var(--blob-drift) var(--blob-speed, 34s) ease-in-out infinite alternate;
+  }
+
+  .mode-blob-a {
+    top: -16vmax;
+    left: -12vmax;
+    --blob-color: var(--brand);
+    --blob-drift: blob-drift-a;
+  }
+
+  .mode-blob-b {
+    right: -16vmax;
+    bottom: -20vmax;
+    width: 56vmax;
+    --blob-color: var(--secondary);
+    --blob-strength: 20%;
+    --blob-drift: blob-drift-b;
+    --blob-speed: 40s;
+  }
+
+  .mode-blob-c {
+    top: 30%;
+    left: 30%;
+    width: 42vmax;
+    --blob-color: var(--accent);
+    --blob-strength: 11%;
+    --blob-drift: blob-drift-c;
+    --blob-speed: 46s;
+  }
+
+  /*
+   * Barra de módulos. El acento de cada pestaña es una variable que la barra
+   * reasigna según el módulo activo; el indicador deslizante y el punto de
+   * color la consumen. El estado activo se distingue por forma y posición, no
+   * solo por color (WCAG 1.4.1).
+   */
+  .tab-bar {
+    --tab-accent: var(--brand-mark);
+    --tab-accent-ink: var(--ink-strong);
+  }
+
+  .tab-bar[data-active-tab='lga'] {
+    --tab-accent: var(--tab-lga);
+  }
+
+  .tab-bar[data-active-tab='di'] {
+    --tab-accent: var(--tab-di);
+  }
+
+  .tab-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--active-tab-width);
+    height: var(--active-tab-height);
+    translate: var(--active-tab-left) var(--active-tab-top);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--tab-accent) 18%, var(--paper));
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--tab-accent) 46%, transparent),
+      0 1px 2px rgb(0 0 0 / 6%);
+    transition:
+      translate 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      width 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      height 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 220ms linear,
+      box-shadow 220ms linear;
+  }
+
+  .tab-trigger {
+    color: var(--ink-muted);
+    transition:
+      color 160ms linear,
+      background-color 160ms linear;
+  }
+
+  .tab-trigger:hover {
+    color: var(--ink);
+    background: color-mix(in oklab, var(--ink) 5%, transparent);
+  }
+
+  .tab-trigger[data-active] {
+    color: var(--tab-accent-ink);
+  }
+
+  .tab-trigger[data-active]:hover {
+    background: transparent;
+  }
+
+  .tab-dot {
+    transition:
+      scale 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 220ms linear;
+    opacity: 0.55;
+  }
+
+  .tab-trigger[data-active] .tab-dot {
+    scale: 1;
+    opacity: 1;
+  }
+
+  .tab-trigger:not([data-active]) .tab-dot {
+    scale: 0.72;
+  }
+
+  /*
+   * Cambio de panel. El contenido entra desde el lado hacia el que se movió el
+   * indicador, así que el gesto explica la relación espacial entre módulos.
+   */
+  .tab-panel[data-dir='forward'] {
+    animation: tab-panel-forward 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tab-panel[data-dir='back'] {
+    animation: tab-panel-back 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .step-reveal {
+    animation: step-reveal 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes blob-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8vmax, 6vmax, 0) scale(1.16);
+  }
+}
+
+@keyframes blob-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(-7vmax, -8vmax, 0) scale(0.9);
+  }
+}
+
+@keyframes blob-drift-c {
+  from {
+    transform: translate3d(-4vmax, 3vmax, 0) scale(0.94);
+  }
+  to {
+    transform: translate3d(6vmax, -5vmax, 0) scale(1.1);
+  }
+}
+
+@keyframes tab-panel-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 8px, 0);
+  }
+}
+
+@keyframes tab-panel-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-16px, 8px, 0);
+  }
+}
+
+@keyframes step-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+}
+
+/* Sin movimiento pedido por el sistema: el estado sigue siendo legible. */
+@media (prefers-reduced-motion: reduce) {
+  .mode-blob,
+  .tab-panel[data-dir],
+  .step-reveal {
+    animation: none;
+  }
+
+  .tab-indicator,
+  .tab-dot,
+  .tab-trigger {
+    transition-duration: 1ms;
   }
 }

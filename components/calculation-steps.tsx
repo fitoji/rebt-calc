@@ -28,8 +28,12 @@ export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
     <section className="mt-6 border-t border-line pt-5" aria-label="Desarrollo del cálculo">
       <h3 className="mb-4 text-sm font-bold text-ink-soft">Desarrollo del cálculo</h3>
       <div className="flex flex-col gap-4">
-        {steps.map(step => (
-          <article key={step.id} className="border-b border-line py-4 last:border-b-0">
+        {steps.map((step, index) => (
+          <article
+            key={step.id}
+            className="step-reveal border-b border-line py-4 last:border-b-0"
+            style={{ animationDelay: `${Math.min(index, 5) * 45}ms` }}
+          >
             <h4 className="mb-2 text-sm font-semibold text-ink">{step.title}</h4>
             {step.kind === 'table' && (
               <dl className="grid gap-1.5 text-sm sm:grid-cols-2">
