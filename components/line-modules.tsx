@@ -217,11 +217,12 @@ function LineResult({ title, result, phaseLabel, elements }: {
   )
 }
 
-function VariantFields({ idPrefix, state, onChange, onOpenTables }: {
+function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
   idPrefix: string
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables: TableKey[]) => void
+  role: 'lga' | 'di'
 }) {
   return (
     <>
@@ -258,18 +259,26 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables }: {
         tables={['A']}
         onOpenTables={onOpenTables}
       />
-      <SelectField
-        id={`${idPrefix}-insulation`}
-        label="Aislamiento"
-        value={state.insulation}
-        options={[
-          { value: 'PVC', label: 'PVC · 70 °C' },
-          { value: 'XLPE', label: 'XLPE / EPR · 90 °C' },
-        ]}
-        onChange={value => onChange({ insulation: value as Insulation })}
-        tables={['A']}
-        onOpenTables={onOpenTables}
-      />
+      {role === 'lga' ? (
+        <div>
+          <span className="label mb-1 block">Aislamiento</span>
+          <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm">XLPE / EPR · 90 °C · RZ1-K (AS)</p>
+          <p className="mt-1 text-xs text-ink-faint">ITC-BT-14 §3 sólo admite RZ1-K o DZ1-K de 0,6/1 kV.</p>
+        </div>
+      ) : (
+        <SelectField
+          id={`${idPrefix}-insulation`}
+          label="Aislamiento"
+          value={state.insulation}
+          options={[
+            { value: 'PVC', label: 'PVC · 70 °C' },
+            { value: 'XLPE', label: 'XLPE / EPR · 90 °C' },
+          ]}
+          onChange={value => onChange({ insulation: value as Insulation })}
+          tables={['A']}
+          onOpenTables={onOpenTables}
+        />
+      )}
       <NumberField
         id={`${idPrefix}-circuits`}
         label="Circuitos agrupados"
@@ -369,7 +378,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <NumberField id="lga-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" onChange={value => onChange({ gamma: value })} />
-          <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} />
+          <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} role="lga" />
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio); intensidad admisible según UNE 20.460-5-523 con los factores de corrección del montaje. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
@@ -427,7 +436,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <NumberField id="di-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" step="0.1" onChange={value => onChange({ gamma: value })} />
-          <VariantFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />
+          <VariantFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} role="di" />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
           <NumberField id="di-control" label="Fil de comandament" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />

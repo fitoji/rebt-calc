@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
+import { LGA_INSULATION } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
 
 type ProjectInfo = {
@@ -172,7 +173,7 @@ export function LoadCalculator() {
   const [lineTouched, setLineTouched] = useState(false)
   const [lga, setLga] = useState<LineState>({
     powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
-    method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
+    method: 'B1', insulation: 'XLPE', circuits: 1, protectionA: 0,
     neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
@@ -492,7 +493,7 @@ export function LoadCalculator() {
           ['Tubo Protector Incubat', `${fmt(lga.tubeDiameter)} mm Diàmetre exterior mínimo`],
           ['Protección (In)', lgaResult.protection == null ? '—' : `${fmt(lgaResult.protection)} A`],
           ['Caída resultante', lgaResult.dropPercent == null ? '—' : `${fmt(lgaResult.dropPercent, 2)} %`],
-          ['Método · aislamiento', `${lga.method} · ${lga.insulation}`],
+          ['Método · aislamiento', `${lga.method} · ${LGA_INSULATION}`],
         ],
       },
       {
@@ -654,7 +655,7 @@ export function LoadCalculator() {
       ['Iz corregida', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
       ['Caída resultante', lgaResult.dropPercent == null ? '—' : `${fmt(lgaResult.dropPercent, 2)} %`],
       ['Protección (In)', lgaResult.protection == null ? '—' : `${fmt(lgaResult.protection)} A`],
-      ['Método · aislamiento', `${lga.method} · ${lga.insulation}`],
+      ['Método · aislamiento', `${lga.method} · ${LGA_INSULATION}`],
       ['Observaciones', lgaResult.problems.length > 0 ? lgaResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
     addExplanationPage('6.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })

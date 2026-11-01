@@ -15,6 +15,7 @@ import {
   tubesContactBuriedFactor,
 } from '../lib/cable-tables.mjs'
 import { PROTECTION_SERIES, sizeLine } from '../lib/line-sizing.mjs'
+import { lineInputFromState } from '../lib/line-state.mjs'
 
 const near = (actual, expected, tolerance, label) =>
   assert.ok(Math.abs(actual - expected) <= tolerance,
@@ -267,4 +268,23 @@ test('spacing between two tabulated columns takes the smaller distance', () => {
   assert.equal(buriedSpacingFactor(2, 0.4), 0.9, '40 cm is below the 50 cm column')
   assert.equal(buriedSpacingFactor(2, 0.5), 0.95, 'the column value applies exactly at 50 cm')
   assert.equal(buriedSpacingFactor(2, 0.9), 0.95, '90 cm is below the 1 m column')
+})
+
+test('the LGA is always sized on the XLPE column, whatever the stored state says', () => {
+  const state = {
+    powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
+    method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+  }
+
+  const lga = lineInputFromState(state, 'three-phase', 'lga')
+  assert.equal(lga.variant.insulation, 'XLPE', 'ITC-BT-14 only admits RZ1-K/DZ1-K')
+
+  const di = lineInputFromState(state, 'three-phase', 'di')
+  assert.equal(di.variant.insulation, 'PVC', 'the DI keeps the user choice')
+
+  const pvcLga = sizeLine({ ...lgaInput({}), variant: lga.variant })
+  const pvcColumnLga = sizeLine({ ...lgaInput({}), variant: { ...lga.variant, insulation: 'PVC' } })
+  assert.ok(pvcLga.tableCurrent > pvcColumnLga.tableCurrent,
+    'XLPE admits more current than PVC at the same section')
 })
