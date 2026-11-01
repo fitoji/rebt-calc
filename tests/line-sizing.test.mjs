@@ -21,6 +21,7 @@ const near = (actual, expected, tolerance, label) =>
     `${label}: expected ~${expected}, got ${actual}`)
 
 const lgaInput = overrides => ({
+  role: 'lga',
   system: 'three-phase',
   powerW: 75000,
   voltageV: 400,
@@ -33,6 +34,7 @@ const lgaInput = overrides => ({
 })
 
 const diInput = overrides => ({
+  role: 'di',
   system: 'single-phase',
   powerW: 9200,
   voltageV: 230,
@@ -208,10 +210,61 @@ test('an air installation ignores the buried tables', () => {
   assert.equal(air.tableCurrent, 149, 'table A for B1 3x PVC 70')
 })
 
-test('the normative minimum section floors LGA and DI', () => {
-  const tinyLga = sizeLine(lgaInput({ powerW: 2000, lengthM: 1, maxDropPercent: 5 }))
-  assert.equal(tinyLga.finalSection, 10, 'ITC-BT-14 sets 10 mm² of copper as the LGA minimum')
+test('the minimum section follows the line role, not the system', () => {
+  const tiny = { powerW: 2000, lengthM: 1, maxDropPercent: 5 }
 
-  const tinyDi = sizeLine(diInput({ powerW: 1000, lengthM: 1, maxDropPercent: 5 }))
-  assert.equal(tinyDi.finalSection, 6, 'ITC-BT-15 sets 6 mm² of copper as the DI minimum')
+  const threePhaseLga = sizeLine(lgaInput(tiny))
+  assert.equal(threePhaseLga.finalSection, 10, 'ITC-BT-14 sets 10 mm² of copper as the LGA minimum')
+
+  const singlePhaseLga = sizeLine(lgaInput({
+    ...tiny,
+    system: 'single-phase',
+    voltageV: 230,
+    variant: { method: 'B1', loadedConductors: 2, insulation: 'XLPE' },
+  }))
+  assert.equal(singlePhaseLga.finalSection, 10, 'a single-phase LGA still needs 10 mm² of copper')
+
+  const singlePhaseDi = sizeLine(diInput({ powerW: 1000, lengthM: 1, maxDropPercent: 5 }))
+  assert.equal(singlePhaseDi.finalSection, 6, 'ITC-BT-15 sets 6 mm² of copper as the DI minimum')
+
+  const threePhaseDi = sizeLine(diInput({
+    powerW: 1000,
+    lengthM: 1,
+    maxDropPercent: 5,
+    system: 'three-phase',
+    voltageV: 400,
+    variant: { method: 'B1', loadedConductors: 3, insulation: 'PVC' },
+  }))
+  assert.equal(threePhaseDi.finalSection, 6, 'a three-phase DI still needs only 6 mm² of copper')
+})
+
+test('the LGA minimum follows the conductor material', () => {
+  const aluminiumLga = sizeLine(lgaInput({
+    powerW: 2000,
+    lengthM: 1,
+    maxDropPercent: 5,
+    installation: 'buried',
+    material: 'aluminium',
+    grouping: { kind: 'tubes-buried', tubes: 2, layers: 1 },
+  }))
+  assert.equal(aluminiumLga.finalSection, 16, 'ITC-BT-14 sets 16 mm² of aluminium as the LGA minimum')
+
+  const copperLga = sizeLine(lgaInput({
+    powerW: 2000,
+    lengthM: 1,
+    maxDropPercent: 5,
+    installation: 'buried',
+    grouping: { kind: 'tubes-buried', tubes: 2, layers: 1 },
+  }))
+  assert.equal(copperLga.finalSection, 10, 'the aluminium floor does not leak into copper')
+})
+
+test('spacing between two tabulated columns takes the smaller distance', () => {
+  assert.equal(buriedSpacingFactor(2, 0), 0.85, 'in contact')
+  assert.equal(buriedSpacingFactor(2, 0.05), 0.85, '5 cm is closer to contact than to 25 cm')
+  assert.equal(buriedSpacingFactor(2, 0.2), 0.85, '20 cm is still below the 25 cm column')
+  assert.equal(buriedSpacingFactor(2, 0.25), 0.9, 'the column value applies exactly at 25 cm')
+  assert.equal(buriedSpacingFactor(2, 0.4), 0.9, '40 cm is below the 50 cm column')
+  assert.equal(buriedSpacingFactor(2, 0.5), 0.95, 'the column value applies exactly at 50 cm')
+  assert.equal(buriedSpacingFactor(2, 0.9), 0.95, '90 cm is below the 1 m column')
 })

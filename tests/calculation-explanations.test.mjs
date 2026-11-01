@@ -4,6 +4,7 @@ import { explainLineCalculation } from '../lib/calculation-explanations.mjs'
 import { sizeLine } from '../lib/line-sizing.mjs'
 
 const lgaInput = overrides => ({
+  role: 'lga',
   system: 'three-phase',
   powerW: 75000,
   voltageV: 400,
@@ -16,6 +17,7 @@ const lgaInput = overrides => ({
 })
 
 const diInput = overrides => ({
+  role: 'di',
   system: 'single-phase',
   powerW: 9200,
   voltageV: 230,

@@ -316,8 +316,8 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables }: {
  * Sizing result for a line module. Shared by the panels, the JSON export and
  * the PDF so all three report the same numbers.
  */
-export function computeLine(state: LineState, system: 'three-phase' | 'single-phase') {
-  return sizeLine(lineInputFromState(state, system))
+export function computeLine(state: LineState, system: 'three-phase' | 'single-phase', role: 'lga' | 'di') {
+  return sizeLine(lineInputFromState(state, system, role))
 }
 
 function formatLimit(value: number) { return `${value.toString().replace('.', ',')} %` }
@@ -349,7 +349,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   onPowerModeChange?: (mode: 'auto' | 'manual') => void
   loadTotal?: number
 }) {
-  const result = useMemo(() => computeLine(state, 'three-phase'), [state])
+  const result = useMemo(() => computeLine(state, 'three-phase', 'lga'), [state])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga' }), [state, result])
   const limits = limitsForInstallation(installationType)
 
@@ -400,7 +400,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   system?: 'single-phase' | 'three-phase'
   editingLabel?: string
 }) {
-  const result = useMemo(() => computeLine(state, system), [state, system])
+  const result = useMemo(() => computeLine(state, system, 'di'), [state, system])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di' }), [state, result, system])
   const limits = limitsForInstallation(installationType)
 

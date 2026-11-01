@@ -396,8 +396,8 @@ export function LoadCalculator() {
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   }
 
-  const lgaResult = useMemo(() => computeLine(lga, 'three-phase'), [lga])
-  const diResult = useMemo(() => computeLine(di, 'single-phase'), [di])
+  const lgaResult = useMemo(() => computeLine(lga, 'three-phase', 'lga'), [lga])
+  const diResult = useMemo(() => computeLine(di, 'single-phase', 'di'), [di])
   const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga' }), [lga, lgaResult])
   const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di' }), [di, diResult])
 
