@@ -26,15 +26,25 @@ S9. Nothing regresses: the existing suite keeps passing, and each fix is pinned 
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T1 | S1, S2, S4 | inline | pending | |
-| T2 | S5 | inline | pending | |
-| T3 | S3 | inline | pending | |
-| T4 | S6 | inline | pending | |
-| T5 | S7, S8 | inline | pending | |
-| T6 | S9 | inline | pending | |
+| T1 | S1, S2, S4 | inline | done | bbcdc61 |
+| T2 | S5 | inline | done | 34b352b |
+| T3 | S3 | inline | done | 608acec |
+| T4 | S6 | inline | done | 06bcffc |
+| T5 | S7, S8 | inline | done | 7f915bc |
+| T6 | S9 | inline | done | see git log |
 
 ## Log
 
 L1. User request, verbatim: "si, y documenta todo lo aprendido, recuerda agregar en  la seccion didactica las explicaciones, agrega las tablas que faltan y corrige las que estan mal"
 
 L2. Prior audit (obs engram `audit/di-lga-sections`): P1 gamma over-conservative (44 LGA / 48,5 DI; the BT-15 tables are built with ≈52), P2 minimum keyed to the system, P3 LGA defaults to PVC with an XLPE gamma, P4 LGA neutral and PE are static fields, P5 buried spacing rounds the unsafe way, P6 buried currents 17-20 % below BT-15 Tabla D. The user authorised P2, P3 and P5 explicitly and asked for the missing tables plus the didactic explanations. P1 stays open pending a decision on the default gamma.
+
+L3. S6 narrowed on purpose: the reference section listed ITC-BT-19 Tabla B (corrección por temperatura ambiente), but that guide is NOT among the tracked PDFs, so its factors were left out rather than invented. The gap is disclosed in the help page and in the dialog footnote.
+
+L4. T1 changed the contract of the engine: `sizeLine` now requires `role` ('lga' | 'di') and throws without it, so a future caller cannot silently fall back to a system-keyed floor. The test that used to pin the minimum ("the normative minimum section floors LGA and DI") passed for the wrong reason: its LGA case was three-phase and its DI case single-phase, which coincidentally matched the system-keyed floor. It was replaced by the two cross cases.
+
+L5. T4 extended the engine beyond the user's explicit list (P6 in the audit): the LGA and DI now read the tables their own instruction publishes instead of the generic ITC-BT-19 column. Verified anchors: LGA air 10 mm2 60 A (was 54), LGA buried 10 mm2 77 A (was 64), DI buried multiconductor 6 mm2 53 A (was 48), DI air PVC unchanged (36 A, the ES07Z1-K table matches the PVC column exactly).
+
+L6. Verified: `pnpm typecheck` clean, `pnpm test` 179/179, `pnpm build` compiles and prerenders `/` and `/ayuda`. CI on main runs the same three steps.
+
+L7. Still open for the user: the default gamma (44 LGA / 48.5 DI) was left untouched by request. With gamma 52.1 the engine reproduces BT-15 Tabla H exactly at every length; with the current defaults it lands one section above the guide for a 5750 W dwelling.

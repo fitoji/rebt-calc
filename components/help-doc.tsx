@@ -371,11 +371,11 @@ export function HelpDoc() {
                     ['Factor de potencia (cos φ)', 'Entra en la intensidad de línea'],
                     ['Longitud de la línea', 'Del cuadro general al punto donde empiezan las derivaciones'],
                     ['Caída máxima admisible', 'La fija el supuesto de enlace'],
-                    ['Conductividad (γ)', '44 m/(Ω·mm²) para el cobre'],
-                    ['Tipo de instalación', 'Tabla A (al aire) o D (enterrado)'],
+                    ['Conductividad (γ)', 'La que corresponde a la temperatura del conductor: 52 es cobre a 40 °C y 47, cobre a 70 °C'],
+                    ['Tipo de instalación', 'Tabla A (al aire) o la fila de tubos enterrados de la misma tabla'],
                     ['Disposición de los circuitos', 'Tabla E (empotrados) o G (al aire)'],
                     ['Método de instalación', 'Columna de la tabla: A, B1, B2, C, E o F'],
-                    ['Aislamiento', 'PVC 70 °C o XLPE 90 °C'],
+                    ['Aislamiento', 'Fijo en XLPE: la ITC-BT-14 sólo admite RZ1-K o DZ1-K de 0,6/1 kV'],
                     ['Circuitos agrupados, capas y tubos', 'Factores de reducción de las tablas E, F, G, H e I'],
                     ['Protección ya elegida', '0 deja que la app elija; otro valor fija el interruptor'],
                   ]}
@@ -397,12 +397,12 @@ export function HelpDoc() {
                   caption="LGA con el edificio del ejemplo: 240 mm² de fase, protección de 315 A y una caída resultante del 0,29 % frente al 0,5 % permitido."
                 />
                 <p>
-                  Cada campo que depende de una tabla lleva su botón con la referencia: <code>A·D</code> en el tipo de instalación, <code>E·G</code> en la disposición de circuitos y <code>G·H·I</code> en los tubos en contacto. El botón <code>Tablas</code> de la cabecera de la tarjeta abre el juego completo de la ITC-BT-19.
+                  Cada campo que depende de una tabla lleva su botón con la referencia: <code>BT14-A·BT14-B</code> en el tipo de instalación, <code>E·G</code> en la disposición de circuitos y <code>G·H·I</code> en los tubos en contacto. El botón <code>Tablas</code> de la cabecera de la tarjeta abre las tablas de la ITC-BT-14, de la ITC-BT-15 y las de agrupamiento de la ITC-BT-19.
                 </p>
                 <Shot
                   id="tablas"
-                  alt="Diálogo de tablas de referencia de la ITC-BT-19 con la tabla A de intensidades admisibles por sección y columna de instalación"
-                  caption="Tablas de referencia · ITC-BT-19: la guía del Ministerio reproduce las tablas de la UNE 20460-5-523 que aplica la instrucción."
+                  alt="Diálogo de tablas de referencia con la tabla A de la ITC-BT-14 de intensidades admisibles por sección y tipo de instalación"
+                  caption="Tablas de referencia: la tabla A de la ITC-BT-14 para la LGA, las tablas C, D y E de la ITC-BT-15 para la derivación individual y las de agrupamiento de la ITC-BT-19."
                 />
               </Section>
 
@@ -418,13 +418,45 @@ export function HelpDoc() {
                   <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación.</>,
                 ]} />
                 <p>
-                  El criterio de cálculo es el mismo que en la LGA, con los límites de la ITC-BT-15: sección mínima de 6 mm² en monofásica y 10 mm² en trifásica, y la protección del cuadro de mando del abonado.
+                  El criterio de cálculo es el mismo que en la LGA, con los límites de la ITC-BT-15: sección mínima de 6 mm² tanto en monofásica como en trifásica, y la protección del cuadro de mando del abonado.
                 </p>
                 <Shot
                   id="di"
                   alt="Pestaña de derivaciones individuales con la lista de suministros del edificio a la izquierda y el panel de la derivación seleccionada a la derecha con su resultado"
                   caption="DI de una vivienda del ejemplo: la lista de suministros sale del proyecto y cada uno tiene su propia línea."
                 />
+              </Section>
+
+              <Section id="seccion" title="Cómo se elige la sección">
+                <p>
+                  La sección de una línea no sale de una sola fórmula: tiene que cumplir tres cosas a la vez, y la app adopta la primera sección comercial que las cumple todas. Si ninguna las cumple, no devuelve la mayor de la tabla: avisa de qué criterio falla.
+                </p>
+                <DataTable
+                  head={['Criterio', 'De dónde sale', 'Qué significa']}
+                  rows={[
+                    ['Sección mínima', 'ITC-BT-14 §3 para la LGA; ITC-BT-15 §3 para la derivación', 'Un suelo normativo que no depende de la carga'],
+                    ['Caída de tensión', 'La fórmula de la pestaña, con γ y la longitud', 'Que la tensión al final de la línea quede dentro del límite del supuesto de enlace'],
+                    ['Intensidad admisible', 'La tabla de la propia instrucción de la línea', 'Que el conductor no se caliente por encima de lo que admite su aislamiento'],
+                  ]}
+                />
+                <SubHeading>El mínimo no depende de si hay una o tres fases</SubHeading>
+                <p>
+                  La ITC-BT-14 dice, textualmente, que «la sección mínima será de 10 mm² en cobre o 16 mm² en aluminio», y la ITC-BT-15 que «la sección mínima será de 6 mm² para los cables polares, neutro y protección y de 1,5 mm² para el hilo de mando». Son mínimos de la línea, no del sistema: una LGA monofásica sigue necesitando 10 mm² de cobre y una derivación trifásica se conforma con 6.
+                </p>
+                <SubHeading>Qué tabla se lee en cada caso</SubHeading>
+                <p>
+                  Las guías de la ITC-BT-14 y de la ITC-BT-15 no remiten sólo a la tabla general: publican sus propias intensidades para los cables que esas líneas pueden usar. La LGA se lee en la tabla A (cobre) o B (aluminio) de la ITC-BT-14, y la derivación en la tabla C si el cable es ES07Z1-K, en la tabla D si es RZ1-K unipolar y en la tabla E cuando va enterrada, que es el cable multiconductor que la instrucción pide en ese caso. Cuando la combinación no está publicada —un método distinto del B, una LGA monofásica, una sección fuera del rango— la app cae en la tabla A de la ITC-BT-19. El botón <code>Tablas</code> muestra unas y otras con el documento del que sale cada una.
+                </p>
+                <Note title="La conductividad manda más que cualquier otra cifra">
+                  El mismo límite de caída pide más o menos sección según la γ que escribas. La guía trabaja con ≈ 52 m/(Ω·mm²) para el cobre a 40 °C y pide multiplicar la caída por 1,12 si el conductor va a 70 °C, lo que equivale a ≈ 47. Un valor menor —44, por ejemplo— corresponde a un cobre más caliente y pide más sección: es una decisión de proyecto, no un detalle, y la app te la muestra en el paso de datos del modo didáctico.
+                </Note>
+                <SubHeading>Neutro y conductor de protección</SubHeading>
+                <p>
+                  En la LGA el neutro no se escribe a mano: sale de la tabla 1 de la ITC-BT-14, que lo fija en torno al 50 % de la fase con mínimos por escalón (10→10, 16→10, 25→16, 50→25, 120→70, 240→120). En la derivación individual el neutro tiene la misma sección que la fase, salvo que se justifique la ausencia de desequilibrios y armónicos. El conductor de protección, en ambos casos, sale de la tabla 2 de la ITC-BT-18.
+                </p>
+                <Note title="Lo que la app todavía no distingue">
+                  El cálculo no separa cable unipolar de multiconductor fuera del caso enterrado, y no aplica la corrección por temperatura ambiente de la tabla B de la ITC-BT-19, cuya guía no está entre los documentos de referencia del proyecto. Si el proyecto necesita esa corrección, conviene comprobarla a mano antes de firmar la memoria.
+                </Note>
               </Section>
 
               <Section id="explicacion" title="Modo cálculo y modo didáctico">
