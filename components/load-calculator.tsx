@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
-import { Check, Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
+import { Check, ChevronRight, Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
-import { clearProjectData, loadCalculatorInputs, saveCalculatorInputs } from '../lib/calculator-storage.mjs'
+import { clearProjectData, loadCalculatorInputs, opensWithExample, saveCalculatorInputs, setClearedProjectMark } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
@@ -220,6 +220,11 @@ export function LoadCalculator() {
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   const [storageLoaded, setStorageLoaded] = useState(false)
 
+  // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
+  // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
+  // que ese vaciado deliberado sobreviva a la recarga.
+  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1); setDerivations([]); setLgaPowerMode('auto') }
+
   useEffect(() => {
     let stored: string | null = null
     try { stored = window.localStorage.getItem(THEME_STORAGE_KEY) } catch { /* storage can be unavailable */ }
@@ -238,9 +243,11 @@ export function LoadCalculator() {
   }, [])
 
   useEffect(() => {
+    let restored = false
     try {
       const savedInputs = loadCalculatorInputs(window.localStorage)
       if (savedInputs) {
+        restored = true
         setHousing(savedInputs.housing)
         setLocals(savedInputs.locals)
         setGarages(savedInputs.garages)
@@ -271,6 +278,11 @@ export function LoadCalculator() {
         try { setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '', ...JSON.parse(savedProject) }) } catch { window.localStorage.removeItem('electrocalc-project-info') }
       }
     } catch { /* Keep project information empty when storage is unavailable. */ }
+
+    // Sin proyecto guardado y sin un vaciado deliberado: se abre con el edificio de
+    // ejemplo, que es el documento de trabajo de referencia. Así la primera pantalla
+    // enseña números y citas reales en vez de una tabla de ceros.
+    if (opensWithExample(window.localStorage, restored)) reset()
 
     setStorageLoaded(true)
   }, [])
@@ -355,7 +367,10 @@ export function LoadCalculator() {
 
   useEffect(() => {
     if (lgaPowerMode !== 'auto') return
-    setLga(current => current.powerW === result.total ? current : { ...current, powerW: result.total })
+    // La previsión arrastra decimales de coeficientes; la LGA se dimensiona con la
+    // potencia entera que se ve en pantalla, no con 194.675,73863636365 W.
+    const watts = Math.round(result.total)
+    setLga(current => current.powerW === watts ? current : { ...current, powerW: watts })
   }, [result.total, lgaPowerMode])
 
   const generateDerivations = () => {
@@ -380,9 +395,9 @@ export function LoadCalculator() {
     setDerivations(current => syncDerivationPowers(current, { housing, locals, garages, parking, irveOption }, result))
   }, [housing, locals, garages, parking, irveOption, result])
 
-  const reset = () => { setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(1); setDerivations([]); setLgaPowerMode('auto') }
   const clear = () => {
     try { clearProjectData(window.localStorage) } catch { /* In-memory reset still applies when storage is unavailable. */ }
+    setClearedProjectMark(window.localStorage, true)
     setHousing([])
     setLocals([])
     setGarages([])
@@ -490,7 +505,7 @@ export function LoadCalculator() {
           ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
           ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
           ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (RZ1-K 0,6/1 kV)`],
-          ['Tubo Protector Incubat', `${fmt(lga.tubeDiameter)} mm Diàmetre exterior mínimo`],
+          ['Tubo protector empotrado', `${fmt(lga.tubeDiameter)} mm de diámetro exterior mínimo`],
           ['Protección (In)', lgaResult.protection == null ? '—' : `${fmt(lgaResult.protection)} A`],
           ['Caída resultante', lgaResult.dropPercent == null ? '—' : `${fmt(lgaResult.dropPercent, 2)} %`],
           ['Método · aislamiento', `${lga.method} · ${LGA_INSULATION}`],
@@ -504,10 +519,10 @@ export function LoadCalculator() {
           ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
           ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
           ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
-          ["Conductors d'Alimentació (Fase + Neutre)", diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-          ['Conductor de Protecció (Terra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (Tipus ES07Z1-K, verd-i-groc)`],
-          ['Fil de Comandament (Tarifació)', `1 x ${fmt(di.controlSection)} mm² Cu (Tipus ES07Z1-K, color vermell)`],
-          ['Canalització i Tub Protector', `Tub protector encastat de diàmetre exterior Ø ${fmt(di.tubeDiameter)} mm`],
+          ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
+          ['Conductor de protección (tierra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`],
+          ['Hilo de mando (tarificación)', `1 x ${fmt(di.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`],
+          ['Canalización y tubo protector', `Tubo protector empotrado de diámetro exterior Ø ${fmt(di.tubeDiameter)} mm`],
           ['Protección (PE)', `${fmt(di.peSection)} mm²`],
           ['Caída resultante', diResult.dropPercent == null ? '—' : `${fmt(diResult.dropPercent, 2)} %`],
           ['Método · aislamiento', `${di.method} · ${di.insulation}`],
@@ -649,7 +664,7 @@ export function LoadCalculator() {
       ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
       ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
       ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (RZ1-K 0,6/1 kV)`],
-      ['Tubo Protector Incubat', `${fmt(lga.tubeDiameter)} mm Diàmetre exterior mínimo`],
+      ['Tubo protector empotrado', `${fmt(lga.tubeDiameter)} mm de diámetro exterior mínimo`],
       ['Iz de tabla', lgaResult.tableCurrent == null ? '—' : `${fmt(lgaResult.tableCurrent)} A`],
       ['Factor de agrupamiento', fmt(lgaResult.groupingFactor, 2)],
       ['Iz corregida', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
@@ -664,10 +679,10 @@ export function LoadCalculator() {
       ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
       ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
       ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
-      ["Conductors d'Alimentació (Fase + Neutre)", diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
-      ['Conductor de Protecció (Terra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (Tipus ES07Z1-K, verd-i-groc)`],
-      ['Fil de Comandament (Tarifació)', `1 x ${fmt(di.controlSection)} mm² Cu (Tipus ES07Z1-K, color vermell)`],
-      ['Canalització i Tub Protector', `Tub protector encastat de diàmetre exterior Ø ${fmt(di.tubeDiameter)} mm`],
+      ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
+      ['Conductor de protección (tierra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`],
+      ['Hilo de mando (tarificación)', `1 x ${fmt(di.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`],
+      ['Canalización y tubo protector', `Tubo protector empotrado de diámetro exterior Ø ${fmt(di.tubeDiameter)} mm`],
       ['Iz de tabla', diResult.tableCurrent == null ? '—' : `${fmt(diResult.tableCurrent)} A`],
       ['Factor de agrupamiento', fmt(diResult.groupingFactor, 2)],
       ['Iz corregida', diResult.correctedCurrent == null ? '—' : `${fmt(diResult.correctedCurrent, 1)} A`],
@@ -696,7 +711,7 @@ export function LoadCalculator() {
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-3xl">
             <div className="mb-6 flex items-start justify-between gap-4"><div><DialogTitle id="settings-title" className="text-xl font-bold text-ink">Parámetros de cálculo</DialogTitle><DialogDescription id="settings-description" className="mt-1 text-sm text-ink-faint">Ajusta los valores utilizados en las previsiones. Los cambios se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar parámetros de cálculo" />}><X /></DialogClose></div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid items-start gap-4 md:grid-cols-2">
               <section className="rounded-xl border border-line p-4"><h3 className="mb-4 text-sm font-bold text-ink-soft">Viviendas y suministros</h3><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Vivienda básica" value={settings.basicHousingPower} suffix="W" onChange={value => updateSetting('basicHousingPower', value)} />
                 <SettingInput label="Vivienda elevada" value={settings.elevatedHousingPower} suffix="W" onChange={value => updateSetting('elevatedHousingPower', value)} />
@@ -711,14 +726,7 @@ export function LoadCalculator() {
                 <SettingInput label="Ventilación forzada" value={settings.forcedGaragePowerPerM2} suffix="W/m²" onChange={value => updateSetting('forcedGaragePowerPerM2', value)} />
                 <SettingInput label="Ventilación natural" value={settings.naturalGaragePowerPerM2} suffix="W/m²" onChange={value => updateSetting('naturalGaragePowerPerM2', value)} />
               </div></section>
-              <section className="rounded-xl border border-line p-4 md:col-span-2"><h3 className="mb-4 text-sm font-bold text-ink-soft">Alumbrado de zonas comunes</h3><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <SettingInput label="Portal · incandescencia" value={settings.portalLightPowerPerM2} suffix="W/m²" onChange={value => updateSetting('portalLightPowerPerM2', value)} />
-                <SettingInput label="Portal · fluorescencia/LED" value={settings.portalLightLedPowerPerM2} suffix="W/m²" onChange={value => updateSetting('portalLightLedPowerPerM2', value)} />
-                <SettingInput label="Escalera · incandescencia" value={settings.stairLightPowerPerM2} suffix="W/m²" onChange={value => updateSetting('stairLightPowerPerM2', value)} />
-                <SettingInput label="Escalera · fluorescencia/LED" value={settings.stairLightLedPowerPerM2} suffix="W/m²" onChange={value => updateSetting('stairLightLedPowerPerM2', value)} />
-                <SettingInput label="Coeficiente lámparas de descarga" value={settings.dischargeLampCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('dischargeLampCoefficient', value)} />
-              </div></section>
-              <section className="rounded-xl border border-line p-4 md:col-span-2"><h3 className="mb-3 text-sm font-bold text-ink-soft">Leyendas de normativa</h3>
+              <section className="rounded-xl border border-line p-4"><h3 className="mb-3 text-sm font-bold text-ink-soft">Leyendas de normativa</h3>
                 <label htmlFor="source-notes-toggle" className="flex cursor-pointer items-start gap-3">
                   <Checkbox checked={settings.showSourceNotes} id="source-notes-toggle" onCheckedChange={checked => setSettings(current => ({ ...current, showSourceNotes: checked }))} className="mt-0.5" aria-describedby="source-notes-help" />
                   <span>
@@ -727,6 +735,13 @@ export function LoadCalculator() {
                   </span>
                 </label>
               </section>
+              <section className="rounded-xl border border-line p-4 md:col-span-2"><h3 className="mb-4 text-sm font-bold text-ink-soft">Alumbrado de zonas comunes</h3><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <SettingInput label="Portal · incandescencia" value={settings.portalLightPowerPerM2} suffix="W/m²" onChange={value => updateSetting('portalLightPowerPerM2', value)} />
+                <SettingInput label="Portal · fluorescencia/LED" value={settings.portalLightLedPowerPerM2} suffix="W/m²" onChange={value => updateSetting('portalLightLedPowerPerM2', value)} />
+                <SettingInput label="Escalera · incandescencia" value={settings.stairLightPowerPerM2} suffix="W/m²" onChange={value => updateSetting('stairLightPowerPerM2', value)} />
+                <SettingInput label="Escalera · fluorescencia/LED" value={settings.stairLightLedPowerPerM2} suffix="W/m²" onChange={value => updateSetting('stairLightLedPowerPerM2', value)} />
+                <SettingInput label="Coeficiente lámparas de descarga" value={settings.dischargeLampCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('dischargeLampCoefficient', value)} />
+              </div></section>
               <section className="rounded-xl border border-line p-4 md:col-span-2"><h3 className="mb-4 text-sm font-bold text-ink-soft">Coeficientes y equipos</h3><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Coeficiente de ascensores" value={settings.elevatorCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('elevatorCoefficient', value)} />
                 <SettingInput label="Coeficiente del motor mayor" value={settings.motorCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('motorCoefficient', value)} />
@@ -814,6 +829,13 @@ export function LoadCalculator() {
             <TabsTrigger value="di" className="group/tab h-auto flex-none whitespace-nowrap rounded-lg px-3 py-2 text-center text-xs font-semibold data-active:bg-tab-di-soft sm:px-4 sm:text-sm data-active:text-tab-di-ink!"><span aria-hidden="true" className="absolute inset-y-1 left-0 w-[3px] rounded-r-full group-data-[active]/tab:inset-y-0 bg-tab-di/40 transition-colors group-data-[active]/tab:bg-tab-di" />DI</TabsTrigger>
           </TabsList>
           <TabsContent value="cargas">
+        {/* En móvil el desglose queda al final de la página: esta barra mantiene el
+            total a la vista mientras se editan los bloques de la previsión. Es sticky
+            y no fixed para no tapar el pie ni exigir relleno extra al final. */}
+        <div className="sticky top-0 z-30 -mx-5 mb-4 flex items-center justify-between gap-3 border-b border-panel-line bg-panel px-5 py-2.5 text-panel-foreground shadow-lg shadow-panel/20 lg:-mx-8 lg:px-8 xl:hidden">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-on-panel">Potencia total prevista</span>
+          <span className="text-lg font-bold tabular-nums">{fmt(result.total)} W</span>
+        </div>
         <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
           <div className="flex min-w-0 flex-col gap-6">
             <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
@@ -855,11 +877,19 @@ export function LoadCalculator() {
             <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Garajes" subtitle="Previsión según ventilación y superficie" /><EditableTable headers={['Descripción', 'Ventilación', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-xl px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
             <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm"><SectionTitle title="Recarga de vehículos eléctricos · IRVE" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
-          <aside className="flex flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-panel text-panel-foreground shadow-xl"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-panel-muted">W</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p></div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => <div key={code as string} className="flex items-center justify-between text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(value as number)} W</span></div>)}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{fmt(result.total)} W</span></div></div></div>
-            <button type="button" className="flex w-full items-center gap-4 rounded-2xl border border-line bg-paper p-5 text-left shadow-sm transition-colors hover:border-brand-line focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand hover:bg-brand-soft/40" onClick={() => setShowSettings(true)}>
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand"><SlidersHorizontal className="size-5" /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-bold">Parámetros de cálculo</span><span className="mt-1 block text-xs leading-5 text-ink-faint">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span></span>
-              <span className="text-sm font-semibold text-brand">Configurar</span>
+          <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-2xl bg-panel text-panel-foreground shadow-xl"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-panel-muted">W</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
+  const amount = value as number
+  const share = result.total > 0 ? (amount / result.total) * 100 : 0
+  return <div key={code as string}>
+    <div className="flex items-baseline justify-between gap-3 text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(amount)} W</span></div>
+    <div aria-hidden="true" className="mt-1.5 h-1 overflow-hidden rounded-full bg-panel-line"><div className="h-full rounded-full bg-brand-on-panel/80" style={{ width: `${share}%` }} /></div>
+  </div>
+})}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{fmt(result.total)} W</span></div></div></div>
+            <button type="button" className="grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-paper p-5 text-left shadow-sm transition-colors hover:border-brand-line hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowSettings(true)}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><SlidersHorizontal className="size-4" /></span>
+              <span className="min-w-0 text-sm font-bold">Parámetros de cálculo</span>
+              <span className="col-span-2 text-xs leading-5 text-ink-faint">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span>
+              <span className="col-span-2 flex items-center justify-end gap-1 text-xs font-semibold text-brand">Configurar<ChevronRight className="size-3.5" aria-hidden="true" /></span>
             </button>
             <section className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
               <div className="mb-3"><h3 className="text-sm font-bold">Datos de la memoria técnica</h3><p className="mt-1 text-xs leading-5 text-ink-faint">Completa los datos que aparecerán en la cabecera del PDF.</p></div>
@@ -982,7 +1012,7 @@ function Metric({ label, value, accent = false }: { label: string; value: string
 function DownloadOption({ label, hint, icon: Icon, onClick }: { label: string; hint: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void }) { return <Button type="button" variant="outline" className="h-auto w-full justify-start gap-3 whitespace-normal rounded-xl px-4 py-3 text-left font-semibold" onClick={onClick}><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><Icon className="size-4" /></span><span className="flex min-w-0 flex-col items-start"><span>{label}</span><span className="whitespace-normal text-xs font-normal text-ink-faint">{hint}</span></span></Button> }
 function ChoiceSelect({ id, className, value, onChange, items, label }: { id?: string; className?: string; value: string; onChange: (value: string) => void; items: string[]; label?: string }) { return <Select value={value} onValueChange={next => onChange(next == null ? value : String(next))}><SelectTrigger id={id} aria-label={label} className={className}><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{items.map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectGroup></SelectContent></Select> }
 function LabeledInput({ label, value, suffix, onChange }: { label: string; value: string; suffix: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-12" value={value} onChange={onChange} type={onChange ? 'number' : 'text'} readOnly={!onChange} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-faint">{suffix}</span></span></label> }
-function SettingInput({ label, value, suffix, step = '1', onChange }: { label: string; value: number; suffix: string; step?: string; onChange: (value: number) => void }) { return <label><span className="label">{label}</span><span className="relative block"><Input className="w-full pr-16" type="number" min="0" step={step} value={value} onChange={event => onChange(Number(event.target.value))} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-faint">{suffix}</span></span></label> }
+function SettingInput({ label, value, suffix, step = '1', onChange }: { label: string; value: number; suffix: string; step?: string; onChange: (value: number) => void }) { return <label><span className="label flex min-h-8 items-end leading-4">{label}</span><span className="relative block"><Input className="w-full pr-16" type="number" min="0" step={step} value={value} onChange={event => onChange(Number(event.target.value))} /><span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-faint">{suffix}</span></span></label> }
 function LightingTable({ rows, settings, onChange }: { rows: LightingRow[]; settings: CalculationSettings; onChange: (updater: (current: LightingRow[]) => LightingRow[]) => void }) {
   const update = (id: LightingId, patch: Partial<LightingRow>) => onChange(current => current.map(row => row.id === id ? { ...row, ...patch } : row))
   const tableRows = rows.map(row => [
