@@ -393,8 +393,8 @@ export function HelpDoc() {
                 ]} />
                 <Shot
                   id="lga"
-                  alt="Pestaña de la Línea General de Alimentación con todos sus campos a la izquierda y el panel de resultado a la derecha, con la sección de 240 milímetros cuadrados, la intensidad, la caída y la protección"
-                  caption="LGA con el edificio del ejemplo: 240 mm² de fase, protección de 315 A y una caída resultante del 0,29 % frente al 0,5 % permitido."
+                  alt="Pestaña de la Línea General de Alimentación con todos sus campos a la izquierda y el panel de resultado a la derecha, con la sección de 150 milímetros cuadrados, la intensidad, la caída y la protección"
+                  caption="LGA con el edificio del ejemplo: 150 mm² de fase, neutro de 70 mm² según la tabla 1, protección de 315 A y una caída del 0,46 % frente al 0,5 % permitido."
                 />
                 <p>
                   Cada campo que depende de una tabla lleva su botón con la referencia: <code>BT14-A·BT14-B</code> en el tipo de instalación, <code>E·G</code> en la disposición de circuitos y <code>G·H·I</code> en los tubos en contacto. El botón <code>Tablas</code> de la cabecera de la tarjeta abre las tablas de la ITC-BT-14, de la ITC-BT-15 y las de agrupamiento de la ITC-BT-19.
