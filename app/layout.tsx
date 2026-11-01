@@ -40,8 +40,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // El script de arranque aplica tema y modo antes del primer pintado, así que el
+  // <html> del cliente puede traer `class="dark"` o `data-explanation-mode` distintos
+  // de los del servidor. Es intencionado: React no debe parchear esos atributos.
   return (
-    <html lang="es" className={`${geistMono.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${spaceMono.variable}`}>
+    <html
+      lang="es"
+      data-explanation-mode="calculation"
+      suppressHydrationWarning
+      className={`${geistMono.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${spaceMono.variable}`}
+    >
       <body className="antialiased">
         <script
           dangerouslySetInnerHTML={{

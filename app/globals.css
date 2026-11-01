@@ -541,11 +541,12 @@ html.dark[data-explanation-mode="calculation"] {
   * {
     @apply border-border outline-ring/50;
   }
-  /* El recorte silencioso esconde contenido (1.4.10): el body scrollea si algo desborda. */
+  /* El desborde horizontal se resuelve en el root (1.4.10: se scrollea, no se
+     recorta). El body no puede ser contenedor de scroll: `overflow-x: auto` ahí
+     anulaba todos los `position: sticky` de la app, incluida la columna de
+     resultados, que dejaba de acompañar la edición. Las tablas anchas ya llevan
+     su propio contenedor scrolleable. */
   html {
-    overflow-x: clip;
-  }
-  body {
     overflow-x: auto;
   }
   body {
