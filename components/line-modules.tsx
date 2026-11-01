@@ -170,7 +170,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
   elements?: { element: string; detail: string }[]
 }) {
   return (
-    <aside className="rounded-2xl bg-panel p-6 text-panel-foreground shadow-xl">
+    <aside className="min-w-0 rounded-2xl bg-panel p-6 text-panel-foreground shadow-xl">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
       <p className="mt-5 text-4xl font-bold tabular-nums">
         {result.finalSection == null ? '—' : fmt(result.finalSection)}
@@ -193,8 +193,8 @@ function LineResult({ title, result, phaseLabel, elements }: {
           <table className="w-full text-xs">
             <thead>
               <tr className="text-left text-panel-muted">
-                <th className="pb-1.5 font-medium">Element de la Instalación</th>
-                <th className="pb-1.5 font-medium">Especificación Tècnica y Dimensionado Final</th>
+                <th className="pb-1.5 font-medium">Elemento de la instalación</th>
+                <th className="pb-1.5 font-medium">Especificación técnica y dimensionado final</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-panel-line">
@@ -389,7 +389,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
         { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
         { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Tubo Protector Incubat', detail: `${fmt(state.tubeDiameter)} mm Diàmetre exterior mínimo` },
+        { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior mínimo` },
       ]} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
@@ -442,16 +442,16 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           <VariantFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} role="di" />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
-          <NumberField id="di-control" label="Fil de comandament" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
+          <NumberField id="di-control" label="Hilo de mando" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
           <NumberField id="di-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" elements={[
-        { element: "Conductors d'Alimentació (Fase + Neutre)", detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor de Protecció (Terra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (Tipus ES07Z1-K, verd-i-groc)` },
-        { element: 'Fil de Comandament (Tarifació)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (Tipus ES07Z1-K, color vermell)` },
-        { element: 'Canalització i Tub Protector', detail: `Tub protector encastat de diàmetre exterior Ø ${fmt(state.tubeDiameter)} mm` },
+        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)` },
+        { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)` },
+        { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },
       ]} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}

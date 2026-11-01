@@ -414,7 +414,7 @@ export function HelpDoc() {
                   <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,
                   <><strong>Longitud y caída máxima.</strong> La caída se toma del supuesto de enlace.</>,
                   <><strong>Neutro y conductor de protección.</strong> Sección del neutro y del PE que acompañan a la fase.</>,
-                  <><strong>Fil de comandament.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
+                  <><strong>Hilo de mando.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
                   <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación.</>,
                 ]} />
                 <p>
