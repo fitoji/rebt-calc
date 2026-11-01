@@ -33,7 +33,8 @@ test('each module offers its reference table viewer', () => {
 
 test('each control opens only the tables it uses', () => {
   assert.ok(modules.includes("label=\"Tipo de instalación\""), 'installation field present')
-  assert.ok(modules.includes("tables={['A', 'D']}"), 'installation offers tables A and D')
+  assert.ok(modules.includes("tables={role === 'lga' ? ['BT14-A', 'BT14-B'] : ['BT15-C', 'BT15-D', 'BT15-E']}"),
+    'installation offers the guide tables of its own instruction')
   assert.ok(modules.includes("tables={['E', 'G']}"), 'disposition offers tables E and G')
   assert.ok(modules.includes("tables={['E', 'F', 'G', 'I']}"), 'layers offer tables E, F, G and I')
   assert.ok(modules.includes("tables={['G', 'H', 'I']}"), 'tubes offer tables G, H and I')
@@ -67,7 +68,11 @@ test('line inputs persist and reach the exports', () => {
 
 test('the table viewer shows the reference source instead of an unattributed list', () => {
   assert.match(modules, /UNE 20460-5-523/, 'norm cited')
-  assert.match(modules, /Guía-BT-19/, 'official guide cited')
+  assert.match(modules, /guía BT-19/, 'official ITC-BT-19 guide cited')
+  assert.match(modules, /guías BT-14/, 'the LGA guide is cited')
+  assert.match(modules, /BT-15/, 'the DI guide is cited')
+  assert.ok(modules.includes('GUIDE_TABLES'), 'the transcribed guide tables are rendered')
+  assert.match(read('lib/guide-tables.mjs'), /BT14_AIR_COPPER/, 'table A of the LGA guide is transcribed')
   assert.match(modules, /40 °C/, 'reference ambient temperature stated')
   assert.match(modules, /400 mm²/, 'published erratum disclosed')
   assert.ok(modules.includes('GROUPING_LAYOUTS'), 'grouping layouts shown')

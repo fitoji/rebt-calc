@@ -26,6 +26,7 @@ import {
 import { sizeLine } from '@/lib/line-sizing.mjs'
 import { lineInputFromState } from '@/lib/line-state.mjs'
 import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
+import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
@@ -57,8 +58,10 @@ export type LineState = {
 
 export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
 
-/** Tables of the ITC-BT-19 guide that a control can reference. */
-export type TableKey = 'A' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I'
+/** Reference tables a control can open: ITC-BT-19 plus the LGA and DI guides. */
+export type TableKey =
+  | 'A' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I'
+  | 'BT14-A' | 'BT14-B' | 'BT14-1' | 'BT15-C' | 'BT15-D' | 'BT15-E'
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
@@ -235,7 +238,7 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
           { value: 'buried', label: 'Enterrada bajo tubo · Tabla D' },
         ]}
         onChange={value => onChange({ installation: value as 'air' | 'buried' })}
-        tables={['A', 'D']}
+        tables={role === 'lga' ? ['BT14-A', 'BT14-B'] : ['BT15-C', 'BT15-D', 'BT15-E']}
         onOpenTables={onOpenTables}
       />
       <SelectField
@@ -513,13 +516,21 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
       <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-5xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-19</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-14, BT-15 y BT-19</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-ink-faint">
-              Guía-BT-19 del Ministerio de Industria, Turismo y Comercio (feb 09, rev. 2). Reproduce las tablas de la UNE 20460-5-523:2004 que la instrucción aplica.
+              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas de referencia" />}><X /></DialogClose>
         </div>
+
+        {GUIDE_TABLES.filter(table => shows(table.key as TableKey)).map(table => (
+          <section key={table.key} className="mt-6 first:mt-0">
+            <h4 className="mb-2 text-sm font-semibold text-ink-muted">{table.title}</h4>
+            <SimpleTable head={table.head} rows={table.rows} minWidth={860} />
+            <p className="mt-1 text-xs text-ink-faint">{table.doc}</p>
+          </section>
+        ))}
 
         {shows('A') && (
           <>
@@ -623,7 +634,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
         )}
 
         <p className="mt-5 text-xs leading-5 text-ink-faint">
-          Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
+          La LGA y la derivación individual se dimensionan con las tablas de su propia instrucción cuando la combinación está publicada; el resto de los casos, y cualquier método distinto del B, usan la Tabla A de la ITC-BT-19. Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
         </p>
       </DialogContent>
     </Dialog>

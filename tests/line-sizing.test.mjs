@@ -114,10 +114,10 @@ test('LGA sizing returns the smallest section that meets drop and current', () =
   near(result.sectionByDrop, 53.27, 0.05, 'section by drop')
   near(result.ratedCurrent, 108.25, 0.05, 'rated current')
   assert.equal(result.finalSection, 70, '70 mm2 is the first standard section above 53.27')
-  assert.equal(result.tableCurrent, 149, 'B1 3x PVC 70 mm2 rating')
+  assert.equal(result.tableCurrent, 202, 'guía-BT-14 tabla A rates 70 mm2 of copper at 202 A')
   near(result.dropPercent, 0.38, 0.02, 'drop at the final section')
   assert.ok(result.ok, `no problems expected: ${result.problems.join(' ')}`)
-  assert.equal(result.protection, 125, 'smallest breaker above 108.25 A that stays below 171 A')
+  assert.equal(result.protection, 125, 'smallest breaker above 108.25 A that stays below 202 A')
 })
 
 test('DI sizing is single-phase and respects the 3 % drop', () => {
@@ -190,7 +190,7 @@ test('tube and buried grouping tables match the published values', () => {
   assert.equal(buriedSpacingFactor(6, 1), 0.9)
 })
 
-test('the buried table D is used for buried installations', () => {
+test('a buried LGA reads the guide table with the factor of 0,8 already applied', () => {
   assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 3 }), 190)
   assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 2 }), 225)
   assert.equal(buriedAdmissibleCurrent(70, { loadedConductors: 2, material: 'aluminium' }), 170)
@@ -201,14 +201,19 @@ test('the buried table D is used for buried installations', () => {
     grouping: { kind: 'tubes-buried', tubes: 2, layers: 1 },
   }))
   assert.equal(result.finalSection, 70)
-  assert.equal(result.tableCurrent, 190, 'base current comes from table D, not table A')
-  near(result.correctedCurrent, 190 * 0.87, 0.01, 'table I reduction applied')
+  assert.equal(result.tableCurrent, 224, 'guía-BT-14 tabla A, fila de tubos enterrados')
+  near(result.correctedCurrent, 224 * 0.87, 0.01, 'table I reduction applied')
   assert.equal(result.groupingFactor, 0.87)
 })
 
 test('an air installation ignores the buried tables', () => {
   const air = sizeLine(lgaInput())
-  assert.equal(air.tableCurrent, 149, 'table A for B1 3x PVC 70')
+  assert.equal(air.tableCurrent, 202, 'guía-BT-14 tabla A, fila de tubos en superficie')
+})
+
+test('a method the guide does not tabulate falls back to ITC-BT-19', () => {
+  const ladder = sizeLine(lgaInput({ variant: { method: 'E', loadedConductors: 3, insulation: 'XLPE' } }))
+  assert.equal(ladder.tableCurrent, 214, 'ITC-BT-19 column E 3x XLPE at 70 mm2')
 })
 
 test('the minimum section follows the line role, not the system', () => {
@@ -283,8 +288,9 @@ test('the LGA is always sized on the XLPE column, whatever the stored state says
   const di = lineInputFromState(state, 'three-phase', 'di')
   assert.equal(di.variant.insulation, 'PVC', 'the DI keeps the user choice')
 
-  const pvcLga = sizeLine({ ...lgaInput({}), variant: lga.variant })
-  const pvcColumnLga = sizeLine({ ...lgaInput({}), variant: { ...lga.variant, insulation: 'PVC' } })
-  assert.ok(pvcLga.tableCurrent > pvcColumnLga.tableCurrent,
-    'XLPE admits more current than PVC at the same section')
+  const sized = sizeLine({ ...lgaInput({}), variant: lga.variant })
+  assert.equal(sized.tableCurrent, 202, 'guía-BT-14 tabla A governs the LGA')
+
+  const stalePvc = sizeLine({ ...lgaInput({}), variant: { ...lga.variant, insulation: 'PVC' } })
+  assert.equal(stalePvc.tableCurrent, 202, 'a PVC variant cannot drag the LGA onto the ITC-BT-19 PVC column')
 })
