@@ -77,6 +77,12 @@
   --color-table-row-odd: var(--table-row-odd);
   --color-table-row-even: var(--table-row-even);
   --color-table-row-text: var(--table-row-text);
+  /* Tabla de coeficiente de simultaneidad: azul oscuro + tiras celestes. */
+  --color-table-cs-head: var(--table-cs-head);
+  --color-table-cs-head-text: var(--table-cs-head-text);
+  --color-table-cs-row-odd: var(--table-cs-row-odd);
+  --color-table-cs-row-even: var(--table-cs-row-even);
+  --color-table-cs-row-text: var(--table-cs-row-text);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
@@ -93,6 +99,15 @@
   --color-brand-line: var(--brand-line);
   --color-brand-mark: var(--brand-mark);
   --color-brand-on-panel: var(--brand-on-panel);
+  /*
+   * Énfasis de interacción. `control-*` es un velo de tinta que se lee sobre
+   * cualquier superficie (tarjeta, fila teñida, panel) sin declararse por tema;
+   * `primary-hover` sí se declara por paleta: un relleno de marca derivado de la
+   * tinta perdería saturación justo en el estado que debe notarse.
+   */
+  --color-primary-hover: var(--primary-hover);
+  --color-control-hover: var(--control-hover);
+  --color-control-hover-line: var(--control-hover-line);
   --color-panel: var(--panel);
   --color-panel-foreground: var(--panel-foreground);
   --color-panel-muted: var(--panel-muted);
@@ -122,6 +137,13 @@
   --table-row-odd: #d7e5ff;
   --table-row-even: #e8f0ff;
   --table-row-text: #000000;
+  /* Tabla de coeficiente de simultaneidad. Generado con table-color: blanco
+     sobre #0b4f82 da 8,55:1; negro sobre las tiras celestes, 16,81:1 y 19,06:1. */
+  --table-cs-head: #0b4f82;
+  --table-cs-head-text: #ffffff;
+  --table-cs-row-odd: #d6e8fc;
+  --table-cs-row-even: #ecf5fe;
+  --table-cs-row-text: #000000;
   --background: oklch(0.985 0.004 245);
   --foreground: oklch(0.145 0 0);
   --card: oklch(0.995 0.002 245);
@@ -130,6 +152,8 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  /* Hover = el relleno se separa de su propio texto, nunca se le acerca. */
+  --primary-hover: oklch(0.29 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -168,6 +192,16 @@
   --ink-subtle: oklch(44.6% 0.043 257.281);
   --ink-faint: oklch(54% 0.046 257.417);
   --ink-ghost: oklch(70.4% 0.04 256.788);
+
+  /*
+   * Velo de hover: 10 % de tinta sobre lo que haya debajo. Sirve igual sobre
+   * tarjeta, fila teñida o panel, y en modo noche —donde la tinta es clara—
+   * aclara en vez de oscurecer, así que no hay una regla por tema.
+   * El borde se densifica desde el borde real del control: el contorno se
+   * define al acercarse, nunca se ilumina.
+   */
+  --control-hover: color-mix(in oklab, var(--ink) 10%, transparent);
+  --control-hover-line: color-mix(in oklab, var(--border), var(--ink) 22%);
 
   /* Semánticos · marca */
   --brand: oklch(52% 0.105 223.128);
@@ -244,6 +278,12 @@
   --table-row-odd: #182741;
   --table-row-even: #12203a;
   --table-row-text: #ffffff;
+  /* Modo noche: mismas tiras azules profundas, texto blanco (14,09:1 y 16,00:1). */
+  --table-cs-head: #0b4f82;
+  --table-cs-head-text: #ffffff;
+  --table-cs-row-odd: #192c46;
+  --table-cs-row-even: #162234;
+  --table-cs-row-text: #ffffff;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -252,6 +292,7 @@
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
+  --primary-hover: oklch(0.845 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -330,6 +371,7 @@ html[data-explanation-mode="didactic"] {
   --popover-foreground: #000000;
   --primary: #4f46e5;
   --primary-foreground: #ffffff;
+  --primary-hover: #4338ca;
   --secondary: #14b8a6;
   --secondary-foreground: #ffffff;
   --muted: #f0f0f0;
@@ -412,6 +454,7 @@ html.dark[data-explanation-mode="didactic"] {
   --popover-foreground: #ffffff;
   --primary: #818cf8;
   --primary-foreground: #000000;
+  --primary-hover: #a5b4fc;
   --secondary: #2dd4bf;
   --secondary-foreground: #000000;
   --muted: #333333;
@@ -499,6 +542,7 @@ html[data-explanation-mode="calculation"] {
   --popover-foreground: #111827;
   --primary: #d87943;
   --primary-foreground: #ffffff;
+  --primary-hover: #bd6533;
   --secondary: #527575;
   --secondary-foreground: #ffffff;
   --muted: #f3f4f6;
@@ -574,6 +618,7 @@ html.dark[data-explanation-mode="calculation"] {
   --popover-foreground: #c1c1c1;
   --primary: #e78a53;
   --primary-foreground: #121113;
+  --primary-hover: #f5ab7f;
   --secondary: #5f8787;
   --secondary-foreground: #121113;
   --muted: #222222;
@@ -846,7 +891,7 @@ html.dark[data-explanation-mode="calculation"] {
 
   .tab-trigger:hover {
     color: var(--ink);
-    background: color-mix(in oklab, var(--ink) 5%, transparent);
+    background: var(--control-hover);
   }
 
   .tab-trigger[data-active] {

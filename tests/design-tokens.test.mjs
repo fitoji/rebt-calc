@@ -38,6 +38,23 @@ test('every semantic token is declared in :root and exposed as a utility', () =>
   }
 })
 
+test('hover emphasis is its own token, not a paler copy of the resting state', () => {
+  const button = read('components/ui/button.tsx')
+
+  for (const token of ['primary-hover', 'control-hover', 'control-hover-line']) {
+    assert.match(globals, new RegExp(`--${token}:`), `--${token} declared`)
+    assert.match(globals, new RegExp(`--color-${token}: var\\(--${token}\\)`), `--color-${token} aliased in @theme inline`)
+  }
+
+  // El hover deja de ser `muted` (un gris casi igual al papel) y pasa a un velo
+  // de tinta con el doble de paso, más el borde densificado.
+  assert.ok(button.includes('hover:bg-control-hover'), 'ghost and outline hover with the ink veil')
+  assert.ok(button.includes('hover:border-control-hover-line'), 'outline buttons define their edge on hover')
+  assert.ok(button.includes('hover:bg-primary-hover'), 'the brand fill steps away from its own text')
+  assert.doesNotMatch(button, /hover:bg-muted|hover:bg-primary\/\d+/, 'no hover returns to muted or a transparent fill')
+  assert.match(globals, /\.tab-trigger:hover\s*\{[^}]*background: var\(--control-hover\)/, 'tabs speak the same hover language')
+})
+
 test('the PDF keeps its colours in one module because jsPDF cannot read CSS', () => {
   const pdfTheme = read('lib/pdf-theme.mjs')
   const calc = read('components/load-calculator.tsx')
