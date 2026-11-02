@@ -45,7 +45,7 @@ test('each control opens only the tables it uses', () => {
 
 test('the panels size lines through the shared engine, not inline formula copies', () => {
   assert.match(modules, /import \{ sizeLine \} from '@\/lib\/line-sizing\.mjs'/, 'engine imported')
-  assert.match(modules, /import \{ lineInputFromState \} from '@\/lib\/line-state\.mjs'/, 'line input builder imported')
+  assert.match(modules, /import \{[^}]*\blineInputFromState\b[^}]*\} from '@\/lib\/line-state\.mjs'/, 'line input builder imported')
   assert.equal(count(modules, /sizeLine\(lineInputFromState/g), 1, 'one sizing call, inside computeLine')
   assert.equal(count(modules, /export function computeLine/g), 1, 'one shared helper')
   assert.ok(modules.includes("computeLine(state, 'three-phase', 'lga')"), 'LGA panel uses the helper')

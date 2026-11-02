@@ -183,6 +183,8 @@ S_caída = (m × P × L) / (γ × U × ΔUadm)    m = 1 (trifásica) · 2 (monof
 
 La caída se plantea directamente como sección: al sustituir `I = P / (k × U × cos φ)` en la fórmula de caída, el `cos φ` se cancela. Por eso el trifásico no lleva `√3` en la sección y el monofásico lleva el factor 2 del retorno.
 
+La conductividad `γ` sale del anexo 2 de la Guía Técnica de Aplicación del REBT: se toma la de la temperatura máxima de servicio del conductor, que la ITC-BT-07 fija en 70 °C para el aislamiento termoplástico (PVC → 48 m/(Ω·mm²)) y 90 °C para el termoestable (XLPE/EPR → 44). La LGA va siempre a 44 porque la ITC-BT-14 sólo admite XLPE. No es un campo editable: `lib/line-state.mjs` la deriva del aislamiento y ningún valor guardado en un proyecto antiguo puede sustituirla. Los valores están en `COPPER_CONDUCTIVITY`, dentro de `lib/normative-tables.mjs`.
+
 1. Se recorre la serie comercial y se elige la **primera sección** que cumpla a la vez `S ≥ S_caída`, `Iz_corregida ≥ Ib` y la sección mínima normativa (10 mm² en cobre para LGA, 6 mm² para DI).
 2. `Iz_corregida = Iz_tabla × factor de reducción`, con el factor de agrupamiento, capas, tubos o resistividad del terreno según el caso (`lib/cable-tables.mjs`).
 3. Si no se fija una protección, se propone la de la serie normalizada y se verifica `Ib ≤ In ≤ Iz_corregida`.

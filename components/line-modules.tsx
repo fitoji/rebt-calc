@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Info, Table2, TriangleAlert, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -24,7 +24,7 @@ import {
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
-import { lineInputFromState } from '@/lib/line-state.mjs'
+import { lineInputFromState, gammaFor, insulationFor } from '@/lib/line-state.mjs'
 import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
 import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
@@ -80,7 +80,6 @@ export type LineState = {
   cosPhi: number
   lengthM: number
   maxDropPercent: number
-  gamma: number
   method: InstallationMethod
   insulation: Insulation
   circuits: number
@@ -119,7 +118,7 @@ export { protectiveSection }
 
 function FieldRow({ htmlFor, text, tables, onOpenTables }: {
   htmlFor: string
-  text: string
+  text: ReactNode
   tables?: TableKey[]
   onOpenTables?: (tables: TableKey[]) => void
 }) {
@@ -142,7 +141,7 @@ function FieldRow({ htmlFor, text, tables, onOpenTables }: {
 
 function NumberField({ id, label, value, suffix, step = 1, onChange, tables, onOpenTables }: {
   id: string
-  label: string
+  label: ReactNode
   value: number
   suffix: string
   step?: number | string
@@ -169,9 +168,28 @@ function NumberField({ id, label, value, suffix, step = 1, onChange, tables, onO
   )
 }
 
+/**
+ * Conductivity is not a user decision: the anexo 2 of the Guía del REBT asks
+ * for the value at the maximum service temperature of the insulation, so the
+ * panel shows the value the engine is using instead of an editable field.
+ */
+function ConductivityField({ idPrefix, state, role }: { idPrefix: string; state: LineState; role: 'lga' | 'di' }) {
+  const maxServiceTemperature = insulationFor(state, role) === 'XLPE' ? 90 : 70
+
+  return (
+    <div>
+      <span className="label mb-1 block">Conductividad (<span className="label-symbol">γ</span>)</span>
+      <p id={`${idPrefix}-gamma`} className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm tabular-nums">
+        {fmt(gammaFor(state, role))} m/(Ω·mm²)
+      </p>
+      <p className="mt-1 text-xs text-ink-faint">Cobre a {maxServiceTemperature} °C · Anexo 2 de la Guía del REBT</p>
+    </div>
+  )
+}
+
 function SelectField({ id, label, value, options, onChange, tables, onOpenTables }: {
   id: string
-  label: string
+  label: ReactNode
   value: string
   options: { value: string; label: string }[]
   onChange: (value: string) => void
@@ -419,10 +437,10 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
-          <NumberField id="lga-cosphi" label="Factor de potencia (cos φ)" value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
+          <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
-          <NumberField id="lga-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" onChange={value => onChange({ gamma: value })} />
+          <ConductivityField idPrefix="lga" state={state} role="lga" />
           <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} role="lga" />
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
@@ -477,10 +495,10 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
-          <NumberField id="di-cosphi" label="Factor de potencia (cos φ)" value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
+          <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
-          <NumberField id="di-gamma" label="Conductividad (γ)" value={state.gamma} suffix="m/(Ω·mm²)" step="0.1" onChange={value => onChange({ gamma: value })} />
+          <ConductivityField idPrefix="di" state={state} role="di" />
           <VariantFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} role="di" />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
@@ -560,7 +578,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
           <div>
             <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-14, BT-15 y BT-19</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-ink-faint">
-              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
+              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; la conductividad, del anexo 2 de la misma guía (sep 03, rev. 1), también en esa carpeta; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas de referencia" />}><X /></DialogClose>

@@ -202,9 +202,12 @@ test('the didactic steps derive the neutral from the phase section', () => {
 test('the inputs step states which conductor temperature the conductivity implies', () => {
   const explanation = explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
   const inputs = explanation.steps.find(step => step.id === 'inputs')
-  assert.match(inputs.note, /≈ 52/, 'the guide reference value is stated')
-  assert.match(inputs.note, /70 °C/, 'the 70 C correction is stated')
+
+  assert.match(inputs.note, /anexo 2/i, 'the guide anexo is named')
+  assert.match(inputs.note, /90 °C/, 'the LGA maximum service temperature is stated')
+  assert.doesNotMatch(inputs.note, /≈ 52/, 'the superseded 40 °C reference is gone')
 
   const isolation = Object.fromEntries(inputs.rows.map(row => [row.label, row.value]))
   assert.equal(isolation.Aislamiento, 'XLPE · RZ1-K', 'the LGA reports the cable the engine used')
+  assert.equal(isolation['Conductividad (γ)'], '44,00 m/(Ω·mm²)', 'the LGA always uses the 90 °C value')
 })

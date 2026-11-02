@@ -18,7 +18,7 @@ S6. Reference tables. The table dialog gains the guides' own tables, each labell
 
 S7. Didactic mode explains, for LGA and DI: why the minimum section depends on the line and not on the system (quoting the guide), why the LGA is XLPE only, how the neutral is derived, and that the voltage-drop limit depends on the metering arrangement (already present). Each explanation names the guide and section it comes from.
 
-S8. Conductivity (`gamma`). The numbers stay as they are until the user decides; the field must say what temperature each default represents and that the guides' worked examples use ≈52 m/(Ω·mm²) (copper at 40 °C) with a 1,12 factor for 70 °C. No silent change of results.
+S8. Conductivity (`gamma`). The engine takes it from the anexo 2 of the Guía Técnica de Aplicación del REBT at the maximum service temperature of the insulation: 48 m/(Ω·mm²) for copper with PVC (70 °C) and 44 for XLPE/EPR (90 °C), temperatures fixed by ITC-BT-07. The value is derived from the insulation, never typed: a `gamma` stored by an older snapshot is ignored, and the LGA always uses 44 because ITC-BT-14 only admits XLPE. The didactic step names the value, the temperature and the source. (Rewritten by L9; the original S8 kept the numbers frozen until the user decided.)
 
 S9. Nothing regresses: the existing suite keeps passing, and each fix is pinned by a test that fails before it.
 
@@ -32,6 +32,7 @@ S9. Nothing regresses: the existing suite keeps passing, and each fix is pinned 
 | T4 | S6 | inline | done | 06bcffc |
 | T5 | S7, S8 | inline | done | 7f915bc |
 | T6 | S9 | inline | done | see git log |
+| T7 | S8 | inline | done | pending commit |
 
 ## Log
 
@@ -60,3 +61,15 @@ DI trifásica 10 kW / 10 m                      S=  6  (antes 10 por el mínimo 
 DI enterrada 9200 W / 20 m                     S= 16  Iz tabla=113 A  (antes 64 A)
 ```
 The headline LGA section is still governed by the default γ: with 44 the 194,7 kW line lands on 150 mm² and with the guide's 52,1 on 120 mm². Everything else the audit flagged is fixed; that one number stays open by explicit request.
+
+L9. User decision, verbatim: "La referencia se encuentra en el Anexo 2 de la Guía Técnica de Aplicación del REBT (cálculo de caídas de tensión). La Guía indica que, para simplificar los cálculos, se debe tomar el valor de conductividad correspondiente a la situación más desfavorable, es decir, a la temperatura máxima de servicio del conductor. [...] La tabla de conductividades que confirma estos valores (γ₂₀ = 56, γ₇₀ = 48, γ₉₀ = 44 para el cobre) se recoge en documentos técnicos que citan explícitamente la Guía del REBT. Además, la instrucción ITC-BT-07 del REBT confirma que la temperatura máxima de servicio para XLPE y EPR es de 90 °C." Answer to the design fork, verbatim: "aplica la 1 y agrega las fuentes, en modo didactico explica". Option 1 = derive γ from the insulation with no free field. This closes L7.
+
+L10. Implementation of L9: `COPPER_CONDUCTIVITY` sits in `lib/normative-tables.mjs` as data only (56/48/44); `insulationFor` and `gammaFor` in `lib/line-state.mjs` are the single policy, used by `lineInputFromState`, the two panels and the didactic step. `LineState.gamma` is gone from the type, the defaults, the stored snapshot and the derivation builder; a snapshot that still carries one is ignored. The panels show the value read-only with its temperature and the Anexo 2 citation, and `components/help-doc.tsx` explains the worst-case rule with both sources. The values are transcribed from the tracked PDF and cross-checked against ITC-BT-07.
+
+L11. Differential check with the engine. Nothing moves on the current defaults, only the reported drop: DI 9200 W / 20 m / 1 % PVC, 16 mm² and 0,896 % with γ 48,5 against 16 mm² and 0,906 % with γ 48; DI 5750 W / 14 m / 1 % stays at 10 mm² with both; LGA 194,7 kW / 25 m / 0,5 % stays at 150 mm² with γ 44 and 0,461 %. Switching the DI to XLPE now drops γ to 44 (drop 0,988 %, still 16 mm²) instead of keeping 48,5.
+
+L12. Verified: `pnpm test` 210/210 (7 new in `tests/conductivity.test.mjs`), `pnpm typecheck` clean, `pnpm build` compiles and prerenders `/` and `/ayuda`. Fixed in passing: the help page said "de unique usuario" instead of "de único usuario".
+
+L13. User request, verbatim: "2. sumalo a la carpeta y el simbolo de conductividad es: γ". Added `data/documentacion/guia_bt_anexo_2_sep03R1.pdf` (14 pages, from the Ministerio de Industria download), so Table 3 of the anexo is now an audit source like the other guides: file registered in the `lib/normative-tables.mjs` header, in the `COPPER_CONDUCTIVITY` comment (γ₂₀ / γ₇₀ / γ₉₀, with the aluminium 35/30/28 the anexo also tabulates but the app does not use yet) and in the tables dialog footnote. The symbol stays γ everywhere, including the code comment that used to spell "56 at 20 °C".
+
+L14. Bug found by the user, verbatim: "pero en la ui, dentro de lga, donde dice conductividad , no se ve el simbolo , sera la fuente?". It was not the font: `.label` applies `text-transform: uppercase`, so γ rendered as Γ and read as a bracket. Reproduced in headless Chrome against the production build (`CONDUCTIVIDAD (Γ)`), fixed with a `.label-symbol { text-transform: none }` utility in `app/globals.css`, applied to γ and to the two `Factor de potencia (cos φ)` labels (the same defect: φ was showing as Φ). `FieldRow`/`NumberField`/`SelectField` now accept `ReactNode` for the label so the symbol can be marked. Re-shot after the fix: `CONDUCTIVIDAD (γ)`. A test pins both the utility and the three marked symbols.

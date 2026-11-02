@@ -189,13 +189,13 @@ export function LoadCalculator() {
   const [lineTableFocus, setLineTableFocus] = useState<TableKey[] | null>(null)
   const [lineTouched, setLineTouched] = useState(false)
   const [lga, setLga] = useState<LineState>({
-    powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5, gamma: 44,
+    powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5,
     method: 'B1', insulation: 'XLPE', circuits: 1, protectionA: 0,
     neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
   })
   const [di, setDi] = useState<LineState>({
-    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1, gamma: 48.5,
+    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
     installation: 'air', layout: 'embedded', layers: 1, tubes: 1,

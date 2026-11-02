@@ -188,7 +188,7 @@ export function HelpDoc() {
                 <Steps items={[
                   { title: 'Revisa los parámetros', body: <>El botón <code>Parámetros de cálculo</code> fija la potencia de una vivienda básica y elevada, las densidades de locales y garajes, el alumbrado común y las leyendas de normativa. Si no tocas nada, se usan los valores del REBT.</> },
                   { title: 'Rellena la previsión', body: <>En la pestaña de previsión, añade viviendas, servicios generales, locales, garajes y plazas de recarga. El total del edificio se recalcula con cada cambio.</> },
-                  { title: 'Elige el supuesto de enlace', body: <>Centralizado, parcial o de unique usuario. Ese ajuste fija la caída máxima admisible de la LGA y de la DI.</> },
+                  { title: 'Elige el supuesto de enlace', body: <>Centralizado, parcial o de único usuario. Ese ajuste fija la caída máxima admisible de la LGA y de la DI.</> },
                   { title: 'Dimensiona las líneas', body: <>Las pestañas <code>LGA</code> y <code>DI</code> proponen la sección normalizada y la protección de cada línea. Puedes fijar la protección a mano si el proyecto ya la tiene decidida.</> },
                   { title: 'Exporta la memoria', body: <><code>Descargar memoria</code> genera el PDF paginado o los formatos de datos. Ver <a href="#exportar" className={LINK}>Exportar la memoria</a>.</> },
                 ]} />
@@ -375,7 +375,7 @@ export function HelpDoc() {
                     ['Factor de potencia (cos φ)', 'Entra en la intensidad de línea'],
                     ['Longitud de la línea', 'Del cuadro general al punto donde empiezan las derivaciones'],
                     ['Caída máxima admisible', 'La fija el supuesto de enlace'],
-                    ['Conductividad (γ)', 'La que corresponde a la temperatura del conductor: 52 es cobre a 40 °C y 47, cobre a 70 °C'],
+                    ['Conductividad (γ)', 'La fija el aislamiento: 48 m/(Ω·mm²) en PVC (cobre a 70 °C) y 44 en XLPE/EPR (cobre a 90 °C). No es editable'],
                     ['Tipo de instalación', 'Tabla A (al aire) o la fila de tubos enterrados de la misma tabla'],
                     ['Disposición de los circuitos', 'Tabla E (empotrados) o G (al aire)'],
                     ['Método de instalación', 'Columna de la tabla: A, B1, B2, C, E o F'],
@@ -417,6 +417,7 @@ export function HelpDoc() {
                 <Bullets items={[
                   <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,
                   <><strong>Longitud y caída máxima.</strong> La caída se toma del supuesto de enlace.</>,
+                  <><strong>Aislamiento.</strong> PVC (70 °C) o XLPE/EPR (90 °C). Fija la temperatura máxima de servicio y, con ella, la conductividad del cálculo: 48 o 44 m/(Ω·mm²).</>,
                   <><strong>Neutro y conductor de protección.</strong> Sección del neutro y del PE que acompañan a la fase.</>,
                   <><strong>Hilo de mando.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
                   <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación.</>,
@@ -451,8 +452,8 @@ export function HelpDoc() {
                 <p>
                   Las guías de la ITC-BT-14 y de la ITC-BT-15 no remiten sólo a la tabla general: publican sus propias intensidades para los cables que esas líneas pueden usar. La LGA se lee en la tabla A (cobre) o B (aluminio) de la ITC-BT-14, y la derivación en la tabla C si el cable es ES07Z1-K, en la tabla D si es RZ1-K unipolar y en la tabla E cuando va enterrada, que es el cable multiconductor que la instrucción pide en ese caso. Cuando la combinación no está publicada —un método distinto del B, una LGA monofásica, una sección fuera del rango— la app cae en la tabla A de la ITC-BT-19. El botón <code>Tablas</code> muestra unas y otras con el documento del que sale cada una.
                 </p>
-                <Note title="La conductividad manda más que cualquier otra cifra">
-                  El mismo límite de caída pide más o menos sección según la γ que escribas. La guía trabaja con ≈ 52 m/(Ω·mm²) para el cobre a 40 °C y pide multiplicar la caída por 1,12 si el conductor va a 70 °C, lo que equivale a ≈ 47. Un valor menor —44, por ejemplo— corresponde a un cobre más caliente y pide más sección: es una decisión de proyecto, no un detalle, y la app te la muestra en el paso de datos del modo didáctico.
+                <Note title="La conductividad sale del aislamiento, no de una preferencia">
+                  El anexo 2 de la Guía Técnica de Aplicación del REBT pide calcular con la conductividad de la temperatura más desfavorable, es decir, la máxima de servicio del conductor: 48 m/(Ω·mm²) para el cobre con aislamiento termoplástico (PVC, 70 °C) y 44 para el termoestable (XLPE/EPR, 90 °C). La ITC-BT-07 fija esas dos temperaturas máximas. La app aplica la que corresponde al aislamiento elegido y muestra el valor en el panel, sin campo editable: usar la de 20 °C (56) pediría una sección menor de la que el conductor soporta en servicio, y la de 90 °C sobre un cable de PVC lo haría trabajar por encima de su límite. La LGA va siempre a 44 porque la ITC-BT-14 sólo admite cable XLPE.
                 </Note>
                 <SubHeading>Neutro y conductor de protección</SubHeading>
                 <p>

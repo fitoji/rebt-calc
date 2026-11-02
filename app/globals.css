@@ -726,6 +726,16 @@ html.dark[data-explanation-mode="calculation"] {
   }
 
   /*
+   * Los símbolos de magnitud conservan su caja: γ no es Γ y φ no es Φ, del
+   * mismo modo que m no es M. La etiqueta se escribe en versalitas por diseño,
+   * pero `text-transform` no distingue un nombre de una variable, así que el
+   * símbolo se marca aparte y mantiene la caja con la que se lee en la Guía.
+   */
+  .label-symbol {
+    text-transform: none;
+  }
+
+  /*
    * Fondo de la superficie activa.
    *
    * Cálculo: papel milimetrado. La retícula de una memoria técnica, presente
