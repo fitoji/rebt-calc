@@ -71,6 +71,12 @@
   /* Semánticos del proyecto: los componentes consumen estos nombres, nunca la paleta cruda. */
   --color-surface-page: var(--surface-page);
   --color-surface-muted: var(--surface-muted);
+  /* Tabla con color propio: valores verificados contra AA, no tonalidades de marco. */
+  --color-table-head: var(--table-head);
+  --color-table-head-text: var(--table-head-text);
+  --color-table-row-odd: var(--table-row-odd);
+  --color-table-row-even: var(--table-row-even);
+  --color-table-row-text: var(--table-row-text);
   --color-line: var(--line);
   --color-line-soft: var(--line-soft);
   --color-ink: var(--ink);
@@ -109,6 +115,13 @@
 
 :root {
   color-scheme: light;
+  /* Tabla de tipos ITA. Generado con table-color: blanco sobre #2563eb da 5,17:1,
+     negro sobre los tintes 16,54:1 y 18,34:1. */
+  --table-head: #2563eb;
+  --table-head-text: #ffffff;
+  --table-row-odd: #d7e5ff;
+  --table-row-even: #e8f0ff;
+  --table-row-text: #000000;
   --background: oklch(0.985 0.004 245);
   --foreground: oklch(0.145 0 0);
   --card: oklch(0.995 0.002 245);
@@ -224,6 +237,13 @@
 
 .dark {
   color-scheme: dark;
+  /* Misma familia de azul, invertida: sobre fondo oscuro las tiras son azul
+     profundo y el texto claro. Blanco sobre ellas da 14,94:1 y 16,24:1. */
+  --table-head: #2563eb;
+  --table-head-text: #ffffff;
+  --table-row-odd: #182741;
+  --table-row-even: #12203a;
+  --table-row-text: #ffffff;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

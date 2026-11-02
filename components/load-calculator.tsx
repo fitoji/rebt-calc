@@ -805,18 +805,18 @@ export function LoadCalculator() {
               <div className="hidden min-w-0 overflow-x-auto md:block">
                 <Table className="w-full text-left text-sm">
                   <TableHeader>
-                    <TableRow className="border-b border-line bg-surface-muted text-xs uppercase tracking-wide text-ink-faint">
-                      <TableHead scope="col" className="px-4 py-3">Tipo</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right">Carga (kg)</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right">Personas</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right">Velocidad (m/s)</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right">Potencia (kW)</TableHead>
+                    <TableRow className="border-b border-table-head bg-table-head text-xs uppercase tracking-wide text-table-head-text">
+                      <TableHead scope="col" className="px-4 py-3 text-table-head-text">Tipo</TableHead>
+                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Carga (kg)</TableHead>
+                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Personas</TableHead>
+                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Velocidad (m/s)</TableHead>
+                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Potencia (kW)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {ITA_TYPES.map((ita, idx) => (
-                      <TableRow key={ita.type} className={`border-b border-line-soft ${idx % 2 === 0 ? 'bg-paper' : 'bg-surface-muted/50'} hover:bg-brand-soft transition-colors`}>
-                        <TableCell className="px-4 py-3 font-semibold text-brand">{ita.type}</TableCell>
+                      <TableRow key={ita.type} className={`border-b border-line-soft text-table-row-text ${idx % 2 === 0 ? 'bg-table-row-odd' : 'bg-table-row-even'}`}>
+                        <TableCell className="px-4 py-3 font-semibold text-table-row-text">{ita.type}</TableCell>
                         <TableCell className="px-4 py-3 text-right tabular-nums">{ita.carga}</TableCell>
                         <TableCell className="px-4 py-3 text-right tabular-nums">{ita.personas}</TableCell>
                         <TableCell className="px-4 py-3 text-right tabular-nums">{fmtDec(ita.velocidad)}</TableCell>
