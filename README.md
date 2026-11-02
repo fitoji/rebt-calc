@@ -224,9 +224,11 @@ Todo vive en `localStorage`, con claves propias y validación al leer:
 | `electrocalc-settings` | Parámetros de cálculo y preferencias de la interfaz |
 | `electrocalc-project-info` | Empresa, contacto, dirección de obra y logo |
 | `electrocalc-theme` | `light` o `dark`, aplicado por el script de arranque antes de hidratar |
+| `electrocalc-new-project` | Marca de proyecto vaciado a propósito; distingue «Limpiar» de una primera visita |
 
 - El snapshot de entradas se valida fila por fila; un snapshot antiguo sin filas de alumbrado carga con los valores por defecto en vez de descartarse.
-- **Limpiar** borra las entradas y los datos del proyecto, pero **conserva** los parámetros de cálculo.
+- **La primera visita abre con el edificio de ejemplo.** Sin entradas guardadas y sin la marca de proyecto vaciado, la app carga el ejemplo en vez de una tabla de ceros.
+- **Limpiar** borra las entradas y los datos del proyecto, pero **conserva** los parámetros de cálculo. Deja además la marca `electrocalc-new-project`, así que una recarga mantiene el proyecto vacío; **Cargar ejemplo** retira esa marca.
 - Nada se envía a un servidor: no hay backend ni base de datos.
 
 ---

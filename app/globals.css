@@ -50,6 +50,24 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
+  /*
+   * Radios con papel, no con tamaño. `rounded-lg` dice cuánto mide una curva;
+   * `rounded-card` dice qué pieza es. Cada modo decide el valor.
+   */
+  --radius-tab: var(--tab-radius);
+  --radius-tab-track: var(--tab-track-radius);
+  --radius-control: var(--control-radius);
+  --radius-card: var(--card-radius);
+  --radius-panel: var(--panel-radius);
+
+  /*
+   * Relieve por modo: el cálculo talla la superficie, el didáctico la eleva.
+   * Mismos nombres, dos físicas distintas.
+   */
+  --shadow-card: var(--card-lift);
+  --shadow-panel: var(--panel-lift);
+  --shadow-control: var(--control-lift);
+
   /* Semánticos del proyecto: los componentes consumen estos nombres, nunca la paleta cruda. */
   --color-surface-page: var(--surface-page);
   --color-surface-muted: var(--surface-muted);
@@ -135,7 +153,7 @@
   --ink-soft: oklch(27.9% 0.041 260.031);
   --ink-muted: oklch(37.2% 0.044 257.287);
   --ink-subtle: oklch(44.6% 0.043 257.281);
-  --ink-faint: oklch(55.4% 0.046 257.417);
+  --ink-faint: oklch(54% 0.046 257.417);
   --ink-ghost: oklch(70.4% 0.04 256.788);
 
   /* Semánticos · marca */
@@ -172,6 +190,36 @@
   --tab-di: oklch(60.6% 0.25 292.717);
   --tab-di-soft: oklch(96.9% 0.016 293.756);
   --tab-di-ink: oklch(49.1% 0.27 292.581);
+
+  /*
+   * Forma y relieve por defecto (= modo cálculo).
+   * Radios deliberadamente cortos: la app dibuja planos, no burbujas.
+   */
+  --tab-radius: 4px;
+  /* El carril curva más que el indicador: su radio es el del indicador más el
+     padding de 4px (p-1) que lo separa del borde. Concentricidad exacta. */
+  --tab-track-radius: calc(var(--tab-radius) + 4px);
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
+
+  /* La sombra nunca se tiñe de tinta: en modo noche la tinta es blanca. */
+  --shadow-ink: oklch(0% 0 0);
+  /* Filo iluminado del relieve cuando la sombra no puede leerse. */
+  --rim: oklch(100% 0 0);
+
+  /* Relieve de cálculo: borde de contacto duro arriba, contacto apenas difuso
+     abajo. La tarjeta se talla sobre el papel en vez de flotar sobre él. */
+  --card-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 13%, transparent),
+    0 3px 7px -5px color-mix(in oklab, var(--shadow-ink) 32%, transparent);
+  --panel-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 14%, transparent),
+    0 26px 40px -24px color-mix(in oklab, var(--shadow-ink) 60%, transparent);
+  /* Los campos de cálculo se hunden: el dato entra en una ranura mecanizada. */
+  --control-lift:
+    inset 0 1px 2px color-mix(in oklab, var(--shadow-ink) 12%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--paper) 80%, transparent);
 }
 
 .dark {
@@ -310,7 +358,18 @@ html[data-explanation-mode="didactic"] {
   --tab-di: #4f46e5;
   --tab-di-soft: #f0f0f0;
   --tab-di-ink: #000000;
-  --radius: 1rem;
+  --radius: 0.625rem;
+  --tab-radius: 6px;
+  --control-radius: 8px;
+  --card-radius: 12px;
+  --panel-radius: 14px;
+  --card-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 9%, transparent),
+    0 16px 30px -16px color-mix(in oklab, var(--shadow-ink) 50%, transparent);
+  --panel-lift:
+    0 3px 6px color-mix(in oklab, var(--shadow-ink) 10%, transparent),
+    0 30px 50px -26px color-mix(in oklab, var(--shadow-ink) 60%, transparent);
+  --control-lift: 0 1px 2px color-mix(in oklab, var(--shadow-ink) 10%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -381,7 +440,23 @@ html.dark[data-explanation-mode="didactic"] {
   --tab-di: #818cf8;
   --tab-di-soft: #333333;
   --tab-di-ink: #ffffff;
-  --radius: 1rem;
+  --radius: 0.625rem;
+  --tab-radius: 6px;
+  --control-radius: 8px;
+  --card-radius: 12px;
+  --panel-radius: 14px;
+  /* Sobre negro la sombra no se ve: la elevación se lee en el filo iluminado. */
+  --card-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 55%, transparent),
+    0 18px 34px -16px color-mix(in oklab, var(--shadow-ink) 85%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 7%, transparent);
+  --panel-lift:
+    0 3px 8px color-mix(in oklab, var(--shadow-ink) 60%, transparent),
+    0 34px 56px -28px color-mix(in oklab, var(--shadow-ink) 95%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 8%, transparent);
+  --control-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 50%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 5%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -396,7 +471,7 @@ html.dark[data-explanation-mode="didactic"] {
 }
 
 html[data-explanation-mode="calculation"] {
-  --background: #ffffff;
+  --background: #f5f6f8;
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
@@ -416,15 +491,15 @@ html[data-explanation-mode="calculation"] {
   --input: #6b7280;
   --ring: #527575;
   --paper: #ffffff;
-  --surface-page: #ffffff;
+  --surface-page: #f5f6f8;
   --surface-muted: #f3f4f6;
   --line: #e5e7eb;
   --line-soft: #eeeeee;
   --ink: #111827;
   --ink-strong: #111827;
   --ink-soft: #111827;
-  --ink-muted: #6b7280;
-  --ink-subtle: #6b7280;
+  --ink-muted: #68707d;
+  --ink-subtle: #68707d;
   --ink-faint: #5f6673;
   --ink-ghost: #6b7280;
   --brand: #527575;
@@ -452,7 +527,11 @@ html[data-explanation-mode="calculation"] {
   --tab-di: #d87943;
   --tab-di-soft: #f3f4f6;
   --tab-di-ink: #111827;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
+  --tab-radius: 4px;
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -467,7 +546,7 @@ html[data-explanation-mode="calculation"] {
 }
 
 html.dark[data-explanation-mode="calculation"] {
-  --background: #121113;
+  --background: #0c0d0e;
   --foreground: #c1c1c1;
   --card: #121212;
   --card-foreground: #c1c1c1;
@@ -487,7 +566,7 @@ html.dark[data-explanation-mode="calculation"] {
   --input: #888888;
   --ring: #e78a53;
   --paper: #121212;
-  --surface-page: #121113;
+  --surface-page: #0c0d0e;
   --surface-muted: #222222;
   --line: #222222;
   --line-soft: #333333;
@@ -523,7 +602,24 @@ html.dark[data-explanation-mode="calculation"] {
   --tab-di: #e78a53;
   --tab-di-soft: #222222;
   --tab-di-ink: #c1c1c1;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
+  --tab-radius: 4px;
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
+  /* En modo noche el papel es casi negro: el relieve se lee en el filo superior
+     y en una línea de contacto más densa, no en una sombra difusa invisible. */
+  --card-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 65%, transparent),
+    0 3px 8px -6px color-mix(in oklab, var(--shadow-ink) 90%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 6%, transparent);
+  --panel-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 75%, transparent),
+    0 26px 42px -20px color-mix(in oklab, var(--shadow-ink) 95%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 7%, transparent);
+  --control-lift:
+    inset 0 1px 2px color-mix(in oklab, var(--shadow-ink) 70%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--rim) 4%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -541,20 +637,298 @@ html.dark[data-explanation-mode="calculation"] {
   * {
     @apply border-border outline-ring/50;
   }
-  /* El recorte silencioso esconde contenido (1.4.10): el body scrollea si algo desborda. */
+  /* El desborde horizontal se resuelve en el root (1.4.10: se scrollea, no se
+     recorta). El body no puede ser contenedor de scroll: `overflow-x: auto` ahí
+     anulaba todos los `position: sticky` de la app, incluida la columna de
+     resultados, que dejaba de acompañar la edición. Las tablas anchas ya llevan
+     su propio contenedor scrolleable. */
   html {
-    overflow-x: clip;
-  }
-  body {
     overflow-x: auto;
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /* El fondo de modo vive en un hijo con z-index -1: sin un contexto de apilado
+     propio en `main`, ese hijo caería por detrás del color de página. */
+  main {
+    isolation: isolate;
   }
 }
 
 @layer components {
   .label {
     @apply block text-xs font-semibold uppercase tracking-wide text-ink-faint;
+  }
+
+  /*
+   * Fondo de la superficie activa.
+   *
+   * Cálculo: papel milimetrado. La retícula de una memoria técnica, presente
+   * pero nunca por delante del dato.
+   * Didáctico: masas de color que derivan despacio, el mundo de las
+   * explicaciones. Ambas capas viven por detrás del contenido: `main` aísla el
+   * contexto de apilado y el backdrop queda en z-index -1, sobre el color de
+   * página y por debajo de tarjetas y cabecera.
+   */
+  .mode-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /*
+   * Las dos capas conviven siempre y se cruzan al cambiar de modo: el papel
+   * milimetrado se disuelve en el campo cálido del didáctico y vuelve. Así el
+   * cambio de nivel de detalle también se ve, no solo se lee en la etiqueta.
+   */
+  .mode-backdrop-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to right, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px);
+    background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 85%), rgb(0 0 0 / 30%) 55%, rgb(0 0 0 / 8%));
+    opacity: 0;
+    transition: opacity 520ms ease;
+  }
+
+  .mode-backdrop-dots {
+    position: absolute;
+    inset: -12%;
+    background-image: radial-gradient(color-mix(in oklab, var(--ink) 10%, transparent) 1px, transparent 1.4px);
+    background-size: 26px 26px;
+    opacity: 0;
+    transition: opacity 620ms ease;
+  }
+
+  /* El atributo del <html> lo escribe el script de arranque antes del primer
+     pintado, así que el fondo correcto ya está en el marco inicial. */
+  html[data-explanation-mode='calculation'] .mode-shell .mode-backdrop-grid {
+    opacity: 1;
+  }
+
+  html[data-explanation-mode='didactic'] .mode-shell .mode-backdrop-dots {
+    opacity: 0.22;
+  }
+
+  .mode-blob {
+    --blob-alpha: 26%;
+    position: absolute;
+    width: 48vmax;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle at 50% 50%,
+      color-mix(in oklab, var(--blob-color) var(--blob-strength, var(--blob-alpha)), transparent),
+      transparent 68%
+    );
+    opacity: 0;
+    transition: opacity 620ms ease;
+    will-change: transform;
+  }
+
+  .dark .mode-blob {
+    --blob-alpha: 34%;
+  }
+
+  .dark .mode-blob-b {
+    --blob-strength: 26%;
+  }
+
+  .dark .mode-blob-c {
+    --blob-strength: 16%;
+  }
+
+  html[data-explanation-mode='didactic'] .mode-shell .mode-blob {
+    opacity: 1;
+    animation: var(--blob-drift) var(--blob-speed, 34s) ease-in-out infinite alternate;
+  }
+
+  .mode-blob-a {
+    top: -16vmax;
+    left: -12vmax;
+    --blob-color: var(--brand);
+    --blob-drift: blob-drift-a;
+  }
+
+  .mode-blob-b {
+    right: -16vmax;
+    bottom: -20vmax;
+    width: 56vmax;
+    --blob-color: var(--secondary);
+    --blob-strength: 20%;
+    --blob-drift: blob-drift-b;
+    --blob-speed: 40s;
+  }
+
+  .mode-blob-c {
+    top: 30%;
+    left: 30%;
+    width: 42vmax;
+    --blob-color: var(--accent);
+    --blob-strength: 11%;
+    --blob-drift: blob-drift-c;
+    --blob-speed: 46s;
+  }
+
+  /*
+   * Barra de módulos. El acento de cada pestaña es una variable que la barra
+   * reasigna según el módulo activo; el indicador deslizante y el punto de
+   * color la consumen. El estado activo se distingue por forma y posición, no
+   * solo por color (WCAG 1.4.1).
+   */
+  .tab-bar {
+    --tab-accent: var(--brand-mark);
+    --tab-accent-ink: var(--ink-strong);
+    box-shadow: var(--card-lift);
+  }
+
+  .tab-bar[data-active-tab='lga'] {
+    --tab-accent: var(--tab-lga);
+  }
+
+  .tab-bar[data-active-tab='di'] {
+    --tab-accent: var(--tab-di);
+  }
+
+  .tab-indicator {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    width: var(--active-tab-width);
+    height: var(--active-tab-height);
+    translate: var(--active-tab-left) var(--active-tab-top);
+    border-radius: var(--tab-radius);
+    background: color-mix(in oklab, var(--tab-accent) 18%, var(--paper));
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--tab-accent) 46%, transparent),
+      var(--control-lift);
+    transition:
+      translate 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      width 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      height 320ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 220ms linear,
+      box-shadow 220ms linear;
+  }
+
+  .tab-trigger {
+    color: var(--ink-muted);
+    transition:
+      color 160ms linear,
+      background-color 160ms linear;
+  }
+
+  .tab-trigger:hover {
+    color: var(--ink);
+    background: color-mix(in oklab, var(--ink) 5%, transparent);
+  }
+
+  .tab-trigger[data-active] {
+    color: var(--tab-accent-ink);
+  }
+
+  .tab-trigger[data-active]:hover {
+    background: transparent;
+  }
+
+  .tab-dot {
+    transition:
+      scale 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 220ms linear;
+    opacity: 0.55;
+  }
+
+  .tab-trigger[data-active] .tab-dot {
+    scale: 1;
+    opacity: 1;
+  }
+
+  .tab-trigger:not([data-active]) .tab-dot {
+    scale: 0.72;
+  }
+
+  /*
+   * Cambio de panel. El contenido entra desde el lado hacia el que se movió el
+   * indicador, así que el gesto explica la relación espacial entre módulos.
+   */
+  .tab-panel[data-dir='forward'] {
+    animation: tab-panel-forward 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .tab-panel[data-dir='back'] {
+    animation: tab-panel-back 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .step-reveal {
+    animation: step-reveal 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+@keyframes blob-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8vmax, 6vmax, 0) scale(1.16);
+  }
+}
+
+@keyframes blob-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.06);
+  }
+  to {
+    transform: translate3d(-7vmax, -8vmax, 0) scale(0.9);
+  }
+}
+
+@keyframes blob-drift-c {
+  from {
+    transform: translate3d(-4vmax, 3vmax, 0) scale(0.94);
+  }
+  to {
+    transform: translate3d(6vmax, -5vmax, 0) scale(1.1);
+  }
+}
+
+@keyframes tab-panel-forward {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 8px, 0);
+  }
+}
+
+@keyframes tab-panel-back {
+  from {
+    opacity: 0;
+    transform: translate3d(-16px, 8px, 0);
+  }
+}
+
+@keyframes step-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+}
+
+/* Sin movimiento pedido por el sistema: el estado sigue siendo legible. */
+@media (prefers-reduced-motion: reduce) {
+  .mode-blob,
+  .tab-panel[data-dir],
+  .step-reveal {
+    animation: none;
+  }
+
+  .tab-indicator,
+  .tab-dot,
+  .tab-trigger {
+    transition-duration: 1ms;
   }
 }

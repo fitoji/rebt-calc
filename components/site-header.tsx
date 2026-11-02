@@ -19,7 +19,7 @@ export function SiteHeader({ titleAs = 'p', children }: {
     <header className="border-b border-line bg-paper">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-5 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center overflow-hidden rounded-xl bg-panel ring-1 ring-panel-edge">
+          <div className="flex size-10 items-center justify-center overflow-hidden rounded-control bg-panel ring-1 ring-panel-edge">
             <img src="/icons/electricity.png" alt="" className="size-7 object-contain" />
           </div>
           <div>

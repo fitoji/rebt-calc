@@ -90,6 +90,13 @@ const TEXT_PAIRS = [
   ['ink-faint', 'paper'],
   ['ink-faint', 'surface-muted'],
   ['ink', 'surface-muted'],
+  // El cambio de `--surface-page` de blanco a gris no puede degradar el texto que
+  // se apoya en la página en vez de en una tarjeta: header, pie y estados vacíos.
+  ['ink', 'surface-page'],
+  ['ink-soft', 'surface-page'],
+  ['ink-muted', 'surface-page'],
+  ['ink-subtle', 'surface-page'],
+  ['ink-faint', 'surface-page'],
   ['brand', 'paper'],
   ['brand-strong', 'paper'],
   ['brand-ink', 'brand-soft'],

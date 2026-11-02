@@ -2,9 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   CALCULATOR_INPUTS_STORAGE_KEY,
+  NEW_PROJECT_STORAGE_KEY,
   clearProjectData,
   loadCalculatorInputs,
+  marksClearedProject,
+  opensWithExample,
   saveCalculatorInputs,
+  setClearedProjectMark,
 } from '../lib/calculator-storage.mjs'
 
 function createMemoryStorage(initialEntries = {}) {
@@ -201,4 +205,47 @@ test('persists the LGA power mode', () => {
 
   saveCalculatorInputs(storage, { ...sampleInputs, lgaPowerMode: 'auto' })
   assert.equal(loadCalculatorInputs(storage).lgaPowerMode, 'auto')
+})
+
+test('opens a first visit with the example building', () => {
+  const storage = createMemoryStorage()
+
+  assert.equal(opensWithExample(storage, false), true, 'no saved project and no mark means a first visit')
+})
+
+test('keeps a deliberate clear across a reload', () => {
+  const storage = createMemoryStorage()
+
+  clearProjectData(storage)
+  setClearedProjectMark(storage, true)
+
+  assert.equal(marksClearedProject(storage), true)
+  assert.equal(opensWithExample(storage, false), false, 'an emptied project stays empty instead of refilling with the example')
+})
+
+test('loading the example again retires the cleared mark', () => {
+  const storage = createMemoryStorage({ [NEW_PROJECT_STORAGE_KEY]: '1' })
+
+  setClearedProjectMark(storage, false)
+
+  assert.equal(storage.getItem(NEW_PROJECT_STORAGE_KEY), null)
+  assert.equal(opensWithExample(storage, false), true)
+})
+
+test('never overwrites a restored project with the example', () => {
+  const storage = createMemoryStorage()
+  saveCalculatorInputs(storage, sampleInputs)
+
+  assert.equal(opensWithExample(storage, true), false, 'saved inputs win over the example seed')
+})
+
+test('falls back to the example when storage is unavailable', () => {
+  const blocked = {
+    getItem() { throw new Error('blocked') },
+    setItem() { throw new Error('blocked') },
+    removeItem() { throw new Error('blocked') },
+  }
+
+  assert.equal(opensWithExample(blocked, false), true, 'an unreadable mark must not hide the example')
+  assert.doesNotThrow(() => setClearedProjectMark(blocked, true))
 })

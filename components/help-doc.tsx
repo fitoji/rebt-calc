@@ -37,7 +37,7 @@ function Shot({ id, alt, caption }: { id: keyof typeof HELP_SHOTS; alt: string; 
 
   return (
     <figure className="pt-2">
-      <div className="overflow-hidden rounded-xl border border-line bg-paper shadow-sm">
+      <div className="overflow-hidden rounded-card border border-line bg-paper shadow-card">
         <Image
           src={shot.src}
           alt={alt}
@@ -54,7 +54,7 @@ function Shot({ id, alt, caption }: { id: keyof typeof HELP_SHOTS; alt: string; 
 
 function Note({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <aside className="rounded-xl border border-line bg-surface-muted/60 p-4 text-sm leading-6">
+    <aside className="rounded-card border border-line bg-surface-muted/60 p-4 text-sm leading-6">
       <p className="mb-1 font-semibold text-ink">{title}</p>
       <div className="space-y-2 text-ink-subtle">{children}</div>
     </aside>
@@ -86,7 +86,7 @@ function Bullets({ items }: { items: ReactNode[] }) {
 
 function DataTable({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-line">
+    <div className="overflow-x-auto rounded-card border border-line">
       <table className="w-full min-w-[520px] border-collapse text-left text-sm">
         <thead>
           <tr className="bg-surface-muted/70">
@@ -152,7 +152,7 @@ export function HelpDoc() {
             </p>
           </div>
 
-          <details className="mt-8 rounded-xl border border-line bg-paper p-4 lg:hidden">
+          <details className="mt-8 rounded-card border border-line bg-paper p-4 lg:hidden">
             <summary className="cursor-pointer text-sm font-semibold text-ink">Índice de la guía</summary>
             <nav aria-label="Índice de la guía" className="mt-4"><Toc /></nav>
           </details>
@@ -414,7 +414,7 @@ export function HelpDoc() {
                   <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,
                   <><strong>Longitud y caída máxima.</strong> La caída se toma del supuesto de enlace.</>,
                   <><strong>Neutro y conductor de protección.</strong> Sección del neutro y del PE que acompañan a la fase.</>,
-                  <><strong>Fil de comandament.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
+                  <><strong>Hilo de mando.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
                   <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación.</>,
                 ]} />
                 <p>

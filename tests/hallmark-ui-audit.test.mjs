@@ -24,12 +24,15 @@ test('mobile tables keep desktop tables and never trap overflowing content', () 
   assert.ok(calc.includes('flex min-w-0 flex-col gap-6'), 'the cargas column can shrink inside the grid')
   assert.ok(calc.includes('grid min-w-0 gap-6'), 'the grid track can shrink instead of widening the tab')
   assert.ok(modules.includes('grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]'), 'LGA and DI use the same shrinkable grid')
-  assert.ok(modules.includes('min-w-0 rounded-2xl border border-line bg-paper'), 'LGA and DI cards can shrink with the grid')
+  assert.ok(modules.includes('min-w-0 rounded-card border border-line bg-paper'), 'LGA and DI cards can shrink with the grid')
   assert.ok(tabs.includes('min-w-0 flex-1 text-sm outline-none'), 'TabsContent itself can shrink')
-  assert.match(globals, /html\s*{\s*overflow-x: clip;/, 'the root clips decorative bleed')
+  // El desborde horizontal se resuelve en el root: si el body fuera contenedor de
+  // scroll, ningún `position: sticky` de la app se activaría.
+  assert.match(globals, /html\s*{\s*overflow-x: auto;/, 'the root scrolls instead of hiding content (WCAG 1.4.10)')
+  assert.doesNotMatch(globals, /body\s*{\s*overflow-x: auto;/, 'the body must not become a scroll container')
   assert.ok(calc.includes('min-w-[620px]'), 'housing desktop min-width preserved')
   assert.ok(calc.includes('min-w-[580px]'), 'editable desktop min-width preserved')
-  assert.match(globals, /body\s*{\s*overflow-x: auto;/, 'the body scrolls instead of hiding content (WCAG 1.4.10)')
+  assert.ok(calc.includes('xl:sticky xl:top-6 xl:self-start'), 'the results rail follows the edit on desktop')
 })
 
 test('shadcn button component is installed and referenced', () => {
@@ -79,4 +82,13 @@ test('the project letterhead preview shows the uploaded logo without stretching 
   assert.match(calc, /alt=\{`Logo de \$\{projectInfo\.companyName \|\| 'la empresa'\}`\}/, 'logo has a descriptive alt')
   assert.match(calc, /max-h-full w-auto max-w-\[132px\] object-contain/, 'logo keeps its aspect ratio')
   assert.match(calc, /Membrete del PDF/, 'preview is labelled as the PDF letterhead')
+})
+
+test('the example building starts from the legal IRVE minimum', () => {
+  // El 10 % de las plazas es el mínimo legal (ITC-BT-10 §5.2). El ejemplo es el
+  // documento de referencia de la primera visita: si arrancara con "todas las
+  // plazas", P5 se comería más de la mitad del total y enseñaría un edificio
+  // desproporcionado como si fuera lo normal.
+  assert.match(calc, /setParking\(30\); setIrveOption\(3\);/, 'the example seeds 30 plazas with the legal 10 % minimum')
+  assert.match(calc, /setParking\(0\)\n\s*setIrveOption\(1\)/, 'a cleared project still resets to the plain option')
 })
