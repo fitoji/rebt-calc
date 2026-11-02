@@ -65,10 +65,16 @@ test('numeric readouts use tabular figures while form fields stay out of scope',
   assert.doesNotMatch(globals, /\.field\s*\{[^}]*tabular-nums/, 'form fields deliberately out of scope')
 })
 
-test('section headings use an accent mark instead of eyebrows', () => {
+test('section headings carry their normative block code instead of eyebrows', () => {
   assert.doesNotMatch(calc, /number="0[1-5]"/, 'section numbers removed')
-  assert.ok(calc.includes('size-2 rounded-sm bg-brand-mark'), 'accent mark replaces the eyebrow')
-  const firstSectionTitle = calc.indexOf('<SectionTitle title="Viviendas"')
+  assert.doesNotMatch(calc, /block text-xs font-bold tracking-wide text-brand-strong/, 'no eyebrow above the heading')
+  // P1–P5 es el nombre que usan la ITC-BT-10, el PDF y el panel de resultados: el
+  // código va dentro de la línea del título, como un sello, no en un rótulo encima.
+  assert.ok(calc.includes('rounded-tab border border-brand-line bg-brand-soft px-1.5 py-0.5 font-mono text-[11px] leading-none tracking-[0.08em] text-brand-ink'), 'the code sits inline with the heading')
+  for (const [code, title] of [['P1', 'Viviendas'], ['P2', 'Servicios generales'], ['P3', 'Locales, oficinas e industrias'], ['P4', 'Garajes'], ['P5', 'Recarga de vehículos eléctricos']]) {
+    assert.ok(calc.includes(`<SectionTitle code="${code}" title="${title}"`), `${code} labels its block`)
+  }
+  const firstSectionTitle = calc.indexOf('<SectionTitle code="P1" title="Viviendas"')
   assert.ok(firstSectionTitle > 0, 'section title present')
   const section01Close = calc.indexOf('</section>', firstSectionTitle)
   assert.ok(calc.indexOf('<Metric label="Total viviendas"') > 0, 'metrics cluster present')

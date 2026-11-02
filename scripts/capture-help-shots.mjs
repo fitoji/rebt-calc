@@ -125,8 +125,9 @@ const PAGE_HELPERS = `window.help = {
     return help.clickText('[role="tab"]', label)
   },
   section(heading) {
+    const clean = value => value.replace(/\\s+/g, ' ').trim()
     const h3 = [...document.querySelectorAll('h3')]
-      .find(el => el.textContent.replace(/\\s+/g, ' ').trim().startsWith(heading))
+      .find(el => clean(el.textContent).replace(/^P\\d\\s*/, '').startsWith(heading))
     return h3 ? h3.closest('section') : null
   },
   panel(heading) {
