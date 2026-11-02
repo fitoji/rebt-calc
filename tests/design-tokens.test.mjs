@@ -80,6 +80,53 @@ test('the tab bar keeps each module accent and moves the active state, not just 
   assert.match(globals, /@media \(prefers-reduced-motion: reduce\)/, 'motion has a reduced path')
 })
 
+test('shape and relief are named by role, and each mode sets its own', () => {
+  const calc = read('components/load-calculator.tsx')
+  const modules = read('components/line-modules.tsx')
+
+  // Los nombres están declarados y expuestos como utilidad `rounded-*`.
+  for (const token of ['tab-radius', 'tab-track-radius', 'control-radius', 'card-radius', 'panel-radius']) {
+    assert.match(globals, new RegExp(`--${token}:`), `--${token} declared`)
+  }
+  for (const [alias, raw] of [['tab', 'tab-radius'], ['tab-track', 'tab-track-radius'], ['control', 'control-radius'], ['card', 'card-radius'], ['panel', 'panel-radius']]) {
+    assert.match(globals, new RegExp(`--radius-${alias}: var\\(--${raw}\\)`), `rounded-${alias} exposed`)
+  }
+  for (const token of ['shadow-ink', 'rim']) {
+    assert.match(globals, new RegExp(`--${token}:`), `--${token} declared for the relief system`)
+  }
+
+  // Ninguna pieza vuelve a un tamaño suelto: el radio dice qué es, no cuánto mide.
+  for (const file of [calc, modules]) {
+    assert.doesNotMatch(file, /rounded-(?:xl|2xl|3xl)\b/, 'surfaces use rounded-card / rounded-panel')
+    assert.doesNotMatch(file, /shadow-(?:sm|xl|2xl)\b/, 'surfaces use shadow-card / shadow-panel')
+  }
+  assert.ok(calc.includes('rounded-tab'), 'the tab bar uses the short tab radius')
+  assert.ok(calc.includes('rounded-card'), 'cards use the card radius')
+
+  // Los campos de entrada comparten el radio de control.
+  for (const file of ['input', 'select', 'button']) {
+    assert.match(read(`components/ui/${file}.tsx`), /rounded-control/, `${file} uses the control radius`)
+  }
+  assert.match(read('components/ui/input.tsx'), /shadow-control/, 'text fields are seated, not floating')
+
+  // El relieve cambia de física por modo: cálculo talla un borde de contacto sin
+  // desenfoque (base :root), didáctico separa con una sombra difusa.
+  const block = start => {
+    const from = globals.indexOf(start)
+    assert.notEqual(from, -1, `${start} block exists`)
+    return globals.slice(from, globals.indexOf('\n}', from))
+  }
+  const base = block(':root {')
+  const didactic = block('html[data-explanation-mode="didactic"] {')
+  const calculation = block('html[data-explanation-mode="calculation"] {')
+
+  assert.match(didactic, /--tab-radius: 6px/, 'didactic tabs stay soft but short')
+  assert.match(didactic, /--card-lift:\s*\n\s*0 1px 2px /, 'didactic lifts with a blurred shadow')
+  assert.match(calculation, /--tab-radius: 4px/, 'calculation tabs are nearly square')
+  assert.match(base, /--card-lift:\s*\n\s*0 1px 0 /, 'calculation cuts a zero-blur contact edge')
+  assert.match(base, /--control-lift:[\s\S]*inset 0 1px 2px/, 'calculation seats its fields')
+})
+
 test('no semantic token name is truncated', () => {
   // Un sufijo numérico pegado a un token (`bg-brand-soft5`, `text-ink-muted200`)
   // no lo detecta el guard de paleta cruda: no es un color de Tailwind, es un

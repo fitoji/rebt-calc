@@ -50,6 +50,24 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
+  /*
+   * Radios con papel, no con tamaño. `rounded-lg` dice cuánto mide una curva;
+   * `rounded-card` dice qué pieza es. Cada modo decide el valor.
+   */
+  --radius-tab: var(--tab-radius);
+  --radius-tab-track: var(--tab-track-radius);
+  --radius-control: var(--control-radius);
+  --radius-card: var(--card-radius);
+  --radius-panel: var(--panel-radius);
+
+  /*
+   * Relieve por modo: el cálculo talla la superficie, el didáctico la eleva.
+   * Mismos nombres, dos físicas distintas.
+   */
+  --shadow-card: var(--card-lift);
+  --shadow-panel: var(--panel-lift);
+  --shadow-control: var(--control-lift);
+
   /* Semánticos del proyecto: los componentes consumen estos nombres, nunca la paleta cruda. */
   --color-surface-page: var(--surface-page);
   --color-surface-muted: var(--surface-muted);
@@ -135,7 +153,7 @@
   --ink-soft: oklch(27.9% 0.041 260.031);
   --ink-muted: oklch(37.2% 0.044 257.287);
   --ink-subtle: oklch(44.6% 0.043 257.281);
-  --ink-faint: oklch(55.4% 0.046 257.417);
+  --ink-faint: oklch(54% 0.046 257.417);
   --ink-ghost: oklch(70.4% 0.04 256.788);
 
   /* Semánticos · marca */
@@ -172,6 +190,36 @@
   --tab-di: oklch(60.6% 0.25 292.717);
   --tab-di-soft: oklch(96.9% 0.016 293.756);
   --tab-di-ink: oklch(49.1% 0.27 292.581);
+
+  /*
+   * Forma y relieve por defecto (= modo cálculo).
+   * Radios deliberadamente cortos: la app dibuja planos, no burbujas.
+   */
+  --tab-radius: 4px;
+  /* El carril curva más que el indicador: su radio es el del indicador más el
+     padding de 4px (p-1) que lo separa del borde. Concentricidad exacta. */
+  --tab-track-radius: calc(var(--tab-radius) + 4px);
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
+
+  /* La sombra nunca se tiñe de tinta: en modo noche la tinta es blanca. */
+  --shadow-ink: oklch(0% 0 0);
+  /* Filo iluminado del relieve cuando la sombra no puede leerse. */
+  --rim: oklch(100% 0 0);
+
+  /* Relieve de cálculo: borde de contacto duro arriba, contacto apenas difuso
+     abajo. La tarjeta se talla sobre el papel en vez de flotar sobre él. */
+  --card-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 13%, transparent),
+    0 3px 7px -5px color-mix(in oklab, var(--shadow-ink) 32%, transparent);
+  --panel-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 14%, transparent),
+    0 26px 40px -24px color-mix(in oklab, var(--shadow-ink) 60%, transparent);
+  /* Los campos de cálculo se hunden: el dato entra en una ranura mecanizada. */
+  --control-lift:
+    inset 0 1px 2px color-mix(in oklab, var(--shadow-ink) 12%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--paper) 80%, transparent);
 }
 
 .dark {
@@ -310,7 +358,18 @@ html[data-explanation-mode="didactic"] {
   --tab-di: #4f46e5;
   --tab-di-soft: #f0f0f0;
   --tab-di-ink: #000000;
-  --radius: 1rem;
+  --radius: 0.625rem;
+  --tab-radius: 6px;
+  --control-radius: 8px;
+  --card-radius: 12px;
+  --panel-radius: 14px;
+  --card-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 9%, transparent),
+    0 16px 30px -16px color-mix(in oklab, var(--shadow-ink) 50%, transparent);
+  --panel-lift:
+    0 3px 6px color-mix(in oklab, var(--shadow-ink) 10%, transparent),
+    0 30px 50px -26px color-mix(in oklab, var(--shadow-ink) 60%, transparent);
+  --control-lift: 0 1px 2px color-mix(in oklab, var(--shadow-ink) 10%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -381,7 +440,23 @@ html.dark[data-explanation-mode="didactic"] {
   --tab-di: #818cf8;
   --tab-di-soft: #333333;
   --tab-di-ink: #ffffff;
-  --radius: 1rem;
+  --radius: 0.625rem;
+  --tab-radius: 6px;
+  --control-radius: 8px;
+  --card-radius: 12px;
+  --panel-radius: 14px;
+  /* Sobre negro la sombra no se ve: la elevación se lee en el filo iluminado. */
+  --card-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 55%, transparent),
+    0 18px 34px -16px color-mix(in oklab, var(--shadow-ink) 85%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 7%, transparent);
+  --panel-lift:
+    0 3px 8px color-mix(in oklab, var(--shadow-ink) 60%, transparent),
+    0 34px 56px -28px color-mix(in oklab, var(--shadow-ink) 95%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 8%, transparent);
+  --control-lift:
+    0 1px 2px color-mix(in oklab, var(--shadow-ink) 50%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 5%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -396,7 +471,7 @@ html.dark[data-explanation-mode="didactic"] {
 }
 
 html[data-explanation-mode="calculation"] {
-  --background: #ffffff;
+  --background: #f5f6f8;
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
@@ -416,15 +491,15 @@ html[data-explanation-mode="calculation"] {
   --input: #6b7280;
   --ring: #527575;
   --paper: #ffffff;
-  --surface-page: #ffffff;
+  --surface-page: #f5f6f8;
   --surface-muted: #f3f4f6;
   --line: #e5e7eb;
   --line-soft: #eeeeee;
   --ink: #111827;
   --ink-strong: #111827;
   --ink-soft: #111827;
-  --ink-muted: #6b7280;
-  --ink-subtle: #6b7280;
+  --ink-muted: #68707d;
+  --ink-subtle: #68707d;
   --ink-faint: #5f6673;
   --ink-ghost: #6b7280;
   --brand: #527575;
@@ -452,7 +527,11 @@ html[data-explanation-mode="calculation"] {
   --tab-di: #d87943;
   --tab-di-soft: #f3f4f6;
   --tab-di-ink: #111827;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
+  --tab-radius: 4px;
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -467,7 +546,7 @@ html[data-explanation-mode="calculation"] {
 }
 
 html.dark[data-explanation-mode="calculation"] {
-  --background: #121113;
+  --background: #0c0d0e;
   --foreground: #c1c1c1;
   --card: #121212;
   --card-foreground: #c1c1c1;
@@ -487,7 +566,7 @@ html.dark[data-explanation-mode="calculation"] {
   --input: #888888;
   --ring: #e78a53;
   --paper: #121212;
-  --surface-page: #121113;
+  --surface-page: #0c0d0e;
   --surface-muted: #222222;
   --line: #222222;
   --line-soft: #333333;
@@ -523,7 +602,24 @@ html.dark[data-explanation-mode="calculation"] {
   --tab-di: #e78a53;
   --tab-di-soft: #222222;
   --tab-di-ink: #c1c1c1;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
+  --tab-radius: 4px;
+  --control-radius: 5px;
+  --card-radius: 8px;
+  --panel-radius: 10px;
+  /* En modo noche el papel es casi negro: el relieve se lee en el filo superior
+     y en una línea de contacto más densa, no en una sombra difusa invisible. */
+  --card-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 65%, transparent),
+    0 3px 8px -6px color-mix(in oklab, var(--shadow-ink) 90%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 6%, transparent);
+  --panel-lift:
+    0 1px 0 color-mix(in oklab, var(--shadow-ink) 75%, transparent),
+    0 26px 42px -20px color-mix(in oklab, var(--shadow-ink) 95%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--rim) 7%, transparent);
+  --control-lift:
+    inset 0 1px 2px color-mix(in oklab, var(--shadow-ink) 70%, transparent),
+    inset 0 -1px 0 color-mix(in oklab, var(--rim) 4%, transparent);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -689,6 +785,7 @@ html.dark[data-explanation-mode="calculation"] {
   .tab-bar {
     --tab-accent: var(--brand-mark);
     --tab-accent-ink: var(--ink-strong);
+    box-shadow: var(--card-lift);
   }
 
   .tab-bar[data-active-tab='lga'] {
@@ -707,11 +804,11 @@ html.dark[data-explanation-mode="calculation"] {
     width: var(--active-tab-width);
     height: var(--active-tab-height);
     translate: var(--active-tab-left) var(--active-tab-top);
-    border-radius: 999px;
+    border-radius: var(--tab-radius);
     background: color-mix(in oklab, var(--tab-accent) 18%, var(--paper));
     box-shadow:
       inset 0 0 0 1px color-mix(in oklab, var(--tab-accent) 46%, transparent),
-      0 1px 2px rgb(0 0 0 / 6%);
+      var(--control-lift);
     transition:
       translate 320ms cubic-bezier(0.16, 1, 0.3, 1),
       width 320ms cubic-bezier(0.16, 1, 0.3, 1),

@@ -22,7 +22,7 @@ export function SourceNote({ label, children }: { label: string; children: React
         >
           Fuente: {label}<span className="sr-only"> (ver detalle)</span>
         </HoverCardTrigger>
-        <HoverCardContent className="w-80 max-w-[90vw] rounded-xl bg-note-sand p-3 text-xs leading-5 text-note-sand-ink ring-line">
+        <HoverCardContent className="w-80 max-w-[90vw] rounded-panel bg-note-sand p-3 text-xs leading-5 text-note-sand-ink ring-line">
           {children}
         </HoverCardContent>
       </HoverCard>

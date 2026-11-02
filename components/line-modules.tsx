@@ -144,7 +144,7 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
       <FieldRow htmlFor={id} text={label} tables={tables} onOpenTables={onOpenTables} />
       <select
         id={id}
-        className="h-8 w-full rounded-lg border border-line bg-transparent px-2.5 text-sm text-ink-strong"
+        className="h-8 w-full rounded-control border border-line bg-transparent px-2.5 text-sm text-ink-strong"
         value={value}
         onChange={event => onChange(event.target.value)}
       >
@@ -170,7 +170,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
   elements?: { element: string; detail: string }[]
 }) {
   return (
-    <aside className="min-w-0 rounded-2xl bg-panel p-6 text-panel-foreground shadow-xl">
+    <aside className="min-w-0 rounded-panel bg-panel p-6 text-panel-foreground shadow-panel">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
       <p className="mt-5 text-4xl font-bold tabular-nums">
         {result.finalSection == null ? '—' : fmt(result.finalSection)}
@@ -209,7 +209,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
         </div>
       )}
       {result.problems.length > 0 && (
-        <div role="status" aria-live="polite" className="mt-5 rounded-lg bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
+        <div role="status" aria-live="polite" className="mt-5 rounded-control bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
           <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-4" aria-hidden="true" /> Revisá estos puntos</p>
           <ul className="list-disc space-y-1 pl-4">
             {result.problems.map(problem => <li key={problem}>{problem}</li>)}
@@ -265,7 +265,7 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
       {role === 'lga' ? (
         <div>
           <span className="label mb-1 block">Aislamiento</span>
-          <p className="rounded-lg border border-line bg-surface-muted px-3 py-2 text-sm">XLPE / EPR · 90 °C · RZ1-K (AS)</p>
+          <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm">XLPE / EPR · 90 °C · RZ1-K (AS)</p>
           <p className="mt-1 text-xs text-ink-faint">ITC-BT-14 §3 sólo admite RZ1-K o DZ1-K de 0,6/1 kV.</p>
         </div>
       ) : (
@@ -333,7 +333,7 @@ function formatLimit(value: number) { return `${value.toString().replace('.', ',
 function InstallationField({ value, onChange, limit, configured }: { value: InstallationType; onChange: (type: InstallationType) => void; limit: number | null; configured: number }) {
   const mismatch = mismatchesLimit(limit, configured)
 
-  return <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-surface-muted px-3 py-2">
+  return <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control bg-surface-muted px-3 py-2">
     <label htmlFor="installation-type" className="text-xs font-semibold text-ink-muted">Supuesto de enlace</label>
     <Select value={value} onValueChange={next => { if (next != null) onChange(String(next) as InstallationType) }}>
       <SelectTrigger id="installation-type" className="h-8 w-full min-w-0 text-xs sm:w-auto sm:min-w-[16rem]"><SelectValue>{(selected: string | null) => INSTALLATION_SCENARIOS.find(scenario => scenario.id === selected)?.label ?? 'Supuesto de enlace'}</SelectValue></SelectTrigger>
@@ -364,16 +364,16 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   return (
     <>
     <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-2xl border border-line bg-paper p-5 shadow-sm">
+      <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
         <div className="mb-4 flex items-start justify-between gap-4">
           <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-lga" />Línea General de Alimentación</h3>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
-        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
+        <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${fmt(loadTotal)} W` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${fmt(loadTotal)} W` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
@@ -418,19 +418,19 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   return (
     <>
     <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-2xl border border-line bg-paper p-5 shadow-sm">
+      <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivación Individual</h3>
-              {editingLabel && <span className="max-w-full truncate rounded-full bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
+              {editingLabel && <span className="max-w-full truncate rounded-control bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
             </div>
           </div>
           <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
             <Table2 data-icon="inline-start" /> Tablas
           </Button>
         </div>
-        <p className="mb-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
+        <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
@@ -513,7 +513,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-2xl bg-paper p-6 shadow-2xl ring-0 gap-0 sm:max-w-5xl">
+      <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-5xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-14, BT-15 y BT-19</DialogTitle>
