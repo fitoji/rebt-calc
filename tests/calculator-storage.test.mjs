@@ -28,7 +28,7 @@ function createMemoryStorage(initialEntries = {}) {
 }
 
 const sampleInputs = {
-  housing: [{ level: 'Básica', power: 5750, homes: 1 }],
+  housing: [{ level: 'Básica', power: 5750, homes: 1, area: 90 }],
   locals: [{ name: 'Local 1', type: 'Comercial/oficina', area: 40, real: 0 }],
   garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas: 12 }],
   elevators: [{ name: 'Ascensor 1', ita: 'ITA-1', power: 4000, unit: 'W' }],
@@ -77,6 +77,37 @@ test('persists calculator inputs using a versioned snapshot', () => {
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
   assert.equal(snapshot.version, 2)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
+})
+
+test('a dwelling saved before the surface column loads with zero surface', () => {
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+      version: 2,
+      ...sampleInputs,
+      housing: [{ level: 'Básica', power: 5750, homes: 2 }],
+    }),
+  })
+
+  const loaded = loadCalculatorInputs(storage)
+  assert.notEqual(loaded, null, 'the project survives the missing field')
+  assert.deepEqual(loaded.housing, [{ level: 'Básica', power: 5750, homes: 2, area: 0 }], 'the surface defaults to zero')
+  assert.deepEqual(loaded.garages, sampleInputs.garages, 'the rest of the project is untouched')
+})
+
+test('a malformed dwelling surface becomes zero instead of discarding the project', () => {
+  for (const area of ['wide', -20, null]) {
+    const storage = createMemoryStorage({
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+        version: 2,
+        ...sampleInputs,
+        housing: [{ level: 'Básica', power: 5750, homes: 1, area }],
+      }),
+    })
+
+    const loaded = loadCalculatorInputs(storage)
+    assert.notEqual(loaded, null, `dwelling with area ${JSON.stringify(area)} keeps the project`)
+    assert.equal(loaded.housing[0].area, 0, `dwelling with area ${JSON.stringify(area)} falls back to zero`)
+  }
 })
 
 test('a garage saved before the parking-space column loads with zero spaces', () => {

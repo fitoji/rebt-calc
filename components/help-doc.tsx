@@ -209,7 +209,7 @@ export function HelpDoc() {
                 <DataTable
                   head={['Bloque', 'Qué incluye', 'Simultaneidad']}
                   rows={[
-                    ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
+                    ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación y la superficie por vivienda (informativa)', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
                     ['P2 · Servicios generales', 'Ascensores, motores, otras cargas y alumbrado de zonas comunes', '1, más el 25 % del motor más grande'],
                     ['P3 · Locales, oficinas e industrias', 'Superficie, previsión real declarada o mínimo por abonado', '1'],
                     ['P4 · Garajes', 'Superficie, tipo de ventilación y plazas (informativas)', '1'],
@@ -223,16 +223,17 @@ export function HelpDoc() {
 
               <Section id="p1" title="P1 · Viviendas">
                 <p>
-                  La tabla de viviendas es la base de todo el edificio. Cada fila tiene cuatro campos: la descripción, el grado de electrificación, la potencia y el número de viviendas de ese tipo.
+                  La tabla de viviendas es la base de todo el edificio. Cada fila tiene cinco campos: la descripción, el grado de electrificación, la potencia, la superficie de cada vivienda y el número de viviendas de ese tipo.
                 </p>
                 <Bullets items={[
                   <><strong>Grado de electrificación y potencia.</strong> La potencia se elige de la tabla A de la ITC-BT-25: <code>Básica</code> admite 5.750 W (25 A) o 7.360 W (32 A), y <code>Elevada</code> 9.200 W (40 A), 11.500 W (50 A) o 14.490 W (63 A).</>,
+                  <><strong>Superficie (m²/viv.).</strong> Los metros cuadrados de una vivienda de ese tipo. Es un dato informativo: no entra en P1, y la tarjeta de superficie construida multiplica por el número de viviendas.</>,
                   <><strong>Viviendas (uds.).</strong> Cuántas viviendas son de ese tipo. El subtotal de la fila es potencia × unidades.</>,
                   <><strong>Coeficiente de simultaneidad.</strong> Se calcula solo, a partir del total de viviendas, y tiene su propia tabla en el botón de la derecha.</>,
                 ]} />
                 <Shot
                   id="viviendas"
-                  alt="Tabla de viviendas con once filas, el grado de electrificación de cada una, su potencia en vatios, las unidades, el subtotal y las tarjetas de total de viviendas, potencia media y coeficiente de simultaneidad"
+                  alt="Tabla de viviendas con once filas, el grado de electrificación de cada una, su potencia en vatios, la superficie por vivienda, las unidades, el subtotal y las tarjetas de total de viviendas, potencia media, superficie construida y coeficiente de simultaneidad"
                   caption="P1 con el edificio de ejemplo: 11 viviendas, potencia media de 6.691 W y coeficiente 9,2, que dan 61.556 W."
                 />
               </Section>

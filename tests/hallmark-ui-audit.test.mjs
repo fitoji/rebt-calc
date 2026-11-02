@@ -30,7 +30,7 @@ test('mobile tables keep desktop tables and never trap overflowing content', () 
   // scroll, ningún `position: sticky` de la app se activaría.
   assert.match(globals, /html\s*{\s*overflow-x: auto;/, 'the root scrolls instead of hiding content (WCAG 1.4.10)')
   assert.doesNotMatch(globals, /body\s*{\s*overflow-x: auto;/, 'the body must not become a scroll container')
-  assert.ok(calc.includes('min-w-[620px]'), 'housing desktop min-width preserved')
+  assert.ok(calc.includes('min-w-[700px]'), 'housing desktop min-width grows with the surface column')
   assert.ok(calc.includes('min-w-[580px]'), 'editable desktop min-width preserved')
   assert.ok(calc.includes('xl:sticky xl:top-6 xl:self-start'), 'the results rail follows the edit on desktop')
 })

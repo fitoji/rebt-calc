@@ -74,7 +74,7 @@ La previsión se desglosa en cinco bloques (códigos **P1**–**P5**) y suma el 
 
 | Código | Concepto        | Criterio de cálculo                                                                 |
 |:------:|-----------------|-------------------------------------------------------------------------------------|
-| **P1** | Viviendas       | Potencia media por vivienda × **coeficiente de simultaneidad** (según nº de viviendas). |
+| **P1** | Viviendas       | Potencia media por vivienda × **coeficiente de simultaneidad** (según nº de viviendas). Cada fila registra además la **superficie de una vivienda**, un dato informativo que no entra en P1. |
 | **P2** | Servicios generales | Ascensores ×1,3, motores a valor nominal con un incremento del 25 % sobre el mayor, otras cargas a nominal y **alumbrado de zonas comunes** (15/8 W/m² portal y 7/4 W/m² escalera, ×1,8 en lámparas de descarga). |
 | **P3** | Locales y oficinas | Por fila: comercial/oficina (100 W/m², mínimo 3.450 W) o industria (125 W/m², mínimo 10.350 W). Se toma el **mayor** entre previsión real, W/m² y mínimo por abonado. |
 | **P4** | Garajes         | Potencia por superficie según ventilación (**forzada** 20 W/m² o **natural** 10 W/m²), con mínimo de 3.450 W por garaje. Cada fila registra además su **número de plazas**, un dato informativo que no entra en P4. |
@@ -112,6 +112,7 @@ Cada fórmula se implementa una sola vez en `lib/` y la consumen la fila en pant
 - `Pmedia = Σ(potencia_i × n_i) / Σ n_i`
 - `Cs` sale de la tabla de simultaneidad de la ITC-BT-10 para `n ≤ 21`, o de `15,3 + (n − 21) × 0,5` para `n > 21`.
 - `P1 = Pmedia × Cs`
+- Cada fila registra la **superficie de una vivienda** (m²/viv.). Es informativa: no interviene en P1 y solo alimenta la tarjeta de superficie construida, que multiplica por el número de viviendas de la fila.
 
 ### P2 · Servicios generales
 
