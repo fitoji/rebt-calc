@@ -178,10 +178,19 @@ test('row previews add up to the totals for the same settings', () => {
   }
 })
 
+test('garage parking spaces are informative and never change P4', () => {
+  const bare = { area: 240, ventilation: 'Forzada' }
+  const withSpaces = { ...bare, plazas: 30 }
+
+  assert.equal(previewGaragePower(withSpaces, defaults), previewGaragePower(bare, defaults), 'the parking count does not alter the row preview')
+  assert.equal(sumGaragePowers([withSpaces], defaults), sumGaragePowers([bare], defaults), 'the parking count does not alter P4')
+})
+
 test('the calculator renders row previews through the shared helpers', () => {
   assert.match(calc, /from '\.\.\/lib\/load-previews\.mjs'/, 'calculator imports the preview helpers')
   assert.match(calc, /fmt\(previewLocalPower\(row, settings\)\)/, 'local rows render the shared preview')
   assert.match(calc, /fmt\(previewGaragePower\(row, settings\)\)/, 'garage rows render the shared preview')
+  assert.match(calc, /aria-label=\{`Plazas · \$\{row\.name\}`\}/, 'garage rows record the parking count')
   assert.match(calc, /sumLocalPowers\(locals, settings\)/, 'P3 uses the shared sum')
   assert.match(calc, /sumGaragePowers\(garages, settings\)/, 'P4 uses the shared sum')
   assert.match(calc, /fmt\(previewLightingPower\(row, settings\)\)/, 'lighting rows render the shared preview')

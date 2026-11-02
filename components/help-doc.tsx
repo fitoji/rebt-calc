@@ -212,7 +212,7 @@ export function HelpDoc() {
                     ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
                     ['P2 · Servicios generales', 'Ascensores, motores, otras cargas y alumbrado de zonas comunes', '1, más el 25 % del motor más grande'],
                     ['P3 · Locales, oficinas e industrias', 'Superficie, previsión real declarada o mínimo por abonado', '1'],
-                    ['P4 · Garajes', 'Superficie y tipo de ventilación', '1'],
+                    ['P4 · Garajes', 'Superficie, tipo de ventilación y plazas (informativas)', '1'],
                     ['P5 · Recarga de vehículos', 'Plazas de aparcamiento y escenario de previsión', '1 sin SPL, 0,3 con SPL'],
                   ]}
                 />
@@ -282,6 +282,9 @@ export function HelpDoc() {
                 <p>
                   Los garajes se prevén por superficie y por cómo se ventilan, porque la ventilación es lo que determina la carga de los extractores.
                 </p>
+                <p>
+                  Cada garaje lleva además el número de plazas. Es un dato informativo: no cambia la potencia de P4, que sale de la superficie, y sirve para el recuento de plazas construidas que la ITC-BT-10 §5.2 usa en el mínimo del 10 % de recarga.
+                </p>
                 <DataTable
                   head={['Ventilación', 'Densidad', 'Mínimo']}
                   rows={[
@@ -291,7 +294,7 @@ export function HelpDoc() {
                 />
                 <Shot
                   id="garajes"
-                  alt="Bloque de garajes con la descripción, el tipo de ventilación, la superficie y la potencia prevista de cada garaje"
+                  alt="Bloque de garajes con la descripción, el tipo de ventilación, el número de plazas, la superficie y la potencia prevista de cada garaje"
                   caption="P4: la columna de potencia ya aplica la densidad de la ventilación elegida y el mínimo por garaje."
                 />
               </Section>

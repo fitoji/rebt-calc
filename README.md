@@ -77,7 +77,7 @@ La previsión se desglosa en cinco bloques (códigos **P1**–**P5**) y suma el 
 | **P1** | Viviendas       | Potencia media por vivienda × **coeficiente de simultaneidad** (según nº de viviendas). |
 | **P2** | Servicios generales | Ascensores ×1,3, motores a valor nominal con un incremento del 25 % sobre el mayor, otras cargas a nominal y **alumbrado de zonas comunes** (15/8 W/m² portal y 7/4 W/m² escalera, ×1,8 en lámparas de descarga). |
 | **P3** | Locales y oficinas | Por fila: comercial/oficina (100 W/m², mínimo 3.450 W) o industria (125 W/m², mínimo 10.350 W). Se toma el **mayor** entre previsión real, W/m² y mínimo por abonado. |
-| **P4** | Garajes         | Potencia por superficie según ventilación (**forzada** 20 W/m² o **natural** 10 W/m²), con mínimo de 3.450 W por garaje. |
+| **P4** | Garajes         | Potencia por superficie según ventilación (**forzada** 20 W/m² o **natural** 10 W/m²), con mínimo de 3.450 W por garaje. Cada fila registra además su **número de plazas**, un dato informativo que no entra en P4. |
 | **P5** | IRVE            | Recarga de vehículos eléctricos: todas las plazas (con o sin SPL) o mínimo 10 %. |
 | —      | **TOTAL**       | `P1 + P2 + P3 + P4 + P5`                                                            |
 
@@ -158,6 +158,7 @@ El tipo se elige por fila, así que un mismo edificio puede sumar locales comerc
 
 - Ventilación forzada: 20 W/m² · natural: 10 W/m².
 - Una fila sin superficie aporta 0.
+- Cada garaje registra su **número de plazas**. Es informativo: no interviene en la fórmula de P4 y solo se suma para mostrar el total de plazas de estacionamiento, que es el dato que la ITC-BT-10 §5.2 usa en el mínimo del 10 % de IRVE.
 
 ### P5 · IRVE
 

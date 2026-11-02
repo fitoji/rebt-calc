@@ -30,7 +30,7 @@ function createMemoryStorage(initialEntries = {}) {
 const sampleInputs = {
   housing: [{ level: 'Básica', power: 5750, homes: 1 }],
   locals: [{ name: 'Local 1', type: 'Comercial/oficina', area: 40, real: 0 }],
-  garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120 }],
+  garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas: 12 }],
   elevators: [{ name: 'Ascensor 1', ita: 'ITA-1', power: 4000, unit: 'W' }],
   motors: [{ name: 'Motor 1', power: 2, unit: 'CV' }],
   otherLoads: [{ name: 'Alumbrado', power: 500 }],
@@ -77,6 +77,37 @@ test('persists calculator inputs using a versioned snapshot', () => {
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
   assert.equal(snapshot.version, 2)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
+})
+
+test('a garage saved before the parking-space column loads with zero spaces', () => {
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+      version: 2,
+      ...sampleInputs,
+      garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120 }],
+    }),
+  })
+
+  const loaded = loadCalculatorInputs(storage)
+  assert.notEqual(loaded, null, 'the project survives the missing field')
+  assert.deepEqual(loaded.garages, [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas: 0 }], 'the parking count defaults to zero')
+  assert.deepEqual(loaded.housing, sampleInputs.housing, 'the rest of the project is untouched')
+})
+
+test('a malformed parking count becomes zero instead of discarding the project', () => {
+  for (const plazas of ['many', -3, null]) {
+    const storage = createMemoryStorage({
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+        version: 2,
+        ...sampleInputs,
+        garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas }],
+      }),
+    })
+
+    const loaded = loadCalculatorInputs(storage)
+    assert.notEqual(loaded, null, `garage with plazas ${JSON.stringify(plazas)} keeps the project`)
+    assert.equal(loaded.garages[0].plazas, 0, `garage with plazas ${JSON.stringify(plazas)} falls back to zero`)
+  }
 })
 
 test('does not retain an empty calculator snapshot', () => {
