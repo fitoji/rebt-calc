@@ -226,7 +226,7 @@ export function HelpDoc() {
                   La tabla de viviendas es la base de todo el edificio. Cada fila tiene cuatro campos: la descripción, el grado de electrificación, la potencia y el número de viviendas de ese tipo.
                 </p>
                 <Bullets items={[
-                  <><strong>Grado de electrificación.</strong> <code>Básica</code> parte de 5.750 W y <code>Elevada</code> de 9.200 W (ITC-BT-10 §2), pero la potencia es editable: si el proyecto justifica otra cifra, escribe la tuya.</>,
+                  <><strong>Grado de electrificación y potencia.</strong> La potencia se elige de la tabla A de la ITC-BT-25: <code>Básica</code> admite 5.750 W (25 A) o 7.360 W (32 A), y <code>Elevada</code> 9.200 W (40 A), 11.500 W (50 A) o 14.490 W (63 A).</>,
                   <><strong>Viviendas (uds.).</strong> Cuántas viviendas son de ese tipo. El subtotal de la fila es potencia × unidades.</>,
                   <><strong>Coeficiente de simultaneidad.</strong> Se calcula solo, a partir del total de viviendas, y tiene su propia tabla en el botón de la derecha.</>,
                 ]} />

@@ -19,7 +19,8 @@ test('every load card documents its regulatory source', () => {
 
 test('source notes cite the verified sections', () => {
   const [housing, services, premises, garages, irve] = notes
-  assert.match(housing, /§2\.2/, 'dwelling powers come from ITC-BT-10 §2.2')
+  assert.match(housing, /ITC-BT-25 tabla A/, 'dwelling power steps come from ITC-BT-25 table A')
+  assert.match(housing, /5\.750[\s\S]*7\.360[\s\S]*9\.200[\s\S]*11\.500[\s\S]*14\.490/, 'all five power steps are cited')
   assert.match(housing, /§3\.1/, 'simultaneity comes from ITC-BT-10 §3.1')
   assert.match(services, /§3\.2/, 'services come from ITC-BT-10 §3.2')
   assert.match(premises, /§3\.3/, 'commercial premises come from ITC-BT-10 §3.3')
@@ -75,7 +76,7 @@ test('the on-screen note is only the short reference; the detail lives in the ho
   const lines = readFileSync(path.join(root, 'components/line-modules.tsx'), 'utf8')
   const shared = readFileSync(path.join(root, 'components/source-note.tsx'), 'utf8')
 
-  const labels = ['ITC-BT-10 §2.2 y §3.1', 'ITC-BT-10 §3.2', 'ITC-BT-10 §3.3 y §4.2', 'ITC-BT-10 §3.4', 'ITC-BT-10 §5.2', 'ITC-BT-14 §3', 'ITC-BT-15 §3']
+  const labels = ['ITC-BT-25 tabla A e ITC-BT-10 §3.1', 'ITC-BT-10 §3.2', 'ITC-BT-10 §3.3 y §4.2', 'ITC-BT-10 §3.4', 'ITC-BT-10 §5.2', 'ITC-BT-14 §3', 'ITC-BT-15 §3']
   for (const label of labels) assert.ok(`${calc}\n${lines}`.includes(`label="${label}"`), `short label present: ${label}`)
 
   assert.match(shared, /<HoverCard>/, 'the note uses the shadcn hover card')

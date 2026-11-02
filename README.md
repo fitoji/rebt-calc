@@ -92,9 +92,9 @@ Y para las líneas, cada módulo devuelve:
 | Protección `In` | serie normalizada, con verificación `Ib ≤ In ≤ Iz` | ídem |
 | Neutro y PE | — | prefijados desde la sección de fase y editables |
 
-Valores por defecto de referencia (todos editables desde *Parámetros de cálculo*):
+Valores de referencia (los parámetros de cálculo se editan desde *Parámetros de cálculo*):
 
-- Electrificación **básica**: 5.750 W · Electrificación **elevada**: 9.200 W
+- Escalones de potencia de vivienda (ITC-BT-25, tabla A): **básica** 5.750 W (25 A) o 7.360 W (32 A) · **elevada** 9.200 W (40 A), 11.500 W (50 A) o 14.490 W (63 A)
 - Locales: mínimo **3.450 W** por abonado · industria **10.350 W** y **125 W/m²**
 - Garaje ventilación **forzada**: 20 W/m² · **natural**: 10 W/m²
 - Alumbrado: portal **15 W/m²** (incandescencia) / **8 W/m²** (fluorescencia o LED) · escalera **7** / **4 W/m²** · lámparas de descarga **×1,8**

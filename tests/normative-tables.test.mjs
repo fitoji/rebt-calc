@@ -30,6 +30,7 @@ const TABLES = [
   'BT15_E_AIR_SINGLE', 'BT15_E_AIR_THREE', 'BT15_E_BURIED_SINGLE', 'BT15_E_BURIED_THREE',
   'BT14_NEUTRAL_ROWS', 'GUIDE_TABLES', 'LGA_NEUTRAL_SECTION',
   'ITC_BT_10_COEFFICIENTS', 'ITA_POWER_KW',
+  'HOUSING_POWER_STEPS',
 ]
 
 test('the tables file declares every normative table', () => {
@@ -66,6 +67,18 @@ test('every module that reads a table imports it from the tables file', () => {
       `${file} must read its values from the single tables file`,
     )
   }
+})
+
+test('tabla A keeps the five power steps of a dwelling, with their IGA', () => {
+  // ITC-BT-25 tabla A, suministros monofásicos a 230 V: dos escalones básicos y
+  // tres elevados. El calibre del IGA es el que fija cada potencia.
+  assert.deepEqual(normative.HOUSING_POWER_STEPS, [
+    ['Básica', 5750, 25],
+    ['Básica', 7360, 32],
+    ['Elevada', 9200, 40],
+    ['Elevada', 11500, 50],
+    ['Elevada', 14490, 63],
+  ])
 })
 
 test('the neutral table keeps both shapes for the same table 1', () => {
