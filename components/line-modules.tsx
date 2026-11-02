@@ -35,6 +35,45 @@ export type InstallationMethod = (typeof METHODS)[number]
 export type Insulation = 'PVC' | 'XLPE'
 export type ExplanationMode = 'calculation' | 'didactic'
 
+/**
+ * Colores de identificación de conductores de la ITC-BT-19 §2.2. Son colores
+ * físicos del cable, no tokens de tema: por eso van en línea y siempre con el
+ * nombre escrito debajo. El RZ1-K unipolar de 0,6/1 kV se fabrica sin
+ * coloración, así que la identificación se coloca en los extremos (Guía-BT-19).
+ *
+ * `swatch` es el color real del cable; `panel` es el mismo tono aclarado lo
+ * justo para que un filete de 3 px se lea sobre el panel de resultados, que es
+ * casi negro: un marrón a su luminosidad física desaparecería ahí. El filete no
+ * es una muestra de color —el nombre va debajo—, así que la fidelidad del tono
+ * pesa menos que la lectura.
+ */
+const CONDUCTOR_COLORS = {
+  brown: { name: 'Marrón', swatch: '#7b4a2d', panel: '#c07a4a' },
+  black: { name: 'Negro', swatch: '#202226', panel: '#7d8590' },
+  grey: { name: 'Gris', swatch: '#9ba3ac', panel: '#c3cad2' },
+  blue: { name: 'Azul', swatch: '#3b7dd8', panel: '#6aa4ec' },
+  greenYellow: {
+    name: 'Verde-amarillo',
+    swatch: 'repeating-linear-gradient(135deg, #1f9d55 0 4px, #f4c430 4px 8px)',
+    panel: 'repeating-linear-gradient(90deg, #2fbd72 0 5px, #f2cf4a 5px 10px)',
+  },
+  red: { name: 'Rojo', swatch: '#b3261e', panel: '#f0706a' },
+} as const
+
+type ConductorColor = (typeof CONDUCTOR_COLORS)[keyof typeof CONDUCTOR_COLORS]
+
+type ResultElement = { element: string; detail: string; colors?: readonly ConductorColor[] }
+
+const PHASES = [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.black, CONDUCTOR_COLORS.grey]
+
+/** Subrayado del conductor: sólido si tiene un color, por tramos si son varios. */
+function colorRule(colors: readonly ConductorColor[]) {
+  if (colors.length === 1) return { background: colors[0].panel }
+  const segment = 100 / colors.length
+  const stops = colors.map((color, index) => `${color.panel} ${index * segment}% ${(index + 1) * segment}%`)
+  return { background: `linear-gradient(90deg, ${stops.join(', ')})` }
+}
+
 export type LineState = {
   powerW: number
   voltageV: number
@@ -167,7 +206,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
   title: string
   result: ReturnType<typeof sizeLine>
   phaseLabel: string
-  elements?: { element: string; detail: string }[]
+  elements?: ResultElement[]
 }) {
   return (
     <aside className="min-w-0 rounded-panel bg-panel p-6 text-panel-foreground shadow-panel">
@@ -189,23 +228,26 @@ function LineResult({ title, result, phaseLabel, elements }: {
       </div>
       {elements && elements.length > 0 && (
         <div className="mt-5 border-t border-panel-line pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-left text-panel-muted">
-                <th className="pb-1.5 font-medium">Elemento de la instalación</th>
-                <th className="pb-1.5 font-medium">Especificación técnica y dimensionado final</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-panel-line">
-              {elements.map(item => (
-                <tr key={item.element}>
-                  <td className="py-1.5 pr-2 align-top text-panel-foreground">{item.element}</td>
-                  <td className="py-1.5 align-top tabular-nums text-panel-foreground">{item.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
+          <ul className="divide-y divide-panel-line">
+            {elements.map(item => (
+              <li key={item.element} className="py-3 first:pt-0 last:pb-0">
+                <span className="inline-block max-w-full align-top">
+                  <span className="block text-xs font-medium text-panel-foreground">{item.element}</span>
+                  {item.colors && item.colors.length > 0 && (
+                    <span aria-hidden="true" className="mt-1.5 block h-[3px] w-full rounded-full" style={colorRule(item.colors)} />
+                  )}
+                </span>
+                {item.colors && item.colors.length > 0 && (
+                  <p className="mt-1 text-[11px] leading-4 text-panel-muted">{item.colors.map(color => color.name).join(' · ')}</p>
+                )}
+                <p className="mt-1.5 text-xs leading-5 tabular-nums text-panel-foreground">{item.detail}</p>
+              </li>
+            ))}
+          </ul>
+          {elements.some(item => item.colors) && (
+            <p className="mt-3 text-[11px] leading-4 text-panel-muted">Colores de identificación según la ITC-BT-19 §2.2. El RZ1-K unipolar de 0,6/1 kV se fabrica sin coloración: los colores se identifican en los extremos.</p>
+          )}
         </div>
       )}
       {result.problems.length > 0 && (
@@ -386,9 +428,9 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" elements={[
-        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)` },
+        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: PHASES },
+        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.blue] },
+        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.greenYellow] },
         { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior mínimo` },
       ]} />
     </div>
@@ -448,9 +490,9 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" elements={[
-        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)` },
-        { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)` },
-        { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)` },
+        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
+        { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
+        { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
         { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },
       ]} />
     </div>

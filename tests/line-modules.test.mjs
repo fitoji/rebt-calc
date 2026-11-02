@@ -84,6 +84,24 @@ test('the table viewer shows the reference source instead of an unattributed lis
   assert.ok(modules.includes('LAYER_FACTORS'), 'layer factor shown')
 })
 
+test('each conductor carries its identification colour as a rule under its name', () => {
+  // El color físico del cable vive pegado al elemento que identifica: un filete
+  // bajo el nombre, no una leyenda aparte que haya que cruzar con la fila.
+  assert.match(modules, /const CONDUCTOR_COLORS = \{[\s\S]*?panel:/, 'each cable colour carries a tone for the dark panel')
+  assert.ok(modules.includes('function colorRule'), 'one helper builds the rule for one colour or several')
+  assert.ok(modules.includes('style={colorRule(item.colors)}'), 'the rule renders under the conductor name')
+  assert.ok(modules.includes('aria-hidden="true" className="mt-1.5 block h-[3px]'), 'the rule is decoration, not information')
+  assert.ok(modules.includes("{item.colors.map(color => color.name).join(' · ')}"), 'the colour is also written, never colour alone')
+
+  assert.match(modules, /colors: PHASES/, 'the three phases share one segmented rule')
+  assert.match(modules, /colors: system === 'three-phase' \? \[\.\.\.PHASES, CONDUCTOR_COLORS\.blue\] : \[CONDUCTOR_COLORS\.brown, CONDUCTOR_COLORS\.blue\]/,
+    'the DI rule follows the system actually loaded')
+  assert.match(modules, /colors: \[CONDUCTOR_COLORS\.greenYellow\]/, 'the protective conductor keeps its green-yellow')
+  assert.match(modules, /colors: \[CONDUCTOR_COLORS\.red\]/, 'the control wire keeps its red')
+  assert.ok(modules.includes('ITC-BT-19 §2.2'), 'the colour criterion is still cited')
+  assert.doesNotMatch(modules, /Colores de identificación · ITC-BT-19/, 'the detached legend is gone')
+})
+
 test('the selected derivation label lives inside the DI card header', () => {
   assert.ok(modules.includes('editingLabel?: string'), 'DiPanel accepts the selected label')
   assert.ok(modules.includes('Editando: {editingLabel}'), 'the label renders as a chip inside the card')
