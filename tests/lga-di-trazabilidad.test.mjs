@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { sizeLine } from '../lib/line-sizing.mjs'
 import { lineInputFromState } from '../lib/line-state.mjs'
-import { buildDerivations } from '../lib/project-model.mjs'
+import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
+import { BT14_NEUTRAL_ROWS, LGA_TUBE_DIAMETER } from '../lib/normative-tables.mjs'
 
 /** Inputs shared by the cases: copper, tube-in-wall, one circuit. */
 function input(overrides = {}) {
@@ -22,6 +23,62 @@ function input(overrides = {}) {
     ...overrides,
   }
 }
+
+test('S3: the tube column of table 1 has a single source of truth', () => {
+  const fromTable = new Map(BT14_NEUTRAL_ROWS.map(([phase, , tube]) => [Number.parseInt(String(phase), 10), tube]))
+
+  assert.deepEqual([...LGA_TUBE_DIAMETER], [...fromTable], 'the lookup cannot drift away from the printed table')
+})
+
+test('S3: every published LGA section gets its tube from the table', () => {
+  for (const [section, tube] of LGA_TUBE_DIAMETER) {
+    const result = sizeLine(input({
+      role: 'lga', system: 'three-phase', powerW: 6000, voltageV: 400, lengthM: 20, maxDropPercent: 0.5, gamma: 44,
+      sectionOverride: section,
+      variant: { method: 'B1', loadedConductors: 3, insulation: 'XLPE' },
+    }))
+
+    assert.equal(result.finalSection, section)
+    assert.equal(result.minimumTube, tube, `${section} mm²`)
+  }
+})
+
+test('S5: the derivation keeps its IGA when the housing power changes', () => {
+  const defaults = {
+    cosPhi: 1, lengthM: 20, maxDropPercent: 1, method: 'B1', insulation: 'PVC',
+    neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 32, installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+  }
+  const [dwelling] = buildDerivations({ housing: [{ level: 'Básica', power: 5750, homes: 1, area: 90 }], locals: [], garages: [] }, { p2: 0, p5: 0 }, defaults)
+  assert.equal(dwelling.housingIgaA, 25)
+
+  const [grown] = syncDerivationPowers([dwelling], { housing: [{ level: 'Elevada', power: 9200, homes: 1, area: 90 }] }, { p2: 0, p5: 0 })
+  assert.equal(grown.powerW, 9200)
+  assert.equal(grown.housingIgaA, 40, 'the IGA follows the step, not the old power')
+})
+
+test('S1/S5: a calculated project serializes the new numbers', () => {
+  const state = {
+    system: 'single-phase',
+    powerW: 5750, voltageV: 230, cosPhi: 1, lengthM: 21, maxDropPercent: 1, method: 'B1', insulation: 'PVC',
+    circuits: 1, protectionA: 0, neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1, housingIgaA: 25,
+  }
+  const project = calculateProject({
+    loadTotal: 75000,
+    lga: { ...state, powerW: 75000, voltageV: 400, lengthM: 25, insulation: 'XLPE', tubeDiameter: 140 },
+    derivations: [state],
+  })
+  const exported = JSON.parse(JSON.stringify({ lga: project.lga.result, derivation: project.derivations[0].result }))
+
+  for (const key of ['momentKwM', 'gamma', 'minimumTube', 'cableType', 'dropPercentIn']) {
+    assert.ok(key in exported.lga, `the LGA export carries ${key}`)
+  }
+  for (const key of ['momentKwM', 'gamma', 'cableType', 'housingIga', 'maxAdmissiblePowerW', 'dropPercentIn']) {
+    assert.ok(key in exported.derivation, `the derivation export carries ${key}`)
+  }
+  assert.equal(exported.lga.momentKwM, 1875, '75 kW over 25 m')
+  assert.equal(exported.derivation.housingIga, 25)
+})
 
 test('S1: the result states the electrical moment and the conductivity it used', () => {
   const di = sizeLine(input())
