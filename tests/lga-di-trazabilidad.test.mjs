@@ -80,6 +80,22 @@ test('S1/S5: a calculated project serializes the new numbers', () => {
   assert.equal(exported.derivation.housingIga, 25)
 })
 
+test('S1: the result states the neutral and protective conductors of the adopted section', () => {
+  const small = sizeLine(input({ role: 'lga', system: 'three-phase', powerW: 6000, voltageV: 400, lengthM: 20, maxDropPercent: 0.5, gamma: 44, variant: { method: 'B1', loadedConductors: 3, insulation: 'XLPE' } }))
+  assert.equal(small.finalSection, 10)
+  assert.equal(small.neutralSection, 10, 'ITC-BT-14 tabla 1: 10 mm² phase, 10 mm² neutral')
+  assert.equal(small.protectiveSection, 10, 'ITC-BT-18 tabla 2: S ≤ 16 keeps the phase section')
+
+  const large = sizeLine(input({ role: 'lga', system: 'three-phase', powerW: 120000, voltageV: 400, lengthM: 20, maxDropPercent: 0.5, gamma: 44, variant: { method: 'B1', loadedConductors: 3, insulation: 'XLPE' } }))
+  assert.equal(large.finalSection, 70)
+  assert.equal(large.neutralSection, 35, 'the neutral is half the phase from 25 mm² up')
+  assert.equal(large.protectiveSection, 35, 'and the PE, above 35 mm², half the phase')
+
+  const di = sizeLine(input())
+  assert.equal(di.neutralSection, 10, 'a DI neutral equals its phase')
+  assert.equal(di.protectiveSection, 10)
+})
+
 test('S1: the result states the electrical moment and the conductivity it used', () => {
   const di = sizeLine(input())
 

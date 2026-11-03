@@ -5,7 +5,7 @@ Branch: `feat/lga-di-trazabilidad`. Delivery: work-unit commits. Test runner: `n
 
 ## Specs
 
-- S1. Every line result carries `momentKwM` (P in kW × L in m) and `gamma` (m/(Ω·mm²)). The LGA card, the DI card, the PDF line sections and the JSON line blocks show both, so the memoria states the moment and the conductivity it used.
+- S1. Every line result carries `momentKwM` (P in kW × L in m), `gamma` (m/(Ω·mm²)), and the `neutralSection` and `protectiveSection` the instructions derive from the adopted phase section. The LGA card, the DI card, the PDF line sections and the JSON line blocks show the moment and the conductivity, and the JSON carries the four of them, so the memoria can state what it used without repeating a table rule.
 - S2. Every line result carries `dropPercentIn`, the drop computed with the protective device (In) instead of the load current. When the protection is fixed by the user (`protectionA > 0`), the drop criterion — the candidate filter and the reported problem — uses the In-based drop; `dropPercent` keeps its Ib meaning everywhere and the two are shown together.
 - S3. The LGA result carries `minimumTube`: the outer tube diameter that ITC-BT-14 tabla 1 ties to the phase section (already transcribed in `BT14_NEUTRAL_ROWS`). A tube below it is reported as a problem. The DI tube stays a free field: the guide's diameter table is not transcribed in this repository and no value is invented for it.
 - S4. Every line result carries `cableType`, and the card, the PDF and the JSON use it instead of hardcoded strings. LGA `RZ1-K 0,6/1 kV` (ITC-BT-14 §3 admits only RZ1-K or DZ1-K); DI in air `ES07Z1-K 450/750 V` (Guía-BT-15 tabla C); DI buried `RZ1-K 0,6/1 kV` (tabla E, the multiconductor the instruction asks for underground).
