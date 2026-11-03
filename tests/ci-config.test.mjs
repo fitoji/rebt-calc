@@ -21,6 +21,7 @@ test('the root tsconfig excludes separate packages from the app typecheck', () =
   const tsconfig = JSON.parse(read('tsconfig.json'))
   assert.ok(tsconfig.exclude.includes('mcp-excel-server'), 'the MCP server has its own tsconfig')
   assert.ok(tsconfig.exclude.includes('conversion-de-planilla-a-web'), 'the legacy copy is not part of the build')
+  assert.ok(tsconfig.exclude.includes('data/memoria_tecnica'), 'the memòria tècnica starter is its own Vite project')
 })
 
 test('CI runs typecheck, tests and build', () => {
