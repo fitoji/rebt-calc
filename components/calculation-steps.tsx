@@ -8,6 +8,7 @@ export type ExplanationStep = {
     section?: number
     correctedCurrent?: number
     dropPercent?: number
+    dropPercentIn?: number | null
     status?: 'chosen' | 'discarded'
     reason?: string
   }>
@@ -71,7 +72,12 @@ export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
                         <tr key={row.section} className={row.status === 'chosen' ? 'font-semibold text-ink-strong' : 'text-ink-subtle'}>
                           <td className="py-1.5 tabular-nums">{row.section == null ? '—' : `${fmt(row.section, 1)} mm²`}</td>
                           <td className="py-1.5 tabular-nums">{row.correctedCurrent == null ? '—' : `${fmt(row.correctedCurrent, 0)} A`}</td>
-                          <td className="py-1.5 tabular-nums">{row.dropPercent == null ? '—' : `${fmt(row.dropPercent, 2)} %`}</td>
+                          <td className="py-1.5 tabular-nums">
+                            {row.dropPercent == null ? '—' : `${fmt(row.dropPercent, 2)} %`}
+                            {row.dropPercentIn != null && row.dropPercentIn !== row.dropPercent && (
+                              <span className="block text-[11px] text-ink-faint">In: {fmt(row.dropPercentIn, 2)} %</span>
+                            )}
+                          </td>
                           <td className="py-1.5">{row.status === 'chosen' ? `Adoptada. ${row.reason}` : row.reason}</td>
                         </tr>
                       ))}
