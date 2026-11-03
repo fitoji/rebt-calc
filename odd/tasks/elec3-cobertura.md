@@ -63,6 +63,18 @@ Con lo que la app sabe hoy, un ELEC-3 por derivación queda completo en la hoja 
 
 La hoja 2 es casi toda administrativa y hoy está vacía salvo sección de la DI, tensión, potencia a instalar y (en viviendas) IGA y potencia máxima admisible.
 
+## Estado actual de la implementación
+
+`data/memoria_tecnica` ya renderiza la **hoja 1** del modelo (`src/components/Elec3Sheet.tsx`), alimentada por el JSON de `Descargar datos`:
+
+- 16 columnas con la cabecera agrupada del impreso (caída parcial/total, tipo y tensión del conductor).
+- Una fila por línea del proyecto: la derivación individual editada a mano y cada derivación generada, con su nombre real y su tipo (VIVIENDA, LOCAL, GARAJE, SERVEIS GENERALS, IRVE, MANUAL).
+- Las celdas que la exportación no trae —carga simultánea, caída total y aislamiento de la instalación— se pintan como pendientes con su leyenda; nunca se estiman.
+- Cabecera con emplazamiento, fecha, potencia total y el contexto de la LGA (sección, protección, neutro, PE, tubo).
+- Exportación a Excel y CSV sobre las mismas columnas, e impresión A4 apaisada con membrete y el código del modelo.
+
+Lo que la hoja 1 todavía no puede escribir es exactamente lo que falta en el motor: las tres celdas pendientes y las doce filas `C — D`…`Y — Z` de circuitos.
+
 ## Orden sugerido
 
 1. **Caída total acumulada.** Barata y es la celda que el instalador calcula a mano: LGA + DI, y DI + circuito cuando exista el módulo de circuitos. Decidir si se muestra como suma o con la compensación de límites del material del curso.
@@ -77,3 +89,6 @@ La hoja 2 es casi toda administrativa y hoy está vacía salvo sección de la DI
 - L1 (user, verbatim): "arreglara en commit aparte , luego push pr y /impeccable en @data/memoria_tecnica (elec-3)… tengo la tabla de la memoria tecnica legal que necesitamos para implementar, incorporala y vayamos viendo que datos podemos ir completando hasta donde vamos con la app en el momento. busca cual es el mejor lugar para incorporla"
 - Decision (lugar): el modelo vive en `data/documentacion/` junto a las guías del REBT, porque es la fuente legal del documento que la app debe reproducir, no material de la aplicación. Se guardan el `.doc` original y una extracción `.txt` para poder buscar y diferenciar los campos sin un lector de Word; el `.txt` no sustituye al `.doc`.
 - El documento se descargó del impreso público de la Generalitat (`downloadFile.html?idDoc=G146NSIN-157-00.doc`, 339 456 bytes, 2 páginas, versión 2024).
+- L2. `data/memoria_tecnica` ya renderiza la hoja 1 (commit 570f0ad): 16 columnas legales con cabecera agrupada, una fila por línea, celdas pendientes marcadas, exportación Excel/CSV e impresión A4 apaisada con membrete. El diseño sigue el mundo del starter (slate sobre blanco) y reemplaza la tabla de tramos con búsqueda y orden, que no tenía sentido para un documento que se firma; el CTA de carga quedó dentro del estado vacío en vez de en la cabecera.
+- Decisión (una sola fórmula): para no repetir en la memoria las tablas del neutro y del PE, el motor de la calculadora pasó a exportar `neutralSection` y `protectiveSection` en el resultado de cada línea (commit 87afd05). La memoria solo lee.
+- Verificado mirando: captura a 1600 px del estado vacío y del cargado, y el PDF de impresión rasterizado (A4 apaisado, una página con las 11 líneas). El detector de Impeccable no reportó hallazgos sobre los archivos nuevos.
