@@ -32,7 +32,7 @@ S9. Nothing regresses: the existing suite keeps passing, and each fix is pinned 
 | T4 | S6 | inline | done | 06bcffc |
 | T5 | S7, S8 | inline | done | 7f915bc |
 | T6 | S9 | inline | done | see git log |
-| T7 | S8 | inline | done | pending commit |
+| T7 | S8 | inline | done | c035118 |
 
 ## Log
 
@@ -83,3 +83,5 @@ L16. User decision, verbatim: "dale" to "¿Arranco por el PE con la guía BT-18 
 - The longer labels wrap to two lines in the 360 px panel, so the two headline rows are centred against the label block instead of baseline-aligned, and the symbol is kept whole with `whitespace-nowrap`.
 
 L17. Verified: `pnpm test` 219/219 (PE rounding pinned by two tests, one of them checking every nominal phase against the series and that half is never rounded down), `tsc --noEmit` clean, `next build` clean, `public/ayuda/lga.png` and `di.png` regenerated from the production build and read back.
+
+L18. Delivered. `c035118` (conductividad del anexo 2), `41dcc4f` (sellos P1–P5) and `1d1770c` (tarjeta LGA, PE normalizado, un solo nombre para Ib) are on `main`; the last two rides a `--no-ff` merge, `aee454e`. Pushed as `663e558..aee454e` and CI `verify` is green on the merge commit. The partition offered for the card commit was dropped on purpose: the PE prose and the card prose share one hunk in `help-doc.tsx` and `README.md`, and the screenshots depend on both changes, so splitting would have meant hunk surgery in three files for little review value.
