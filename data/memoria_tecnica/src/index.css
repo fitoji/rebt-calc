@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Un sol moment: el full apareix quan arriba el projecte. */
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.sheet-in {
+  animation: sheet-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Superfícies que no hem dibuixat: selecció i barres amb el to del full. */
+::selection {
+  background-color: theme("colors.slate.900");
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-in {
+    animation: none;
+  }
+}
+
+/* La memòria es firma en paper: A4 apaïsat, com el model. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  /* Una animació amb `both` es rasteritza a l'inici a l'hora d'imprimir. */
+  .sheet-in,
+  .sheet-in * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .print\:hidden,
+  .no-print {
+    display: none !important;
+  }
+
+  table {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 7.5pt;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tr {
+    break-inside: avoid;
+  }
+}

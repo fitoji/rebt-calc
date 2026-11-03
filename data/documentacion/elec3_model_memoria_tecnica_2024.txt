@@ -1,0 +1,92 @@
+Model ELEC 3 - MEMÒRIA TÈCNICA
+
+MEMÒRIA TÈCNICA
+NÚM.  FORMTEXT      
+TRAMCàrrega
+simultàn.
+(%)Potència
+kW.cos ϕIntens.
+ASecció
+per fase
+mm2Long.
+mMoment
+elec.
+kW. · mCaiguda de tensióCaract. conduct.Tipus de canalitzacionsAïllam.
+Instal·l.
+kΩConduc.
+Neutre
+mm2Conduc.
+Protec.
+mm2parcial
+(%)total
+(%)TIPUStensió
+nominal
+d’aïllam.sense tub
+protector
+(sistema)sota tub: ∅ en mm.conduct.
+enterrat.
+prof. m.encastatsense encas. FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      Derivació individual
+       (A — B) FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      DERIVACIONSC — D FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      E — F FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      G — H FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      I — J FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      K — L FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      M — N FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      O — P FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      Q — R FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      S — T FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      U — V FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      W — X FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      Y — Z FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT      
+
+OBSERVACIONS: Grau de protecció d’aparamenta i receptors en locals especials
+
+   IP —          FORMTEXT             
+ FORMTEXT      
+
+
+TITULAR
+
+ÚS A QUE ES DESTINA LA INSTAL·LACIÓ
+ FORMTEXT      
+SEGELL INSTAL·LADOR I EMPRESA INSTAL·LADORA AUTORITZATS
+ FORMTEXT      
+EMPLAÇAMENT
+ FORMTEXT      
+Núm.
+ FORMTEXT      
+Pis
+ FORMTEXT      
+Porta
+ FORMTEXT      
+
+
+
+CARRER
+INSTAL·LACIÓ
+
+
+LOCALITAT FORMTEXT      N C PNOVA FORMTEXT      AMPLIACIÓ FORMTEXT      REFORMA FORMTEXT       FORMTEXT      INTERRUPTOR
+DIFERENCIALCircuitNombreInSensibilitatSECCIÓ DE LA DERIVACIÓ INDIV.
+                                           FORMTEXT        mm2EMPRESA
+DISTRIBUÏDORA FORMTEXT       FORMTEXT       FORMTEXT       FORMTEXT       A FORMTEXT       mA FORMTEXT       FORMTEXT       FORMTEXT       A FORMTEXT       mARESISTÈNCIA TERRA DE PROTEC.CARACTERÍSTIQUES
+EDIFICISUPERFÍCIE LOCAL
+m2 FORMTEXT       FORMTEXT       FORMTEXT       A FORMTEXT       mA                                                          FORMTEXT           ΩPotència màxima admissible (1)
+ FORMTEXT         kW
+TENSIÓ
+ FORMTEXT         V
+ FORMTEXT      
+ FORMTEXT      
+Potència a instal·lar
+ FORMTEXT         kW
+INTENSITAT INTERRUPTOR GENERAL AUTOMÀTIC
+ FORMTEXT         A
+
+
+NOTA
+(1)	És la màxima que pot suportar el conjunt de la instal·lació.
+DATA I SIGNATURA INSTAL·LADOR
+ FORMTEXT      
+
+
+
+
+
+
+
+
+
+
+G146NSIN-157-00
+
+
+

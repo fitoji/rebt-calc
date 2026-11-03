@@ -190,6 +190,11 @@ La conductividad `γ` sale del anexo 2 de la Guía Técnica de Aplicación del R
 3. Si no se fija una protección, se propone la de la serie normalizada y se verifica `Ib ≤ In ≤ Iz_corregida`.
 4. Cuando ninguna sección cumple, el módulo lo dice y explica cuál de los dos criterios falla; no devuelve en silencio la mayor.
 5. El conductor de protección se deriva de la sección de fase con la tabla 2 de la ITC-BT-18 (S hasta 16 mm², 16 mm² hasta 35 mm² y S/2 por encima) y, cuando esa mitad no es una sección normalizada, se toma la superior más próxima: 95 → 50, 150 → 95. El neutro parte de la fase; ambos quedan editables en el formulario.
+6. La tarjeta, el PDF y el JSON declaran el **momento eléctrico** `M = P(kW) · L` y el **γ** con el que se calculó, para que la memoria pueda justificar la sección con las dos columnas que pide el ELEC-3.
+7. Cuando la protección se fija a mano en el formulario, la caída se comprueba también con `In` y ese es el criterio que elige la sección: es lo que la Guía-BT-25 escribe como `M = 230 · In · L` y lo que usan sus tablas de longitudes máximas. La tarjeta muestra la caída con `Ib` y con `In` y dice cuál gobernó. Con la protección en automático, la caída con `In` se informa pero no cambia el resultado, para no mover memorias ya emitidas.
+8. El tubo de la LGA tiene **mínimo de tabla** (tabla 1 de la ITC-BT-14: 10 mm² → 75 mm, 50 → 125, 70 → 140, 240 → 200) y por debajo se avisa. El de la derivación sigue siendo un campo libre: la tabla de diámetros de la Guía-BT-15 no está transcrita en el repositorio y la app no inventa el valor.
+9. La **designación del cable** sale de la línea y su instalación: `RZ1-K 0,6/1 kV` en la LGA (la ITC-BT-14 sólo admite RZ1-K o DZ1-K), `ES07Z1-K 450/750 V` en la DI al aire (tabla C de la guía) y `RZ1-K 0,6/1 kV` en la DI enterrada (tabla E, el multiconductor que pide la instrucción).
+10. Las derivaciones de vivienda llevan el **IGA de su escalón de potencia** y su potencia máxima admisible, `230 × IGA`; si la potencia prevista la supera, el aviso sale en la tarjeta. El IGA no es el ICP: fija un límite de diseño, no la potencia contratada.
 
 En la LGA la sección adoptada se puede fijar a mano desde la tarjeta de resultados: la lista ofrece las secciones mayores que la automática, y el motor recalcula `Iz`, la caída, el neutro y el PE sobre la sección elegida. Si la sección fijada deja de cumplir un criterio, el aviso se mantiene y la sección automática sigue visible como referencia; nunca se sustituye en silencio.
 
@@ -218,6 +223,15 @@ Un solo botón, **Descargar datos**, abre un diálogo con cuatro salidas. Las cu
 
 Markdown y texto se generan en `lib/export-formats.mjs` a partir de una estructura normalizada (proyecto, totales, secciones y líneas), no desde el JSX.
 
+### Cargar un proyecto desde el JSON
+
+Debajo de **Limpiar**, el botón **Cargar proyecto** abre el selector de archivos y acepta el `.json` que escribió **Descargar datos**. Del archivo se restauran `projectInfo` y `inputs` (filas de previsión, supuesto de enlace, LGA, DI y derivaciones); `settings`, `calculations`, `lines` y `project` se ignoran a propósito: los primeros son parámetros normativos del usuario y el resto los recalcula el motor al cargar.
+
+- La validación es **todo o nada**: el proyecto solo se reemplaza si el archivo entero es válido. Si no lo es (JSON roto, archivo vacío, filas malformadas) no se toca nada y el motivo aparece bajo el botón.
+- El archivo pasa por los mismos validadores que el snapshot de `localStorage` en el núcleo de la previsión, así que ambos caminos no pueden aceptar filas distintas. En los bloques opcionales la política difiere a propósito: un proyecto guardado sobrevive a un bloque ilegible (lo descarta), y un archivo importado no, porque su promesa es todo o nada.
+- Cargar un proyecto **reemplaza el proyecto actual** y no tiene deshacer: descargá el JSON del proyecto en curso antes si querés conservarlo.
+- La carga retira la marca de proyecto vaciado, así que recargar la página mantiene el proyecto importado en vez de reabrir el ejemplo.
+
 ---
 
 ## Persistencia
@@ -235,6 +249,7 @@ Todo vive en `localStorage`, con claves propias y validación al leer:
 - El snapshot de entradas se valida fila por fila; un snapshot antiguo sin filas de alumbrado carga con los valores por defecto en vez de descartarse.
 - **La primera visita abre con el edificio de ejemplo.** Sin entradas guardadas y sin la marca de proyecto vaciado, la app carga el ejemplo en vez de una tabla de ceros.
 - **Limpiar** borra las entradas y los datos del proyecto, pero **conserva** los parámetros de cálculo. Deja además la marca `electrocalc-new-project`, así que una recarga mantiene el proyecto vacío; **Cargar ejemplo** retira esa marca.
+- **Cargar proyecto** reemplaza el proyecto en curso por el de un JSON exportado y también retira la marca `electrocalc-new-project`.
 - Nada se envía a un servidor: no hay backend ni base de datos.
 
 ---
@@ -285,7 +300,7 @@ Reglas:
 │   └── ui/                   # Primitivas shadcn/ui (Base UI)
 ├── lib/                      # Fórmulas y tablas, sin React
 ├── tests/                    # Suite node:test
-├── data/                     # Hoja de cálculo original de referencia
+├── data/                     # Hoja original, guías del REBT y modelo ELEC-3
 ├── public/                   # Iconos e imágenes
 ├── odd/tasks/                # Notas de diseño y especificaciones de features
 └── mcp-excel-server/         # Utilidad aparte para leer la hoja original (opcional)
@@ -298,7 +313,8 @@ Reglas:
 | `simultaneity.mjs` | Tabla 1 de la ITC-BT-10 y coeficiente para `n > 21` |
 | `load-previews.mjs` | Potencia por fila de locales, garajes y alumbrado |
 | `service-loads.mjs` | P2: ascensores, motor mayor, otras cargas y alumbrado |
-| `line-sizing.mjs` | Dimensionado de LGA/DI: `Ib`, sección por caída, protección |
+| `line-sizing.mjs` | Dimensionado de LGA/DI: `Ib`, sección por caída, protección, momento y caída con `In` |
+| `housing-supply.mjs` | Escalones de potencia de vivienda: IGA y potencia máxima admisible |
 | `cable-tables.mjs` | Intensidades admisibles y factores de corrección |
 | `export-formats.mjs` | Informe en Markdown y texto simple |
 | `pdf-theme.mjs` | Paleta del PDF (equivalente a los tokens de color) |
@@ -405,5 +421,6 @@ Código abierto bajo licencia **MIT**. Puedes usar, modificar y distribuir el pr
 
 - **Repositorio**: [github.com/fitoji/rebt-calc](https://github.com/fitoji/rebt-calc)
 - **Hoja de referencia**: [`data/Prevision_de_cargas_ITC-BT10-47d8bc.xlsx`](data/)
+- **Modelo oficial ELEC-3** (memòria tècnica, Gencat 2024): [`data/documentacion/elec3_model_memoria_tecnica_2024.doc`](data/documentacion/) · cobertura campo por campo en [`odd/tasks/elec3-cobertura.md`](odd/tasks/elec3-cobertura.md)
 - **REBT consolidado** (RD 842/2002): [BOE-A-2002-18099](https://www.boe.es/buscar/act.php?id=BOE-A-2002-18099)
 - **ITC-BT-52 / IRVE** (RD 1053/2014): [BOE-A-2014-13681](https://www.boe.es/buscar/doc.php?id=BOE-A-2014-13681)

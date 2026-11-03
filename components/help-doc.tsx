@@ -419,7 +419,8 @@ export function HelpDoc() {
                   <><strong>Aislamiento.</strong> PVC (70 °C) o XLPE/EPR (90 °C). Fija la temperatura máxima de servicio y, con ella, la conductividad del cálculo: 48 o 44 m/(Ω·mm²).</>,
                   <><strong>Neutro y conductor de protección.</strong> Sección del neutro y del PE que acompañan a la fase.</>,
                   <><strong>Hilo de mando.</strong> El conductor de mando para la discriminación horaria, con su sección.</>,
-                  <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación.</>,
+                  <><strong>Diámetro del tubo protector.</strong> El tubo por el que discurre la derivación; en la LGA el mínimo sale de la tabla 1 de la ITC-BT-14 y por debajo se avisa.</>,
+                  <><strong>IGA de la vivienda.</strong> En las derivaciones de vivienda, el escalón de potencia fija el IGA (de 25 a 63 A) y con él la potencia máxima admisible, <code>230 × IGA</code>. El IGA no es el ICP: es el límite de diseño, no la potencia contratada.</>,
                 ]} />
                 <p>
                   El criterio de cálculo es el mismo que en la LGA, con los límites de la ITC-BT-15: sección mínima de 6 mm² tanto en monofásica como en trifásica, y la protección del cuadro de mando del abonado.
@@ -443,6 +444,9 @@ export function HelpDoc() {
                     ['Intensidad admisible', 'La tabla de la propia instrucción de la línea', 'Que el conductor no se caliente por encima de lo que admite su aislamiento'],
                   ]}
                 />
+                <p>
+                  La tarjeta, la memoria y el JSON muestran el momento eléctrico <code>M = P(kW) · L</code> y el <code>γ</code> con el que se calculó: son las dos columnas con las que el ELEC-3 justifica la sección. Y cuando fijas la protección en el formulario, la caída se comprueba además con la intensidad del dispositivo (<code>In</code>) y no sólo con la de la carga, que es como la Guía-BT-25 escribe el momento de un circuito (<code>M = 230 · In · L</code>) y como están hechas sus tablas de longitudes máximas. La tarjeta muestra las dos caídas y dice cuál decidió la sección; con la protección en automático, la de <code>In</code> se informa pero no cambia el resultado.
+                </p>
                 <SubHeading>El mínimo no depende de si hay una o tres fases</SubHeading>
                 <p>
                   La ITC-BT-14 dice, textualmente, que «la sección mínima será de 10 mm² en cobre o 16 mm² en aluminio», y la ITC-BT-15 que «la sección mínima será de 6 mm² para los cables polares, neutro y protección y de 1,5 mm² para el hilo de mando». Son mínimos de la línea, no del sistema: una LGA monofásica sigue necesitando 10 mm² de cobre y una derivación trifásica se conforma con 6.
@@ -491,17 +495,20 @@ export function HelpDoc() {
 
               <Section id="exportar" title="Exportar la memoria">
                 <p>
-                  <code>Descargar memoria</code> abre las cuatro salidas. Todas llevan los mismos números que ves en pantalla; cambia el formato, no el contenido.
+                  <code>Descargar datos</code> abre las cuatro salidas. Todas llevan los mismos números que ves en pantalla; cambia el formato, no el contenido.
                 </p>
                 <DataTable
                   head={['Formato', 'Para qué sirve']}
                   rows={[
                     ['PDF', 'Memoria técnica paginada: previsión P1 a P5, parámetros y desarrollo de las líneas. Incluye el membrete si rellenaste los datos del proyecto.'],
-                    ['JSON', 'Datos crudos del proyecto y de los cálculos, para retomarlos o procesarlos por tu cuenta.'],
+                    ['JSON', 'Datos crudos del proyecto y de los cálculos. Es el único formato que se puede volver a cargar en la app.'],
                     ['Markdown', 'Texto estructurado con tablas, para pegar en un issue, un README o el repositorio del proyecto.'],
                     ['Texto simple', 'Notas de obra sin formato, para abrir en cualquier editor.'],
                   ]}
                 />
+                <p>
+                  <code>Cargar proyecto</code>, debajo de <code>Limpiar</code>, abre el selector de archivos y acepta ese JSON: restaura los datos del proyecto, la previsión, la LGA, la DI y las derivaciones. Reemplaza el proyecto en curso y no tiene deshacer, así que descarga antes el JSON del que tengas abierto. Si el archivo no es válido no se carga nada y el motivo aparece bajo el botón. Los parámetros de cálculo no se tocan: son tuyos, no del archivo.
+                </p>
                 <p>
                   El membrete del PDF se configura en <code>Datos de la memoria técnica → Editar datos del proyecto</code>: nombre de la empresa, logo y datos del proyecto. Ese botón también contiene la opción de limpiar los datos del proyecto.
                 </p>

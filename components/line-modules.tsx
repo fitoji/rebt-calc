@@ -94,6 +94,8 @@ export type LineState = {
   tubes: number
   /** Sección de fase fijada a mano (0 = la que propone el cálculo). */
   sectionOverride?: number
+  /** IGA del escalón de potencia de la vivienda; solo en derivaciones de vivienda. */
+  housingIgaA?: number
 }
 
 export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
@@ -296,12 +298,23 @@ function LineResult({ title, result, phaseLabel, elements }: {
       <div className="flex flex-col gap-3 text-sm">
         <ResultRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(result.ratedCurrent, 2)} A`} />
         <ResultRow label="Sección por caída" value={`${fmt(result.sectionByDrop, 2)} mm²`} />
+        <ResultRow label="Momento eléctrico (M)" value={`${fmt(result.momentKwM, 2)} kW·m`} />
+        <ResultRow label="Conductividad (γ)" value={`${fmt(result.gamma)} m/(Ω·mm²)`} />
         <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
         <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
         <ResultRow label="Iz corregida" value={result.correctedCurrent == null ? '—' : `${fmtTrim(result.correctedCurrent, 1)} A`} />
-        <ResultRow label="Caída resultante" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
+        <ResultRow label="Caída con Ib" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
+        {result.dropPercentIn != null && (
+          <ResultRow label={`Caída con In (${fmt(result.protection ?? 0)} A)`} value={`${fmt(result.dropPercentIn, 2)} %`} />
+        )}
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
+        {result.housingIga != null && (
+          <ResultRow label="IGA (tabla A) · potencia máxima" value={`${fmt(result.housingIga)} A · ${fmt(result.maxAdmissiblePowerW ?? 0)} W`} />
+        )}
       </div>
+      {result.housingIga != null && (
+        <p className="mt-3 text-[11px] leading-4 text-panel-muted">El IGA no es el ICP: fija la potencia máxima admisible de la vivienda, no la potencia contratada.</p>
+      )}
       {elements && elements.length > 0 && (
         <div className="mt-5 border-t border-panel-line pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
@@ -343,6 +356,7 @@ function LgaResult({ state, result, elements, onChange }: {
     : `Automática · ${fmt(result.autoSection)} mm²`
   const izBelow = result.correctedCurrent != null && result.correctedCurrent < result.ratedCurrent
   const dropOver = result.dropPercent != null && result.dropPercent > state.maxDropPercent
+  const dropInOver = result.dropPercentIn != null && result.dropPercentIn > state.maxDropPercent
 
   return (
     <ResultCard title="Resultado LGA">
@@ -398,7 +412,7 @@ function LgaResult({ state, result, elements, onChange }: {
 
       <div className="mt-5 border-t border-panel-line pt-4">
         <p className="text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Conductores y caída de tensión</p>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 rounded-control border border-panel-line px-3 py-2.5">
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-control border border-panel-line px-3 py-2.5">
           <div>
             <dt className="text-[11px] leading-4 text-panel-muted">Sección por caída</dt>
             <dd className="mt-0.5 text-sm font-semibold tabular-nums">
@@ -407,14 +421,34 @@ function LgaResult({ state, result, elements, onChange }: {
             </dd>
           </div>
           <div>
-            <dt className="text-[11px] leading-4 text-panel-muted">Caída resultante</dt>
+            <dt className="text-[11px] leading-4 text-panel-muted">Caída con Ib</dt>
             <dd className={dropOver ? 'mt-0.5 text-sm font-semibold tabular-nums text-warning-on-panel' : 'mt-0.5 text-sm font-semibold tabular-nums'}>
               {result.dropPercent == null
                 ? '—'
                 : <>{fmt(result.dropPercent, 2)}<span className="ml-1 font-normal text-panel-muted">% de {formatLimit(state.maxDropPercent)}</span></>}
             </dd>
           </div>
+          <div>
+            <dt className="text-[11px] leading-4 text-panel-muted">Momento eléctrico (M)</dt>
+            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+              {fmt(result.momentKwM, 2)}
+              <span className="ml-1 font-normal text-panel-muted">kW·m</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] leading-4 text-panel-muted">Conductividad (γ)</dt>
+            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+              {fmt(result.gamma)}
+              <span className="ml-1 font-normal text-panel-muted">m/(Ω·mm²)</span>
+            </dd>
+          </div>
         </dl>
+        {result.dropPercentIn != null && (
+          <p className={dropInOver ? 'mt-2 text-[11px] leading-4 text-warning-on-panel' : 'mt-2 text-[11px] leading-4 text-panel-muted'}>
+            Caída con In ({fmt(result.protection ?? 0)} A): <strong className="tabular-nums">{fmt(result.dropPercentIn, 2)} %</strong>
+            {result.protection != null && state.protectionA > 0 ? ' · criterio de la sección' : ' · informativa, la sección se elige con Ib'}
+          </p>
+        )}
         <div className="mt-3">
           <ConductorList elements={elements} />
         </div>
@@ -592,15 +626,16 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <ConductivityField idPrefix="lga" state={state} role="lga" />
+          <NumberField id="lga-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
           <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} role="lga" />
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LgaResult state={state} result={result} onChange={section => onChange({ sectionOverride: section })} elements={[
-        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: PHASES },
-        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.blue] },
-        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.greenYellow] },
-        { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior mínimo` },
+        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: PHASES },
+        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.blue] },
+        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.greenYellow] },
+        { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior${result.minimumTube == null ? ' mínimo' : ` · tabla 1 pide ${fmt(result.minimumTube)} mm`}` },
       ]} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
@@ -659,7 +694,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
       <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" elements={[
-        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
+        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
         { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
         { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
         { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },

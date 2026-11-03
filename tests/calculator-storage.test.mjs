@@ -7,6 +7,7 @@ import {
   loadCalculatorInputs,
   marksClearedProject,
   opensWithExample,
+  readProjectExport,
   saveCalculatorInputs,
   setClearedProjectMark,
 } from '../lib/calculator-storage.mjs'
@@ -310,4 +311,151 @@ test('falls back to the example when storage is unavailable', () => {
 
   assert.equal(opensWithExample(blocked, false), true, 'an unreadable mark must not hide the example')
   assert.doesNotThrow(() => setClearedProjectMark(blocked, true))
+})
+
+const sampleProjectInfo = {
+  companyName: 'Estudio',
+  companyAddress: 'Calle 1',
+  workAddress: 'Obra 2',
+  phone: '600 000 000',
+  email: 'obra@example.com',
+  logo: 'data:image/png;base64,AAAA',
+}
+
+const sampleLine = {
+  powerW: 5750,
+  voltageV: 230,
+  cosPhi: 1,
+  lengthM: 20,
+  maxDropPercent: 1,
+  method: 'B1',
+  insulation: 'PVC',
+  circuits: 1,
+  protectionA: 0,
+  neutralSection: 16,
+  peSection: 16,
+  controlSection: 1.5,
+  tubeDiameter: 40,
+  installation: 'air',
+  layout: 'embedded',
+  layers: 1,
+  tubes: 1,
+}
+
+const exportedInputs = {
+  ...sampleInputs,
+  lga: { ...sampleLine, powerW: 12000, voltageV: 400 },
+  lgaPowerMode: 'manual',
+  di: { ...sampleLine },
+  derivations: [sampleDerivation],
+}
+
+/**
+ * The shape `Descargar datos → JSON` writes: `inputs` has no `version`, and the
+ * derived blocks travel alongside it.
+ */
+function exportedProject(overrides = {}) {
+  return {
+    exportedAt: '2026-11-03T00:00:00.000Z',
+    projectInfo: sampleProjectInfo,
+    inputs: exportedInputs,
+    settings: { basicHousingPower: 9999 },
+    calculations: { p1: 1 },
+    lines: { lga: { inputs: {}, result: {} }, di: { inputs: {}, result: {} } },
+    project: { lga: {}, derivations: [], summary: {} },
+    ...overrides,
+  }
+}
+
+test('a downloaded project file restores its inputs and project data', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject()))
+
+  assert.equal(parsed.ok, true, 'a file written by the JSON export is accepted')
+  assert.deepEqual(parsed.project.inputs, exportedInputs)
+  assert.deepEqual(parsed.project.projectInfo, sampleProjectInfo)
+})
+
+test('only the persisted blocks are restored, never the derived ones', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({ extra: 'ignored' })))
+
+  assert.equal(parsed.ok, true, 'an unknown top-level key does not discard the project')
+  assert.deepEqual(
+    Object.keys(parsed.project).sort(),
+    ['inputs', 'projectInfo'],
+    'settings, calculations, lines and project stay out of the restored project',
+  )
+})
+
+test('a file that is not JSON is rejected with its own reason', () => {
+  const parsed = readProjectExport('{ esto no es json')
+
+  assert.equal(parsed.ok, false)
+  assert.match(parsed.error, /JSON/i)
+  assert.equal(parsed.project, undefined, 'a rejected file leaves nothing to apply')
+})
+
+test('an empty file is rejected instead of clearing the project', () => {
+  for (const text of ['', '   ']) {
+    const parsed = readProjectExport(text)
+
+    assert.equal(parsed.ok, false, `"${text}" carries no project`)
+    assert.match(parsed.error, /vac[ií]o/i)
+    assert.equal(parsed.project, undefined)
+  }
+})
+
+test('a raw storage snapshot is not accepted as a project file', () => {
+  const parsed = readProjectExport(JSON.stringify({ version: 2, ...sampleInputs }))
+
+  assert.equal(parsed.ok, false, 'the import reads the export, not the internal snapshot')
+  assert.match(parsed.error, /proyecto/i)
+  assert.equal(parsed.project, undefined)
+})
+
+test('one malformed row rejects the whole file and applies nothing', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    inputs: { ...exportedInputs, housing: [{ level: 'Media', power: 5750, homes: 1, area: 90 }] },
+  })))
+
+  assert.equal(parsed.ok, false)
+  assert.match(parsed.error, /proyecto/i)
+  assert.equal(parsed.project, undefined, 'the valid rows are not applied on their own')
+})
+
+test('project data from the file is sanitised field by field', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    projectInfo: { companyName: 42, phone: null, email: 'obra@example.com', intruso: 'x' },
+  })))
+
+  assert.equal(parsed.ok, true, 'a malformed field never discards the calculation data')
+  assert.deepEqual(parsed.project.projectInfo, {
+    companyName: '',
+    companyAddress: '',
+    workAddress: '',
+    phone: '',
+    email: 'obra@example.com',
+    logo: '',
+  })
+})
+
+test('a file without lines or derivations loads the load forecast only', () => {
+  const { lga, lgaPowerMode, di, derivations, ...forecastOnly } = exportedInputs
+  const parsed = readProjectExport(JSON.stringify(exportedProject({ inputs: forecastOnly })))
+
+  assert.equal(parsed.ok, true)
+  assert.deepEqual(parsed.project.inputs, forecastOnly)
+  assert.equal('lga' in parsed.project.inputs, false)
+  assert.equal('lgaPowerMode' in parsed.project.inputs, false, 'the power mode travels with the LGA')
+  assert.equal('di' in parsed.project.inputs, false)
+  assert.equal('derivations' in parsed.project.inputs, false)
+})
+
+test('unknown keys inside the file inputs never reach the calculator', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    inputs: { ...exportedInputs, version: 9, intruso: 'x' },
+  })))
+
+  assert.equal(parsed.ok, true)
+  assert.equal('version' in parsed.project.inputs, false)
+  assert.equal('intruso' in parsed.project.inputs, false)
 })
