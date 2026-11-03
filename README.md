@@ -190,6 +190,11 @@ La conductividad `γ` sale del anexo 2 de la Guía Técnica de Aplicación del R
 3. Si no se fija una protección, se propone la de la serie normalizada y se verifica `Ib ≤ In ≤ Iz_corregida`.
 4. Cuando ninguna sección cumple, el módulo lo dice y explica cuál de los dos criterios falla; no devuelve en silencio la mayor.
 5. El conductor de protección se deriva de la sección de fase con la tabla 2 de la ITC-BT-18 (S hasta 16 mm², 16 mm² hasta 35 mm² y S/2 por encima) y, cuando esa mitad no es una sección normalizada, se toma la superior más próxima: 95 → 50, 150 → 95. El neutro parte de la fase; ambos quedan editables en el formulario.
+6. La tarjeta, el PDF y el JSON declaran el **momento eléctrico** `M = P(kW) · L` y el **γ** con el que se calculó, para que la memoria pueda justificar la sección con las dos columnas que pide el ELEC-3.
+7. Cuando la protección se fija a mano en el formulario, la caída se comprueba también con `In` y ese es el criterio que elige la sección: es lo que la Guía-BT-25 escribe como `M = 230 · In · L` y lo que usan sus tablas de longitudes máximas. La tarjeta muestra la caída con `Ib` y con `In` y dice cuál gobernó. Con la protección en automático, la caída con `In` se informa pero no cambia el resultado, para no mover memorias ya emitidas.
+8. El tubo de la LGA tiene **mínimo de tabla** (tabla 1 de la ITC-BT-14: 10 mm² → 75 mm, 50 → 125, 70 → 140, 240 → 200) y por debajo se avisa. El de la derivación sigue siendo un campo libre: la tabla de diámetros de la Guía-BT-15 no está transcrita en el repositorio y la app no inventa el valor.
+9. La **designación del cable** sale de la línea y su instalación: `RZ1-K 0,6/1 kV` en la LGA (la ITC-BT-14 sólo admite RZ1-K o DZ1-K), `ES07Z1-K 450/750 V` en la DI al aire (tabla C de la guía) y `RZ1-K 0,6/1 kV` en la DI enterrada (tabla E, el multiconductor que pide la instrucción).
+10. Las derivaciones de vivienda llevan el **IGA de su escalón de potencia** y su potencia máxima admisible, `230 × IGA`; si la potencia prevista la supera, el aviso sale en la tarjeta. El IGA no es el ICP: fija un límite de diseño, no la potencia contratada.
 
 En la LGA la sección adoptada se puede fijar a mano desde la tarjeta de resultados: la lista ofrece las secciones mayores que la automática, y el motor recalcula `Iz`, la caída, el neutro y el PE sobre la sección elegida. Si la sección fijada deja de cumplir un criterio, el aviso se mantiene y la sección automática sigue visible como referencia; nunca se sustituye en silencio.
 
@@ -308,7 +313,8 @@ Reglas:
 | `simultaneity.mjs` | Tabla 1 de la ITC-BT-10 y coeficiente para `n > 21` |
 | `load-previews.mjs` | Potencia por fila de locales, garajes y alumbrado |
 | `service-loads.mjs` | P2: ascensores, motor mayor, otras cargas y alumbrado |
-| `line-sizing.mjs` | Dimensionado de LGA/DI: `Ib`, sección por caída, protección |
+| `line-sizing.mjs` | Dimensionado de LGA/DI: `Ib`, sección por caída, protección, momento y caída con `In` |
+| `housing-supply.mjs` | Escalones de potencia de vivienda: IGA y potencia máxima admisible |
 | `cable-tables.mjs` | Intensidades admisibles y factores de corrección |
 | `export-formats.mjs` | Informe en Markdown y texto simple |
 | `pdf-theme.mjs` | Paleta del PDF (equivalente a los tokens de color) |
