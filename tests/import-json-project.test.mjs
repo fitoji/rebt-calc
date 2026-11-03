@@ -83,6 +83,32 @@ const exportFile = overrides => ({
 
 const wrap = value => JSON.stringify(exportFile({ inputs: value }))
 
+test('S3: a malformed optional block rejects the file instead of dropping it', () => {
+  const cases = {
+    'one invalid derivation': { ...inputs, derivations: [{ id: 'd0' }] },
+    'an invalid housing IGA on a derivation': { ...inputs, derivations: [{ ...inputs.derivations[0], housingIgaA: 0 }] },
+    'a malformed LGA': { ...inputs, lga: { powerW: 'mucho' } },
+    'a malformed DI layout': { ...inputs, di: { ...inputs.di, layout: 'nope' } },
+    'a malformed lighting row': { ...inputs, lighting: [{ id: 'portal' }] },
+    'an unknown installation type': { ...inputs, installationType: 'otra' },
+    'an unknown power mode': { ...inputs, lgaPowerMode: 'manual?' },
+  }
+
+  for (const [name, variant] of Object.entries(cases)) {
+    const parsed = readProjectExport(wrap(variant))
+
+    assert.equal(parsed.ok, false, `${name} must reject the file`)
+    assert.equal(parsed.project, undefined, `${name}: no half project is handed to the caller`)
+  }
+})
+
+test('S3: an empty derivation list and absent optional blocks still load', () => {
+  assert.equal(readProjectExport(wrap({ ...inputs, derivations: [] })).ok, true, 'an empty schedule is a valid schedule')
+
+  const { lga, lgaPowerMode, di, derivations, lighting, installationType, ...forecastOnly } = inputs
+  assert.equal(readProjectExport(wrap(forecastOnly)).ok, true, 'a file without the optional blocks loads the rest')
+})
+
 test('S2/S4: the JSON export round-trips inputs and projectInfo', () => {
   const parsed = readProjectExport(wrap(inputs))
 
@@ -139,13 +165,12 @@ test('S3: empty, invalid JSON, no project data and invalid data have their own r
   assert.match(readProjectExport(wrap({ ...inputs, parking: -1 })).error, /no son válidos.*No se cargó nada/i)
 })
 
-test('S4: the file and localStorage accept and reject the same input shapes', () => {
+test('S4: the required core is read the same way by the file and by localStorage', () => {
   const variants = [
     inputs,
+    { ...inputs, lighting: [], installationType: 'single-user' },
     { ...inputs, housing: [{ level: 'Básica', power: 5750, homes: 1 }] },
     { ...inputs, garages: [{ name: 'G', ventilation: 'Natural', area: 30 }] },
-    { ...inputs, lighting: [], installationType: 'single-user' },
-    { ...inputs, installationType: 'otra' },
     { ...inputs, housing: [{ level: 'Media', power: 1, homes: 1, area: 1 }] },
     { ...inputs, locals: [{ name: 'L', type: 'Oficina', area: 1, real: 0 }] },
     { ...inputs, elevators: [{ name: 'A', ita: 'ITA-9', power: 1, unit: 'W' }] },
@@ -164,6 +189,27 @@ test('S4: the file and localStorage accept and reject the same input shapes', ()
     }))
 
     assert.equal(file.ok, snapshot !== null, `file and snapshot disagree on: ${JSON.stringify(variant).slice(0, 80)}`)
+  }
+})
+
+test('S4: an unreadable optional block is dropped by the snapshot and rejects the file', () => {
+  const variants = [
+    { ...inputs, installationType: 'otra' },
+    { ...inputs, lgaPowerMode: 'manual?' },
+    { ...inputs, lighting: [{ id: 'portal' }] },
+    { ...inputs, lga: { powerW: 'mucho' } },
+    { ...inputs, di: { ...inputs.di, layout: 'nope' } },
+    { ...inputs, derivations: [{ id: 'd0' }] },
+  ]
+
+  for (const variant of variants) {
+    const file = readProjectExport(wrap(variant))
+    const snapshot = loadCalculatorInputs(createMemoryStorage({
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 2 }),
+    }))
+
+    assert.equal(file.ok, false, `the import rejects the file: ${JSON.stringify(variant).slice(0, 80)}`)
+    assert.notEqual(snapshot, null, 'a saved project survives one unreadable block')
   }
 })
 

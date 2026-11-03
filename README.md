@@ -228,7 +228,7 @@ Markdown y texto se generan en `lib/export-formats.mjs` a partir de una estructu
 Debajo de **Limpiar**, el botón **Cargar proyecto** abre el selector de archivos y acepta el `.json` que escribió **Descargar datos**. Del archivo se restauran `projectInfo` y `inputs` (filas de previsión, supuesto de enlace, LGA, DI y derivaciones); `settings`, `calculations`, `lines` y `project` se ignoran a propósito: los primeros son parámetros normativos del usuario y el resto los recalcula el motor al cargar.
 
 - La validación es **todo o nada**: el proyecto solo se reemplaza si el archivo entero es válido. Si no lo es (JSON roto, archivo vacío, filas malformadas) no se toca nada y el motivo aparece bajo el botón.
-- El archivo pasa por los mismos validadores que el snapshot de `localStorage` (`readProjectExport` en `lib/calculator-storage.mjs`), así que ambos caminos no pueden aceptar formas distintas.
+- El archivo pasa por los mismos validadores que el snapshot de `localStorage` en el núcleo de la previsión, así que ambos caminos no pueden aceptar filas distintas. En los bloques opcionales la política difiere a propósito: un proyecto guardado sobrevive a un bloque ilegible (lo descarta), y un archivo importado no, porque su promesa es todo o nada.
 - Cargar un proyecto **reemplaza el proyecto actual** y no tiene deshacer: descargá el JSON del proyecto en curso antes si querés conservarlo.
 - La carga retira la marca de proyecto vaciado, así que recargar la página mantiene el proyecto importado en vez de reabrir el ejemplo.
 
