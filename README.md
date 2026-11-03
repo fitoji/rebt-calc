@@ -300,7 +300,7 @@ Reglas:
 │   └── ui/                   # Primitivas shadcn/ui (Base UI)
 ├── lib/                      # Fórmulas y tablas, sin React
 ├── tests/                    # Suite node:test
-├── data/                     # Hoja de cálculo original de referencia
+├── data/                     # Hoja original, guías del REBT y modelo ELEC-3
 ├── public/                   # Iconos e imágenes
 ├── odd/tasks/                # Notas de diseño y especificaciones de features
 └── mcp-excel-server/         # Utilidad aparte para leer la hoja original (opcional)
@@ -421,5 +421,6 @@ Código abierto bajo licencia **MIT**. Puedes usar, modificar y distribuir el pr
 
 - **Repositorio**: [github.com/fitoji/rebt-calc](https://github.com/fitoji/rebt-calc)
 - **Hoja de referencia**: [`data/Prevision_de_cargas_ITC-BT10-47d8bc.xlsx`](data/)
+- **Modelo oficial ELEC-3** (memòria tècnica, Gencat 2024): [`data/documentacion/elec3_model_memoria_tecnica_2024.doc`](data/documentacion/) · cobertura campo por campo en [`odd/tasks/elec3-cobertura.md`](odd/tasks/elec3-cobertura.md)
 - **REBT consolidado** (RD 842/2002): [BOE-A-2002-18099](https://www.boe.es/buscar/act.php?id=BOE-A-2002-18099)
 - **ITC-BT-52 / IRVE** (RD 1053/2014): [BOE-A-2014-13681](https://www.boe.es/buscar/doc.php?id=BOE-A-2014-13681)
