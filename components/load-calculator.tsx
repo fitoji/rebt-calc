@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
-import { Check, ChevronRight, Download, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
+import { Check, ChevronRight, Download, FolderOpen, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
-import { clearProjectData, loadCalculatorInputs, opensWithExample, saveCalculatorInputs, setClearedProjectMark } from '../lib/calculator-storage.mjs'
+import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectExport, saveCalculatorInputs, setClearedProjectMark } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
@@ -241,6 +241,8 @@ export function LoadCalculator() {
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   const [storageLoaded, setStorageLoaded] = useState(false)
+  const projectFileInput = useRef<HTMLInputElement>(null)
+  const [projectLoad, setProjectLoad] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null)
 
   // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
   // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
@@ -438,6 +440,50 @@ export function LoadCalculator() {
     setDerivations([])
     setLgaPowerMode('auto')
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
+  }
+
+  /**
+   * Replaces the whole project with the one the file describes. `readProjectExport`
+   * validated the file as a whole, so nothing here can be applied halfway.
+   */
+  const applyProject = (inputs: NonNullable<ReturnType<typeof loadCalculatorInputs>>, info: ProjectInfo) => {
+    // A loaded project is not an emptied one: the mark that keeps «Limpiar» across
+    // a reload has to retire, or a reload would reopen the example instead.
+    setClearedProjectMark(window.localStorage, false)
+    setHousing(inputs.housing)
+    setLocals(inputs.locals)
+    setGarages(inputs.garages)
+    setElevators(inputs.elevators)
+    setMotors(inputs.motors)
+    setOtherLoads(inputs.otherLoads)
+    setLighting(inputs.lighting ?? emptyLighting)
+    setInstallationType(inputs.installationType ?? 'centralized')
+    setParking(inputs.parking)
+    setIrveOption(inputs.irveOption)
+    if (inputs.lga) setLga(inputs.lga as LineState)
+    if (inputs.lgaPowerMode) setLgaPowerMode(inputs.lgaPowerMode)
+    if (inputs.di) setDi(inputs.di as LineState)
+    // The lines only reach the snapshot once they count as part of the project.
+    setLineTouched(inputs.lga != null || inputs.di != null)
+    setDerivations((inputs.derivations ?? []) as Derivation[])
+    setSelectedDerivationId(inputs.derivations?.[0]?.id ?? null)
+    setProjectInfo(info)
+  }
+
+  const loadProjectFile = (file: File | undefined) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.addEventListener('error', () => setProjectLoad({ kind: 'error', message: 'No se pudo leer el archivo.' }))
+    reader.addEventListener('load', () => {
+      const parsed = readProjectExport(String(reader.result ?? ''))
+      if (!parsed.ok) {
+        setProjectLoad({ kind: 'error', message: parsed.error })
+        return
+      }
+      applyProject(parsed.project.inputs, parsed.project.projectInfo)
+      setProjectLoad({ kind: 'ok', message: `Proyecto cargado desde ${file.name}. Se reemplazó el proyecto anterior.` })
+    })
+    reader.readAsText(file)
   }
 
   const lgaResult = useMemo(() => computeLine(lga, 'three-phase', 'lga'), [lga])
@@ -969,12 +1015,12 @@ export function LoadCalculator() {
                 <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
                 <div className="grid gap-2">
                   <DownloadOption label="PDF" hint="Memoria técnica paginada, lista para firmar" icon={FileText} onClick={downloadReport} />
-                  <DownloadOption label="JSON" hint="Datos crudos del proyecto y los cálculos, para retomarlos" icon={FileJson} onClick={downloadJson} />
+                  <DownloadOption label="JSON" hint="Datos crudos del proyecto y los cálculos, para volver a cargarlos con «Cargar proyecto»" icon={FileJson} onClick={downloadJson} />
                   <DownloadOption label="Markdown" hint="Texto estructurado con tablas, para pegar en un issue o un README" icon={FileCode2} onClick={downloadMarkdown} />
                   <DownloadOption label="Texto simple" hint="Notas de obra sin formato, se abre en cualquier editor" icon={FileType} onClick={downloadText} />
                 </div>
               </DialogContent>
-            </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button></div></aside>
+            </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button><Input ref={projectFileInput} type="file" accept="application/json,.json" className="hidden" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; loadProjectFile(file) }} />{projectLoad && <p role={projectLoad.kind === 'error' ? 'alert' : 'status'} className={`text-xs leading-5 ${projectLoad.kind === 'error' ? 'text-danger' : 'text-ink-faint'}`}>{projectLoad.message}</p>}</div></aside>
         </div>
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>

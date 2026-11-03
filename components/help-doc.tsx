@@ -491,17 +491,20 @@ export function HelpDoc() {
 
               <Section id="exportar" title="Exportar la memoria">
                 <p>
-                  <code>Descargar memoria</code> abre las cuatro salidas. Todas llevan los mismos números que ves en pantalla; cambia el formato, no el contenido.
+                  <code>Descargar datos</code> abre las cuatro salidas. Todas llevan los mismos números que ves en pantalla; cambia el formato, no el contenido.
                 </p>
                 <DataTable
                   head={['Formato', 'Para qué sirve']}
                   rows={[
                     ['PDF', 'Memoria técnica paginada: previsión P1 a P5, parámetros y desarrollo de las líneas. Incluye el membrete si rellenaste los datos del proyecto.'],
-                    ['JSON', 'Datos crudos del proyecto y de los cálculos, para retomarlos o procesarlos por tu cuenta.'],
+                    ['JSON', 'Datos crudos del proyecto y de los cálculos. Es el único formato que se puede volver a cargar en la app.'],
                     ['Markdown', 'Texto estructurado con tablas, para pegar en un issue, un README o el repositorio del proyecto.'],
                     ['Texto simple', 'Notas de obra sin formato, para abrir en cualquier editor.'],
                   ]}
                 />
+                <p>
+                  <code>Cargar proyecto</code>, debajo de <code>Limpiar</code>, abre el selector de archivos y acepta ese JSON: restaura los datos del proyecto, la previsión, la LGA, la DI y las derivaciones. Reemplaza el proyecto en curso y no tiene deshacer, así que descarga antes el JSON del que tengas abierto. Si el archivo no es válido no se carga nada y el motivo aparece bajo el botón. Los parámetros de cálculo no se tocan: son tuyos, no del archivo.
+                </p>
                 <p>
                   El membrete del PDF se configura en <code>Datos de la memoria técnica → Editar datos del proyecto</code>: nombre de la empresa, logo y datos del proyecto. Ese botón también contiene la opción de limpiar los datos del proyecto.
                 </p>

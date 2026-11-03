@@ -54,7 +54,8 @@ on-screen row, the subtotal and the PDF, so display, totals and export cannot di
   loaded so the app is never empty on first open.
 - Work happens on desktop, in an office, typically with the BOE text open in another tab.
 - Deliverables leave as PDF (A4 technical report with company letterhead and logo),
-  JSON (raw data), Markdown and plain text (report for issues, notes, or re-pasting).
+  JSON (raw data, and the only format the app can load back), Markdown and plain text
+  (report for issues, notes, or re-pasting).
 
 ## Capabilities and Constraints
 

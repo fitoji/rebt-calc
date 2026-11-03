@@ -218,6 +218,15 @@ Un solo botón, **Descargar datos**, abre un diálogo con cuatro salidas. Las cu
 
 Markdown y texto se generan en `lib/export-formats.mjs` a partir de una estructura normalizada (proyecto, totales, secciones y líneas), no desde el JSX.
 
+### Cargar un proyecto desde el JSON
+
+Debajo de **Limpiar**, el botón **Cargar proyecto** abre el selector de archivos y acepta el `.json` que escribió **Descargar datos**. Del archivo se restauran `projectInfo` y `inputs` (filas de previsión, supuesto de enlace, LGA, DI y derivaciones); `settings`, `calculations`, `lines` y `project` se ignoran a propósito: los primeros son parámetros normativos del usuario y el resto los recalcula el motor al cargar.
+
+- La validación es **todo o nada**: el proyecto solo se reemplaza si el archivo entero es válido. Si no lo es (JSON roto, archivo vacío, filas malformadas) no se toca nada y el motivo aparece bajo el botón.
+- El archivo pasa por los mismos validadores que el snapshot de `localStorage` (`readProjectExport` en `lib/calculator-storage.mjs`), así que ambos caminos no pueden aceptar formas distintas.
+- Cargar un proyecto **reemplaza el proyecto actual** y no tiene deshacer: descargá el JSON del proyecto en curso antes si querés conservarlo.
+- La carga retira la marca de proyecto vaciado, así que recargar la página mantiene el proyecto importado en vez de reabrir el ejemplo.
+
 ---
 
 ## Persistencia
@@ -235,6 +244,7 @@ Todo vive en `localStorage`, con claves propias y validación al leer:
 - El snapshot de entradas se valida fila por fila; un snapshot antiguo sin filas de alumbrado carga con los valores por defecto en vez de descartarse.
 - **La primera visita abre con el edificio de ejemplo.** Sin entradas guardadas y sin la marca de proyecto vaciado, la app carga el ejemplo en vez de una tabla de ceros.
 - **Limpiar** borra las entradas y los datos del proyecto, pero **conserva** los parámetros de cálculo. Deja además la marca `electrocalc-new-project`, así que una recarga mantiene el proyecto vacío; **Cargar ejemplo** retira esa marca.
+- **Cargar proyecto** reemplaza el proyecto en curso por el de un JSON exportado y también retira la marca `electrocalc-new-project`.
 - Nada se envía a un servidor: no hay backend ni base de datos.
 
 ---
