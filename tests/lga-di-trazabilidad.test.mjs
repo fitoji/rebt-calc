@@ -96,6 +96,37 @@ test('S1: the result states the neutral and protective conductors of the adopted
   assert.equal(di.protectiveSection, 10)
 })
 
+test('S1: every exported line satisfies M = P(kW) · L', () => {
+  const defaults = {
+    cosPhi: 0.95, lengthM: 22, maxDropPercent: 1, method: 'B1', insulation: 'PVC',
+    neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 32, installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+  }
+  const load = {
+    housing: [{ level: 'Básica', power: 5750, homes: 4, area: 90 }, { level: 'Elevada', power: 11500, homes: 2, area: 130 }],
+    locals: [{ name: 'Local', type: 'Comercial/oficina', area: 60, real: 0 }],
+    garages: [{ name: 'Garaje', ventilation: 'Forzada', area: 240, plazas: 12 }],
+  }
+  const derivations = buildDerivations(load, { p2: 8600, p5: 7360, localPowers: [6000], garagePowers: [4800] }, defaults)
+  const project = calculateProject({
+    loadTotal: 75000,
+    lgaPowerMode: 'auto',
+    lga: {
+      powerW: 75000, voltageV: 400, cosPhi: 0.95, lengthM: 25, maxDropPercent: 0.5, method: 'B1', insulation: 'XLPE',
+      circuits: 1, protectionA: 0, neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
+      installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+    },
+    derivations,
+  })
+
+  for (const line of [project.lga, ...project.derivations]) {
+    const expected = (line.powerW / 1000) * line.lengthM
+    assert.ok(
+      Math.abs(line.result.momentKwM - expected) < 1e-9,
+      `${line.label ?? 'LGA'}: ${line.result.momentKwM} kW·m does not match ${expected} kW·m`,
+    )
+  }
+})
+
 test('S1: the result states the electrical moment and the conductivity it used', () => {
   const di = sizeLine(input())
 
