@@ -93,7 +93,7 @@ test('the explanation lists every step and keeps the engine result', () => {
   const explanation = explainLineCalculation(lgaState(), result, { system: 'three-phase', line: 'lga' })
 
   assert.deepEqual(explanation.steps.map(step => step.id), [
-    'inputs', 'current', 'drop', 'thermal', 'minimum', 'selection', 'conductors', 'protection', 'reference',
+    'inputs', 'current', 'moment', 'drop', 'thermal', 'minimum', 'selection', 'conductors', 'protection', 'protection-drop', 'reference',
   ])
 
   const current = explanation.steps.find(step => step.id === 'current')
@@ -105,6 +105,113 @@ test('the explanation lists every step and keeps the engine result', () => {
 
   const selection = explanation.steps.find(step => step.id === 'selection')
   assert.equal(selection.result, '70 mm²', 'the explanation repeats the chosen section')
+})
+
+const esNumber = (value, digits = 2) =>
+  new Intl.NumberFormat('es-ES', { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(value)
+
+test('S1: the moment step repeats the engine value and names the ELEC-3 column', () => {
+  const result = sizeLine(lgaInput())
+  const moment = explainLineCalculation(lgaState(), result, { system: 'three-phase', line: 'lga' })
+    .steps.find(step => step.id === 'moment')
+
+  assert.equal(moment.kind, 'formula')
+  assert.equal(moment.formula, 'M = P(kW) · L')
+  assert.equal(moment.substitution, 'M = 75,00 kW · 25,00 m')
+  assert.equal(moment.result, '1875,00 kW·m', '75 kW over 25 m; es-ES no agrupa los cuatro dígitos')
+  assert.match(moment.note, /ELEC-3/, 'the model that asks for the column is named')
+  assert.match(moment.note, /0,0788/, 'the 230 V shortcut of the guide is offered')
+})
+
+test('S2: the drop step separates the partial drop from the total one', () => {
+  const drop = explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
+    .steps.find(step => step.id === 'drop')
+
+  assert.match(drop.note, /parcial/i, 'the step says which drop it computes')
+  assert.match(drop.note, /total/i, 'and that the memoria also asks for the total')
+  assert.match(drop.note, /compensa/i, 'the guide compensation of partial limits is explained')
+})
+
+test('S2: the In drop step repeats the engine value and says whether it governs', () => {
+  const autoResult = sizeLine(lgaInput())
+  const auto = explainLineCalculation(lgaState(), autoResult, { system: 'three-phase', line: 'lga' })
+    .steps.find(step => step.id === 'protection-drop')
+
+  assert.equal(auto.kind, 'formula')
+  assert.match(auto.formula, /I_n/, 'the formula uses the device current')
+  assert.equal(auto.result, `${esNumber(autoResult.dropPercentIn)} %`, 'the value is the engine one')
+  assert.match(auto.criterion, /no cambia la sección/, 'an automatic device does not decide')
+
+  const fixedInput = lgaInput({ powerW: 30000, lengthM: 30, maxDropPercent: 0.4, protectionA: 50 })
+  const fixedResult = sizeLine(fixedInput)
+  const fixed = explainLineCalculation(
+    lgaState({ powerW: 30000, lengthM: 30, maxDropPercent: 0.4, protectionA: 50 }),
+    fixedResult,
+    { system: 'three-phase', line: 'lga' },
+  ).steps.find(step => step.id === 'protection-drop')
+
+  assert.equal(fixed.result, `${esNumber(fixedResult.dropPercentIn)} %`)
+  assert.match(fixed.criterion, /decide la sección/, 'a fixed device is the criterion')
+})
+
+test('S2: a section discarded by the In drop says so', () => {
+  const input = lgaInput({ powerW: 30000, lengthM: 30, maxDropPercent: 0.4, protectionA: 50 })
+  const selection = explainLineCalculation(
+    lgaState({ powerW: 30000, lengthM: 30, maxDropPercent: 0.4, protectionA: 50 }),
+    sizeLine(input),
+    { system: 'three-phase', line: 'lga' },
+  ).steps.find(step => step.id === 'selection')
+
+  const thirtyFive = selection.rows.find(row => row.section === 35)
+  assert.equal(thirtyFive.status, 'discarded')
+  assert.match(thirtyFive.reason, /con In/, 'the reason names the device drop, not the load one')
+  assert.equal(thirtyFive.dropPercentIn > thirtyFive.dropPercent, true, 'the row carries both drops')
+})
+
+test('S4: the conductors step reads the neutral and the PE from the result', () => {
+  const result = { ...sizeLine(lgaInput()), neutralSection: 99, protectiveSection: 77 }
+  const rows = Object.fromEntries(
+    explainLineCalculation(lgaState(), result, { system: 'three-phase', line: 'lga' })
+      .steps.find(step => step.id === 'conductors').rows.map(row => [row.label, row.value]),
+  )
+
+  assert.equal(rows.Neutro, '99 mm² Cu', 'the step does not recompute the neutral')
+  assert.equal(rows['Protección (PE)'], '77 mm² Cu', 'nor the PE')
+})
+
+test('S4: the conductors step states the designation and the tube of the line', () => {
+  const lgaRows = Object.fromEntries(
+    explainLineCalculation(lgaState(), sizeLine(lgaInput()), { system: 'three-phase', line: 'lga' })
+      .steps.find(step => step.id === 'conductors').rows.map(row => [row.label, row.value]),
+  )
+  assert.equal(lgaRows.Designación, 'RZ1-K 0,6/1 kV', 'the LGA designation comes from the engine')
+
+  const buried = sizeLine(diInput({ installation: 'buried', grouping: { kind: 'buried-cables', cables: 2, spacing: 0 } }))
+  const diRows = Object.fromEntries(
+    explainLineCalculation(diState({ installation: 'buried' }), buried, { system: 'single-phase', line: 'di' })
+      .steps.find(step => step.id === 'conductors').rows.map(row => [row.label, row.value]),
+  )
+  assert.equal(diRows.Designación, 'RZ1-K 0,6/1 kV', 'an underground DI is the multiconductor of table E')
+
+  const fake = { ...sizeLine(lgaInput()), minimumTube: 75 }
+  const tube = Object.fromEntries(
+    explainLineCalculation(lgaState({ tubeDiameter: 40 }), fake, { system: 'three-phase', line: 'lga' })
+      .steps.find(step => step.id === 'conductors').rows.map(row => [row.label, row.value]),
+  )['Tubo protector']
+  assert.equal(tube, '40 mm · mínimo de tabla 75 mm', 'the adopted tube is shown next to the table minimum')
+})
+
+test('S5: the housing step appears only when the line carries an IGA', () => {
+  const withIga = explainLineCalculation(diState({ housingIgaA: 25 }), sizeLine(diInput({ housingIgaA: 25 })), { system: 'single-phase', line: 'di' })
+  const step = withIga.steps.find(candidate => candidate.id === 'housing-iga')
+
+  assert.ok(step, 'the step exists for a dwelling')
+  assert.equal(step.formula, 'P_máx = U · I_GA')
+  assert.equal(step.result, '5750 W', '230 V × 25 A; es-ES no agrupa los cuatro dígitos')
+  assert.match(step.note, /ICP/, 'the step says what the IGA is not')
+
+  const without = explainLineCalculation(diState(), sizeLine(diInput()), { system: 'single-phase', line: 'di' })
+  assert.equal(without.steps.some(candidate => candidate.id === 'housing-iga'), false, 'a generic line has no housing step')
 })
 
 test('the selection step explains why lower sections are discarded', () => {

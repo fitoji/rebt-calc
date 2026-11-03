@@ -474,6 +474,9 @@ export function HelpDoc() {
                 <p>
                   Ese desarrollo tiene tres partes: la fórmula que se aplica, los valores sustituidos y el criterio que ha decidido el resultado. Sirve para justificar un número en la memoria, para revisar un cálculo ajeno o para estudiar cómo se llega a la sección que propone la app.
                 </p>
+                <p>
+                  En las líneas recorre los mismos pasos que pide el ELEC-3: el momento eléctrico, la sección por caída con su parcial y su total, la tabla de candidatas con la razón por la que cada una se descarta, los conductores con su designación y el diámetro del tubo, la protección y la caída con <code>In</code> —que es la que decide la sección cuando la protección está fijada—. En las derivaciones de vivienda añade el IGA del escalón de potencia y la potencia máxima admisible.
+                </p>
                 <Shot
                   id="didactico"
                   alt="Desarrollo del cálculo en modo didáctico, con la fórmula aplicada, los valores sustituidos y el criterio que decide el resultado"
