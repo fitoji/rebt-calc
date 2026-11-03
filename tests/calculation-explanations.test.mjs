@@ -145,6 +145,18 @@ test('the explanation formats values from the result instead of recalculating th
   assert.equal(selection.result, '95 mm²')
 })
 
+test('a fixed section explains itself against the automatic one', () => {
+  const result = sizeLine(lgaInput({ sectionOverride: 95 }))
+  const explanation = explainLineCalculation(lgaState({ sectionOverride: 95 }), result, { system: 'three-phase', line: 'lga' })
+  const selection = explanation.steps.find(step => step.id === 'selection')
+
+  assert.match(selection.criterion, /sección fijada \(95 mm²\)/, 'the fixed section is named as the adopted one')
+  assert.match(selection.criterion, /70 mm²/, 'the automatic section stays visible as the reference')
+  const seventy = selection.rows.find(row => row.section === 70)
+  assert.equal(seventy.status, 'discarded')
+  assert.match(seventy.reason, /se adoptó la sección fijada/, 'a compliant section below the fixed one explains why it was not adopted')
+})
+
 test('warnings from the engine become their own step', () => {
   const result = sizeLine(lgaInput({ powerW: 5_000_000, maxDropPercent: 0.1 }))
   const explanation = explainLineCalculation(lgaState({ powerW: 5_000_000, maxDropPercent: 0.1 }), result, { system: 'three-phase', line: 'lga' })

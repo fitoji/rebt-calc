@@ -87,7 +87,7 @@ Y para las líneas, cada módulo devuelve:
 |--------|-----------------|----------------|
 | Intensidad de cálculo `Ib` | trifásica | monofásica |
 | Sección por caída de tensión | % máximo configurable | % máximo configurable |
-| Sección normalizada adoptada | primera que cumple caída + `Iz` | ídem |
+| Sección normalizada adoptada | primera que cumple caída + `Iz`, fijable a mano | primera que cumple caída + `Iz` |
 | Intensidad admisible `Iz` | de tabla y corregida por agrupamiento | ídem |
 | Protección `In` | serie normalizada, con verificación `Ib ≤ In ≤ Iz` | ídem |
 | Neutro y PE | — | prefijados desde la sección de fase y editables |
@@ -189,7 +189,9 @@ La conductividad `γ` sale del anexo 2 de la Guía Técnica de Aplicación del R
 2. `Iz_corregida = Iz_tabla × factor de reducción`, con el factor de agrupamiento, capas, tubos o resistividad del terreno según el caso (`lib/cable-tables.mjs`).
 3. Si no se fija una protección, se propone la de la serie normalizada y se verifica `Ib ≤ In ≤ Iz_corregida`.
 4. Cuando ninguna sección cumple, el módulo lo dice y explica cuál de los dos criterios falla; no devuelve en silencio la mayor.
-5. El conductor de protección se deriva de la sección de fase y el neutro parte de ella; ambos quedan editables en el formulario.
+5. El conductor de protección se deriva de la sección de fase con la tabla 2 de la ITC-BT-18 (S hasta 16 mm², 16 mm² hasta 35 mm² y S/2 por encima) y, cuando esa mitad no es una sección normalizada, se toma la superior más próxima: 95 → 50, 150 → 95. El neutro parte de la fase; ambos quedan editables en el formulario.
+
+En la LGA la sección adoptada se puede fijar a mano desde la tarjeta de resultados: la lista ofrece las secciones mayores que la automática, y el motor recalcula `Iz`, la caída, el neutro y el PE sobre la sección elegida. Si la sección fijada deja de cumplir un criterio, el aviso se mantiene y la sección automática sigue visible como referencia; nunca se sustituye en silencio.
 
 Caída de tensión máxima admisible, según el supuesto de enlace:
 
