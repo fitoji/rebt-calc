@@ -20,7 +20,8 @@ Branch: `feat/lga-di-trazabilidad`. Delivery: work-unit commits. Test runner: `n
 - T3 (S5) `lib/housing-supply.mjs` + derivation IGA plumbing. Route: inline. Done (1c75250).
 - T4 (S1, S3, S4, S5) Cards, PDF and JSON wiring. Route: inline. Done (941a10a).
 - T5 (S6) Docs. Route: inline. Done.
-- T6 (S1..S7) Verification: suite 255/255, `tsc --noEmit` clean, `next build` clean, 3 780 automatic combinations compared against the base commit with no behavioural difference.
+- T6 (S1..S7) Verification: suite 259/259, `tsc --noEmit` clean, `next build` clean, 3 780 automatic combinations compared against the base commit with no behavioural difference.
+- Independent verifier: 0 blockers, `S1`–`S7` pass; its own differential over 5 040 automatic combinations reported zero diffs. Advisories: the import path still drops a whole derivation list when one entry is invalid (pre-existing mechanism, new trigger through `housingIgaA`), the tube column is duplicated as a lookup, and the DI PE/control rows keep their own `ES07Z1-K` designation (correct: they are different conductors).
 
 ## Log
 
@@ -34,3 +35,5 @@ Branch: `feat/lga-di-trazabilidad`. Delivery: work-unit commits. Test runner: `n
 - L2. Differential check: the base `lib/line-sizing.mjs` was rebuilt from `9802938` in a `mktemp -d` scratch copy and compared with the new one over 3 780 automatic combinations (both roles, both systems, seven powers, three lengths, five methods, both insulations, air and buried, three override values). `finalSection`, drops, protection, currents, automatic section and `problems` are identical in every case, so no emitted memoria moves.
 - L3. `data/memoria_tecnica` (a separate Vite project dropped into `data/`) broke `pnpm typecheck` and `next build` for the whole app. Excluded in the root tsconfig like the other separate packages (d7d0b45), and pinned in `tests/ci-config.test.mjs`.
 - L4. The DI tube minimum is deliberately missing: Guía-BT-15 table F is not transcribed here and the PDFs in `data/documentacion` are RC4-encrypted, so the values could not be read without a tool the repo does not have. Transcribe the table first, then extend `minimumTubeFor`.
+- L5. Native assessment of the whole open slice (`--base-ref 9802938 --committed-only`, untracked scope excluded to keep the user's two `data/*.pptx` and `data/memoria_tecnica` out of the candidate): risk `medium` (`executable_change`), `review_due: false`, reason `under_budget`. No review opened.
+- L6. The verifier's advisory about the import deserves its own task: `readInputs` returns `ok: true` without the derivation list when one derivation fails validation, which contradicts the all-or-nothing promise the import makes. Not fixed here because it is a different feature; the snapshot path deliberately tolerates the same case (its own test says so).
