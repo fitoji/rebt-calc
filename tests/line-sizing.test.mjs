@@ -120,6 +120,33 @@ test('LGA sizing returns the smallest section that meets drop and current', () =
   assert.equal(result.protection, 125, 'smallest breaker above 108.25 A that stays below 202 A')
 })
 
+test('a larger section fixed by the user keeps the automatic one as reference', () => {
+  const automatic = sizeLine(lgaInput())
+  const fixed = sizeLine(lgaInput({ sectionOverride: 95 }))
+  assert.equal(fixed.autoSection, automatic.finalSection)
+  assert.equal(fixed.sectionOverride, 95)
+  assert.equal(fixed.finalSection, 95, 'the fixed section is adopted, not replaced by the automatic one')
+  assert.ok(fixed.ok, `no problems expected: ${fixed.problems.join(' ')}`)
+  assert.ok(fixed.tableCurrent > automatic.tableCurrent, 'the table current grows with the section')
+  assert.ok(fixed.dropPercent < automatic.dropPercent, 'the drop falls with the section')
+})
+
+test('a fixed section that fails a criterion is reported instead of swapped', () => {
+  const fixed = sizeLine(lgaInput({ sectionOverride: 50 }))
+  assert.equal(fixed.finalSection, 50, 'the card must keep showing what the user fixed')
+  assert.equal(fixed.ok, false)
+  assert.ok(fixed.problems.some(problem => problem.includes('caída de tensión')), 'the unmet drop is named')
+})
+
+test('a fixed section that is not nominal is ignored and reported', () => {
+  const automatic = sizeLine(lgaInput())
+  const fixed = sizeLine(lgaInput({ sectionOverride: 123 }))
+  assert.equal(fixed.sectionOverride, null, 'an untabulated section is not adopted')
+  assert.equal(fixed.finalSection, automatic.finalSection, 'the automatic section is still offered')
+  assert.ok(fixed.problems.some(problem => problem.includes('intensidad admisible publicada')))
+  assert.equal(fixed.ok, false)
+})
+
 test('DI sizing is single-phase and respects the 3 % drop', () => {
   const result = sizeLine(diInput())
   near(result.sectionByDrop, 4.78, 0.05, 'single-phase section by drop')
@@ -141,7 +168,7 @@ test('a breaker above the corrected current is reported, not hidden', () => {
   const result = sizeLine(diInput({ protectionA: 63 }))
   assert.equal(result.finalSection, 10)
   assert.equal(result.ok, false)
-  assert.ok(result.problems.some(problem => problem.includes('exceeds the corrected admissible current')))
+  assert.ok(result.problems.some(problem => problem.includes('supera la intensidad admisible corregida')))
 })
 
 test('an impossible line says so instead of returning the largest section', () => {

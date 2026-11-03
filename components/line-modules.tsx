@@ -92,6 +92,8 @@ export type LineState = {
   layout: GroupingLayout
   layers: number
   tubes: number
+  /** Sección de fase fijada a mano (0 = la que propone el cálculo). */
+  sectionOverride?: number
 }
 
 export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
@@ -103,6 +105,15 @@ export type TableKey =
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
+
+/**
+ * Same format, without the padding: a current of 202 A is not "202,0 A". The
+ * trailing zero claims a precision the number does not have and clashes with
+ * Ib, which is genuinely fractional. Documents keep the fixed decimals because
+ * they align in columns; what a person reads on the card does not.
+ */
+const fmtTrim = (value: number, digits = 0) =>
+  new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits }).format(value)
 
 const METHOD_LABEL: Record<InstallationMethod, string> = {
   A1: 'A1 · tubo empotrado en pared aislante (conductores sueltos)',
@@ -220,6 +231,54 @@ function ResultRow({ label, value, strong = false }: { label: string; value: str
   )
 }
 
+function ResultCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <aside className="min-w-0 rounded-panel bg-panel p-6 text-panel-foreground shadow-panel">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
+      {children}
+    </aside>
+  )
+}
+
+function ConductorList({ elements }: { elements: ResultElement[] }) {
+  return (
+    <>
+      <ul className="divide-y divide-panel-line">
+        {elements.map(item => (
+          <li key={item.element} className="py-3 first:pt-0 last:pb-0">
+            <span className="inline-block max-w-full align-top">
+              <span className="block text-xs font-medium text-panel-foreground">{item.element}</span>
+              {item.colors && item.colors.length > 0 && (
+                <span aria-hidden="true" className="mt-1.5 block h-[3px] w-full rounded-full" style={colorRule(item.colors)} />
+              )}
+            </span>
+            {item.colors && item.colors.length > 0 && (
+              <p className="mt-1 text-[11px] leading-4 text-panel-muted">{item.colors.map(color => color.name).join(' · ')}</p>
+            )}
+            <p className="mt-1.5 text-xs leading-5 tabular-nums text-panel-foreground">{item.detail}</p>
+          </li>
+        ))}
+      </ul>
+      {elements.some(item => item.colors) && (
+        <p className="mt-3 text-[11px] leading-4 text-panel-muted">Colores de identificación según la ITC-BT-19 §2.2. El RZ1-K unipolar de 0,6/1 kV se fabrica sin coloración: los colores se identifican en los extremos.</p>
+      )}
+    </>
+  )
+}
+
+function ResultProblems({ problems }: { problems: string[] }) {
+  if (problems.length === 0) return null
+
+  return (
+    <div role="status" aria-live="polite" className="mt-5 rounded-control bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
+      <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-4" aria-hidden="true" /> Revisá estos puntos</p>
+      <ul className="list-disc space-y-1 pl-4">
+        {problems.map(problem => <li key={problem}>{problem}</li>)}
+      </ul>
+    </div>
+  )
+}
+
 function LineResult({ title, result, phaseLabel, elements }: {
   title: string
   result: ReturnType<typeof sizeLine>
@@ -227,8 +286,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
   elements?: ResultElement[]
 }) {
   return (
-    <aside className="min-w-0 rounded-panel bg-panel p-6 text-panel-foreground shadow-panel">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
+    <ResultCard title={title}>
       <p className="mt-5 text-4xl font-bold tabular-nums">
         {result.finalSection == null ? '—' : fmt(result.finalSection)}
         <span className="ml-1 text-lg font-medium text-panel-muted">mm²</span>
@@ -236,47 +294,140 @@ function LineResult({ title, result, phaseLabel, elements }: {
       <p className="mt-1 text-sm text-panel-muted">{phaseLabel}</p>
       <div className="my-5 h-px bg-panel-line" />
       <div className="flex flex-col gap-3 text-sm">
-        <ResultRow label="Intensidad de línea (Ib)" value={`${fmt(result.ratedCurrent, 2)} A`} />
+        <ResultRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(result.ratedCurrent, 2)} A`} />
         <ResultRow label="Sección por caída" value={`${fmt(result.sectionByDrop, 2)} mm²`} />
         <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
         <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
-        <ResultRow label="Iz corregida" value={result.correctedCurrent == null ? '—' : `${fmt(result.correctedCurrent, 1)} A`} />
+        <ResultRow label="Iz corregida" value={result.correctedCurrent == null ? '—' : `${fmtTrim(result.correctedCurrent, 1)} A`} />
         <ResultRow label="Caída resultante" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
       </div>
       {elements && elements.length > 0 && (
         <div className="mt-5 border-t border-panel-line pt-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
-          <ul className="divide-y divide-panel-line">
-            {elements.map(item => (
-              <li key={item.element} className="py-3 first:pt-0 last:pb-0">
-                <span className="inline-block max-w-full align-top">
-                  <span className="block text-xs font-medium text-panel-foreground">{item.element}</span>
-                  {item.colors && item.colors.length > 0 && (
-                    <span aria-hidden="true" className="mt-1.5 block h-[3px] w-full rounded-full" style={colorRule(item.colors)} />
-                  )}
-                </span>
-                {item.colors && item.colors.length > 0 && (
-                  <p className="mt-1 text-[11px] leading-4 text-panel-muted">{item.colors.map(color => color.name).join(' · ')}</p>
-                )}
-                <p className="mt-1.5 text-xs leading-5 tabular-nums text-panel-foreground">{item.detail}</p>
-              </li>
-            ))}
-          </ul>
-          {elements.some(item => item.colors) && (
-            <p className="mt-3 text-[11px] leading-4 text-panel-muted">Colores de identificación según la ITC-BT-19 §2.2. El RZ1-K unipolar de 0,6/1 kV se fabrica sin coloración: los colores se identifican en los extremos.</p>
-          )}
+          <ConductorList elements={elements} />
         </div>
       )}
-      {result.problems.length > 0 && (
-        <div role="status" aria-live="polite" className="mt-5 rounded-control bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
-          <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-4" aria-hidden="true" /> Revisá estos puntos</p>
-          <ul className="list-disc space-y-1 pl-4">
-            {result.problems.map(problem => <li key={problem}>{problem}</li>)}
-          </ul>
+      <ResultProblems problems={result.problems} />
+    </ResultCard>
+  )
+}
+
+/**
+ * LGA result card.
+ *
+ * The line current leads because it is the question the section answers: Ib and the
+ * corrected Iz sit together, and the section itself is a control, so a larger cable
+ * can be adopted without leaving the card. The drop criterion moves next to the
+ * conductors it sizes, instead of sharing the generic row list with the current one.
+ */
+function LgaResult({ state, result, elements, onChange }: {
+  state: LineState
+  result: ReturnType<typeof sizeLine>
+  elements: ResultElement[]
+  onChange: (section: number) => void
+}) {
+  const selectable = result.candidates
+    .filter(candidate => result.autoSection == null
+      ? candidate.section >= result.minimumSection
+      : candidate.section > result.autoSection)
+    .map(candidate => candidate.section)
+  const selected = result.sectionOverride
+  // A section fixed before the load changed can sit below the new automatic one.
+  // Keep it in the list so the control never hides the value it is showing.
+  const options = selected != null && !selectable.includes(selected)
+    ? [selected, ...selectable].sort((a, b) => a - b)
+    : selectable
+  const automaticLabel = result.autoSection == null
+    ? 'Automática · sin sección'
+    : `Automática · ${fmt(result.autoSection)} mm²`
+  const izBelow = result.correctedCurrent != null && result.correctedCurrent < result.ratedCurrent
+  const dropOver = result.dropPercent != null && result.dropPercent > state.maxDropPercent
+
+  return (
+    <ResultCard title="Resultado LGA">
+      <dl className="mt-5 divide-y divide-panel-line">
+        <div className="flex items-center justify-between gap-4 pb-2.5">
+          <dt className="text-xs leading-tight text-panel-muted">Intensidad de cálculo <span className="whitespace-nowrap">(Ib)</span></dt>
+          <dd className="text-3xl font-bold tabular-nums">
+            {fmtTrim(result.ratedCurrent, 2)}
+            <span className="ml-1 text-base font-medium text-panel-muted">A</span>
+          </dd>
         </div>
-      )}
-    </aside>
+        <div className="flex items-center justify-between gap-4 pt-2.5">
+          <dt className="text-xs leading-tight text-panel-muted">Intensidad admisible corregida <span className="whitespace-nowrap">(Iz)</span></dt>
+          <dd className={izBelow ? 'text-3xl font-bold tabular-nums text-warning-on-panel' : 'text-3xl font-bold tabular-nums'}>
+            {result.correctedCurrent == null
+              ? '—'
+              : <>{fmtTrim(result.correctedCurrent, 1)}<span className="ml-1 text-base font-medium text-panel-muted">A</span></>}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mt-5">
+        <label htmlFor="lga-section" className="text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Sección de fase</label>
+        <div className="mt-2 [&_button:hover]:bg-panel-edge/70! [&_button]:bg-panel-edge/50! [&_button]:shadow-none [&_button_svg]:text-panel-muted!">
+          <Select
+            value={selected == null ? 'auto' : String(selected)}
+            onValueChange={next => { if (next != null) onChange(next === 'auto' ? 0 : Number(next)) }}
+          >
+            <SelectTrigger
+              id="lga-section"
+              aria-describedby="lga-section-hint"
+              disabled={options.length === 0}
+              className="h-9 w-full px-3 text-sm font-semibold text-panel-foreground"
+            >
+              <SelectValue>
+                {(value: string | null) => value == null || value === 'auto' ? automaticLabel : `${fmt(Number(value))} mm²`}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false} className="max-h-64">
+              <SelectGroup>
+                <SelectItem value="auto">{automaticLabel}</SelectItem>
+                {options.map(section => <SelectItem key={section} value={String(section)}>{fmt(section)} mm²</SelectItem>)}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+        <p id="lga-section-hint" className="mt-1.5 text-[11px] leading-4 text-panel-muted">
+          {selected == null
+            ? `Mínimo ${fmt(result.minimumSection)} mm² · ITC-BT-14 §3`
+            : `Automática: ${result.autoSection == null ? 'sin sección' : `${fmt(result.autoSection)} mm²`} · mínimo ${fmt(result.minimumSection)} mm²`}
+        </p>
+      </div>
+
+      <div className="mt-5 border-t border-panel-line pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Conductores y caída de tensión</p>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 rounded-control border border-panel-line px-3 py-2.5">
+          <div>
+            <dt className="text-[11px] leading-4 text-panel-muted">Sección por caída</dt>
+            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+              {fmt(result.sectionByDrop, 2)}
+              <span className="ml-1 font-normal text-panel-muted">mm²</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] leading-4 text-panel-muted">Caída resultante</dt>
+            <dd className={dropOver ? 'mt-0.5 text-sm font-semibold tabular-nums text-warning-on-panel' : 'mt-0.5 text-sm font-semibold tabular-nums'}>
+              {result.dropPercent == null
+                ? '—'
+                : <>{fmt(result.dropPercent, 2)}<span className="ml-1 font-normal text-panel-muted">% de {formatLimit(state.maxDropPercent)}</span></>}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-3">
+          <ConductorList elements={elements} />
+        </div>
+      </div>
+
+      <div className="my-5 h-px bg-panel-line" />
+      <div className="flex flex-col gap-3 text-sm">
+        <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
+        <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
+        <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
+      </div>
+      <ResultProblems problems={result.problems} />
+    </ResultCard>
   )
 }
 
@@ -445,7 +596,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LineResult title="Resultado LGA" result={result} phaseLabel="Sección de fase normalizada" elements={[
+      <LgaResult state={state} result={result} onChange={section => onChange({ sectionOverride: section })} elements={[
         { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: PHASES },
         { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.blue] },
         { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (RZ1-K 0,6/1 kV)`, colors: [CONDUCTOR_COLORS.greenYellow] },
@@ -578,7 +729,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
           <div>
             <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-14, BT-15 y BT-19</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-ink-faint">
-              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; la conductividad, del anexo 2 de la misma guía (sep 03, rev. 1), también en esa carpeta; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
+              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; la conductividad, del anexo 2 de la misma guía (sep 03, rev. 1), y la sección del conductor de protección, de la guía BT-18 (oct 05, rev. 1), también en esa carpeta; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas de referencia" />}><X /></DialogClose>

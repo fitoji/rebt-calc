@@ -192,13 +192,13 @@ export function LoadCalculator() {
     powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5,
     method: 'B1', insulation: 'XLPE', circuits: 1, protectionA: 0,
     neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
-    installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1, sectionOverride: 0,
   })
   const [di, setDi] = useState<LineState>({
     powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1,
     method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
     neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
-    installation: 'air', layout: 'embedded', layers: 1, tubes: 1,
+    installation: 'air', layout: 'embedded', layers: 1, tubes: 1, sectionOverride: 0,
   })
   const [derivations, setDerivations] = useState<Derivation[]>([])
   const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null)
@@ -245,7 +245,7 @@ export function LoadCalculator() {
   // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
   // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
   // que ese vaciado deliberado sobreviva a la recarga.
-  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5 })); setDi(current => ({ ...current, maxDropPercent: 1 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
+  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5, sectionOverride: 0 })); setDi(current => ({ ...current, maxDropPercent: 1, sectionOverride: 0 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
 
   useEffect(() => {
     let stored: string | null = null
@@ -526,8 +526,10 @@ export function LoadCalculator() {
         columns: ['Concepto', 'Valor'],
         rows: [
           ['Potencia prevista', `${fmt(lga.powerW)} W`],
-          ['Intensidad de línea (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
+          ['Intensidad de cálculo (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
+          ['Intensidad máxima admisible (Iz)', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
           ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
+          ...(lgaResult.sectionOverride == null ? [] : [['Sección automática de cálculo', lgaResult.autoSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.autoSection)} mm²`]]),
           ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
           ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
           ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
@@ -543,7 +545,7 @@ export function LoadCalculator() {
         columns: ['Concepto', 'Valor'],
         rows: [
           ['Potencia prevista', `${fmt(di.powerW)} W`],
-          ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
+          ['Intensidad de cálculo (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
           ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
           ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
           ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
@@ -685,8 +687,10 @@ export function LoadCalculator() {
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Plazas', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, fmt(row.plazas || 0), `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
     addDetailPage('6. Línea General de Alimentación · ITC-BT-14', ['Concepto', 'Valor'], [
       ['Potencia prevista', `${fmt(lga.powerW)} W`],
-      ['Intensidad de línea (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
+      ['Intensidad de cálculo (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
+      ['Intensidad máxima admisible (Iz)', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
       ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
+      ...(lgaResult.sectionOverride == null ? [] : [['Sección automática de cálculo', lgaResult.autoSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.autoSection)} mm²`]]),
       ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
       ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],
       ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (RZ1-K 0,6/1 kV)`],
@@ -703,7 +707,7 @@ export function LoadCalculator() {
     addExplanationPage('6.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })
     addDetailPage('7. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
       ['Potencia prevista', `${fmt(di.powerW)} W`],
-      ['Intensidad de línea (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
+      ['Intensidad de cálculo (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
       ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
       ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
       ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (RZ1-K 0,6/1 kV)`],

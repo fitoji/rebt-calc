@@ -386,19 +386,18 @@ export function HelpDoc() {
                 />
                 <SubHeading>Qué te devuelve</SubHeading>
                 <p>
-                  Con la potencia P, la longitud L y la caída admisible ΔU, la sección por caída sale de <code>S = P · L / (γ · U · ΔU)</code> en trifásica y de <code>S = 2 · P · L / (γ · U · ΔU)</code> en monofásica. La app toma como sección la menor normalizada que cumple a la vez esa caída y la intensidad admisible corregida por el agrupamiento, así que el resultado nunca esconde un criterio incumplido detrás del escalón siguiente.
+                  Con la potencia P, la longitud L y la caída admisible ΔU, la sección por caída sale de <code>S = P · L / (γ · U · ΔU)</code> en trifásica y de <code>S = 2 · P · L / (γ · U · ΔU)</code> en monofásica. La app toma como sección la menor normalizada que cumple a la vez esa caída y la intensidad admisible corregida por el agrupamiento, así que el resultado nunca esconde un criterio incumplido detrás del escalón siguiente. En la tarjeta de resultados puedes fijar una sección mayor: el motor recalcula con ella la intensidad admisible, la caída, el neutro y el PE, y deja la sección automática a la vista como referencia.
                 </p>
                 <Bullets items={[
-                  <><strong>Intensidad de línea (Ib).</strong> P / (√3 · U · cos φ) en trifásica.</>,
-                  <><strong>Iz de tabla</strong> y <strong>factor de agrupamiento</strong>: la intensidad admisible de la tabla y la reducción que le toca.</>,
-                  <><strong>Iz corregida.</strong> La que tiene que superar a Ib para que la sección valga.</>,
-                  <><strong>Protección (In).</strong> El interruptor automático de la serie normalizada que protege esa sección.</>,
-                  <><strong>Elementos de la instalación.</strong> Fase, neutro, conductor de protección y diámetro del tubo.</>,
+                  <><strong>Intensidad de cálculo (Ib) e intensidad admisible corregida (Iz).</strong> La corriente que la línea debe transportar y la que admite la sección elegida después de aplicar el agrupamiento, enfrentadas en la cabecera de la tarjeta.</>,
+                  <><strong>Sección de fase.</strong> La que propone el cálculo o la que fijes a mano; al cambiarla se recalculan todos los conductores.</>,
+                  <><strong>Conductores y caída de tensión.</strong> La sección de fase que pide la caída, la caída resultante frente al límite y el detalle de fase, neutro, protección y tubo.</>,
+                  <><strong>Protección (In).</strong> El interruptor automático de la serie normalizada que protege esa sección, con la verificación Ib ≤ In ≤ Iz.</>,
                 ]} />
                 <Shot
                   id="lga"
-                  alt="Pestaña de la Línea General de Alimentación con todos sus campos a la izquierda y el panel de resultado a la derecha, con la sección de 150 milímetros cuadrados, la intensidad, la caída y la protección"
-                  caption="LGA con el edificio del ejemplo: 150 mm² de fase, neutro de 70 mm² según la tabla 1, protección de 315 A y una caída del 0,46 % frente al 0,5 % permitido."
+                  alt="Pestaña de la Línea General de Alimentación con todos sus campos a la izquierda y la tarjeta de resultado a la derecha, encabezada por la intensidad nominal, la máxima admisible y la sección de fase editable"
+                  caption="LGA con el edificio del ejemplo: 70 mm² de fase, neutro de 35 mm² según la tabla 1, protección de 160 A y una caída del 0,48 % frente al 0,5 % permitido."
                 />
                 <p>
                   Cada campo que depende de una tabla lleva su botón con la referencia: <code>BT14-A·BT14-B</code> en el tipo de instalación, <code>E·G</code> en la disposición de circuitos y <code>G·H·I</code> en los tubos en contacto. El botón <code>Tablas</code> de la cabecera de la tarjeta abre las tablas de la ITC-BT-14, de la ITC-BT-15 y las de agrupamiento de la ITC-BT-19.
@@ -457,7 +456,7 @@ export function HelpDoc() {
                 </Note>
                 <SubHeading>Neutro y conductor de protección</SubHeading>
                 <p>
-                  En la LGA el neutro no se escribe a mano: sale de la tabla 1 de la ITC-BT-14, que lo fija en torno al 50 % de la fase con mínimos por escalón (10→10, 16→10, 25→16, 50→25, 120→70, 240→120). En la derivación individual el neutro tiene la misma sección que la fase, salvo que se justifique la ausencia de desequilibrios y armónicos. El conductor de protección, en ambos casos, sale de la tabla 2 de la ITC-BT-18.
+                  En la LGA el neutro no se escribe a mano: sale de la tabla 1 de la ITC-BT-14, que lo fija en torno al 50 % de la fase con mínimos por escalón (10→10, 16→10, 25→16, 50→25, 120→70, 240→120). En la derivación individual el neutro tiene la misma sección que la fase, salvo que se justifique la ausencia de desequilibrios y armónicos. El conductor de protección, en ambos casos, sale de la tabla 2 de la ITC-BT-18: igual a la fase hasta 16 mm², 16 mm² hasta 35 mm² y la mitad de la fase por encima. La instrucción añade que, si esa mitad no cae en una sección normalizada, se toma la superior más próxima, así que una fase de 95 mm² lleva PE de 50 mm² y una de 150 mm² lleva 95 mm²: pedir 48 o 75 sería pedir un cable que no existe.
                 </p>
                 <Note title="Lo que la app todavía no distingue">
                   El cálculo no separa cable unipolar de multiconductor fuera del caso enterrado, y no aplica la corrección por temperatura ambiente de la tabla B de la ITC-BT-19, cuya guía no está entre los documentos de referencia del proyecto. Si el proyecto necesita esa corrección, conviene comprobarla a mano antes de firmar la memoria.
