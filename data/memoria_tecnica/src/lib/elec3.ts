@@ -159,7 +159,7 @@ export function buildDocument(data: CalculatorExport): Elec3Document {
   const derivations = data.project?.derivations ?? []
   const files: Elec3Row[] = []
 
-  if (data.lines?.di) {
+  if (data.lines?.di && (data.lines.di.inputs || data.lines.di.result)) {
     files.push(buildRow(data.lines.di.inputs, data.lines.di.result, 'Derivació individual', 'MANUAL', 'di'))
   }
   for (const derivation of derivations) {
