@@ -36,6 +36,7 @@ import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
 import { LGA_INSULATION } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
+import { Elec3PreviewDialog } from '@/components/elec3-preview'
 
 type ProjectInfo = {
   companyName: string
@@ -238,6 +239,7 @@ export function LoadCalculator() {
   }
   const [showReferences, setShowReferences] = useState(false)
   const [showDownload, setShowDownload] = useState(false)
+  const [showElec3, setShowElec3] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
   const [showItaTable, setShowItaTable] = useState(false)
@@ -1046,6 +1048,7 @@ export function LoadCalculator() {
                 <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
               </DialogContent>
             </Dialog>
+            <Elec3PreviewDialog open={showElec3} onOpenChange={setShowElec3} />
             <Dialog open={showDownload} onOpenChange={setShowDownload}>
               <DialogContent id="download-dialog" showCloseButton={false} className="max-h-[85dvh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
                 <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
@@ -1056,7 +1059,7 @@ export function LoadCalculator() {
                   <DownloadOption label="Texto simple" hint="Notas de obra sin formato, se abre en cualquier editor" icon={FileType} onClick={downloadText} />
                 </div>
               </DialogContent>
-            </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button><Input ref={projectFileInput} type="file" accept="application/json,.json" className="hidden" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; loadProjectFile(file) }} />{projectLoad && <p role={projectLoad.kind === 'error' ? 'alert' : 'status'} className={`text-xs leading-5 ${projectLoad.kind === 'error' ? 'text-danger' : 'text-ink-faint'}`}>{projectLoad.message}</p>}</div></aside>
+            </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button><Input ref={projectFileInput} type="file" accept="application/json,.json" className="hidden" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; loadProjectFile(file) }} /><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowElec3(true)}><FileJson data-icon="inline-start" /> Ver ELEC-3</Button>{projectLoad && <p role={projectLoad.kind === 'error' ? 'alert' : 'status'} className={`text-xs leading-5 ${projectLoad.kind === 'error' ? 'text-danger' : 'text-ink-faint'}`}>{projectLoad.message}</p>}</div></aside>
         </div>
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>

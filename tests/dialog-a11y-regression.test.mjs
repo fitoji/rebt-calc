@@ -50,7 +50,7 @@ test('S-button: every py-3 full-width action button cancels the base h-8', () =>
   assert.match(button, /default:\s*"h-8 /, 'base size still declares h-8 (so h-auto is required)')
   const buttons = calc.match(/<Button\b[^>]*>/g) ?? []
   const action = buttons.filter(tag => /w-full/.test(tag) && /py-3/.test(tag))
-  assert.equal(action.length, 15, 'fifteen full-width multiline action buttons')
+  assert.equal(action.length, 16, 'sixteen full-width multiline action buttons: the four downloads, reset, clear, load project, view ELEC-3 and the project dialogs')
   for (const tag of action) {
     assert.match(tag, /\bh-auto\b/, `action button needs h-auto so h-8 cannot squeeze py-3: ${tag.slice(0, 90)}`)
   }
