@@ -25,6 +25,7 @@ import {
 } from '@/lib/cable-tables.mjs'
 import { sizeLine } from '@/lib/line-sizing.mjs'
 import { lineInputFromState, gammaFor, insulationFor } from '@/lib/line-state.mjs'
+import { formatPower, powerFieldValue, storePower } from '../lib/power-units.mjs'
 import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
 import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
@@ -590,7 +591,7 @@ function InstallationField({ value, onChange, limit, configured }: { value: Inst
   </div>
 }
 
-export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', powerMode = 'auto', onPowerModeChange, loadTotal = 0 }: {
+export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', powerMode = 'auto', onPowerModeChange, loadTotal = 0, powerUnit = 'W' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -601,9 +602,10 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   powerMode?: 'auto' | 'manual'
   onPowerModeChange?: (mode: 'auto' | 'manual') => void
   loadTotal?: number
+  powerUnit?: 'W' | 'kW'
 }) {
   const result = useMemo(() => computeLine(state, 'three-phase', 'lga'), [state])
-  const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga' }), [state, result])
+  const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga', powerUnit }), [state, result])
   const limits = limitsForInstallation(installationType)
 
   return (
@@ -618,9 +620,9 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         </div>
         <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${fmt(loadTotal)} W` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <NumberField id="lga-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
+          <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
@@ -643,7 +645,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase', editingLabel }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -653,9 +655,10 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   explanationMode?: ExplanationMode
   system?: 'single-phase' | 'three-phase'
   editingLabel?: string
+  powerUnit?: 'W' | 'kW'
 }) {
   const result = useMemo(() => computeLine(state, system, 'di'), [state, system])
-  const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di' }), [state, result, system])
+  const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di', powerUnit }), [state, result, system])
   const limits = limitsForInstallation(installationType)
 
   const phase = result.finalSection
@@ -679,7 +682,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
         <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <NumberField id="di-power" label="Potencia prevista (P)" value={state.powerW} suffix="W" onChange={value => onChange({ powerW: value })} />
+          <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
           <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />

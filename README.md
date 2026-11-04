@@ -61,6 +61,7 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 - **Cabecera con referencia normativa dinámica**: muestra `ITC-BT-10`, `ITC-BT-14` o `ITC-BT-15` según la pestaña abierta.
 - **Panel de resultado** por módulo: en previsión, el total y el desglose P1–P5; en LGA y DI, la sección normalizada, la intensidad y los avisos de incumplimiento.
 - **Nota de fuente en cada card**: el apartado del BOE del que sale el criterio, con enlace al texto consolidado. Se puede ocultar desde *Parámetros de cálculo* («Leyendas en el pie de cada card»).
+- **Unidades de potencia**: vatios o kilovatios, desde *Parámetros de cálculo*. Cambia cómo se escriben y se ven las potencias (formularios, tarjetas, PDF e informes), no el cálculo: el proyecto guardado, el motor y el JSON exportado siguen en vatios, y las fórmulas del modo didáctico se escriben en vatios.
 - **Membrete del proyecto**: la card de datos de la memoria muestra en miniatura el logo y el nombre de empresa tal como saldrán en el PDF.
 - **Acciones**: cargar el ejemplo, limpiar los datos del proyecto y descargar en cuatro formatos.
 - **Modo día/noche**: botón en la cabecera; la preferencia se guarda y se aplica antes del primer pintado, sin parpadeo. El sistema operativo no cambia el tema por su cuenta.

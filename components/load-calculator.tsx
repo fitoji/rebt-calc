@@ -20,6 +20,7 @@ import { SiteHeader } from '@/components/site-header'
 import { nextTheme, resolveInitialTheme, THEME_STORAGE_KEY, toggleLabel, type Theme } from '../lib/theme.mjs'
 import { EXPLANATION_MODE_STORAGE_KEY, explanationModeLabel, resolveExplanationMode } from '../lib/explanation-mode.mjs'
 import { PDF_COLORS } from '../lib/pdf-theme.mjs'
+import { displayPower, formatPower, formatPowerValue, isPowerUnit, powerFieldValue, storePower } from '../lib/power-units.mjs'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
@@ -100,6 +101,8 @@ type CalculationSettings = {
   stairLightLedPowerPerM2: number
   dischargeLampCoefficient: number
   showSourceNotes: boolean
+  /** Unidad con la que se escriben y se ven las potencias; el motor trabaja en vatios. */
+  powerUnit: 'W' | 'kW'
 }
 
 const defaultSettings: CalculationSettings = {
@@ -121,6 +124,7 @@ const defaultSettings: CalculationSettings = {
   stairLightLedPowerPerM2: 4,
   dischargeLampCoefficient: 1.8,
   showSourceNotes: true,
+  powerUnit: 'W',
 }
 
 const LIGHTING_LABELS: Record<LightingId, string> = {
@@ -159,10 +163,10 @@ const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFracti
  * según el grado elegido. Un proyecto guardado con una cifra antigua conserva
  * su valor como una opción más, para no cambiarlo a sus espaldas.
  */
-const housingPowerItems = (level: HousingRow['level'], current: number): ChoiceItem[] => {
+const housingPowerItems = (level: HousingRow['level'], current: number, unit: 'W' | 'kW'): ChoiceItem[] => {
   const steps = HOUSING_POWER_STEPS.filter(([grade]) => grade === level).map(([, watts]) => Number(watts))
-  const items: ChoiceItem[] = steps.map(watts => ({ value: String(watts), label: `${fmt(watts)} W` }))
-  return steps.includes(current) ? items : [...items, { value: String(current), label: `${fmt(current)} W` }]
+  const items: ChoiceItem[] = steps.map(watts => ({ value: String(watts), label: formatPower(watts, unit) }))
+  return steps.includes(current) ? items : [...items, { value: String(current), label: formatPower(current, unit) }]
 }
 const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15' }
 // Orden de los módulos: decide hacia dónde entra el panel al cambiar de pestaña.
@@ -241,6 +245,9 @@ export function LoadCalculator() {
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   const [storageLoaded, setStorageLoaded] = useState(false)
+  const powerUnit = settings.powerUnit
+  const power = (watts: number) => formatPower(watts, powerUnit)
+  const powerValue = (watts: number) => formatPowerValue(watts, powerUnit)
   const projectFileInput = useRef<HTMLInputElement>(null)
   const [projectLoad, setProjectLoad] = useState<{ kind: 'ok' | 'error'; message: string } | null>(null)
 
@@ -292,7 +299,10 @@ export function LoadCalculator() {
     try {
       const saved = window.localStorage.getItem('electrocalc-settings')
       if (saved) {
-        try { setSettings({ ...defaultSettings, ...JSON.parse(saved) }) } catch { window.localStorage.removeItem('electrocalc-settings') }
+        try {
+          const parsed = JSON.parse(saved)
+          setSettings({ ...defaultSettings, ...parsed, powerUnit: isPowerUnit(parsed.powerUnit) ? parsed.powerUnit : 'W' })
+        } catch { window.localStorage.removeItem('electrocalc-settings') }
       }
     } catch { /* Keep default calculation parameters when storage is unavailable. */ }
 
@@ -492,8 +502,8 @@ export function LoadCalculator() {
   // section, so the report can never print a neutral thinner than the norm.
   const lgaNeutral = lgaNeutralSection(lgaResult.finalSection) ?? lga.neutralSection
   const lgaProtective = lgaResult.finalSection == null ? lga.peSection : protectiveSection(lgaResult.finalSection)
-  const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga' }), [lga, lgaResult])
-  const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di' }), [di, diResult])
+  const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga', powerUnit }), [lga, lgaResult, powerUnit])
+  const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di', powerUnit }), [di, diResult, powerUnit])
 
   const downloadFile = (extension: string, mime: string, content: string) => {
     const blob = new Blob([content], { type: mime })
@@ -529,30 +539,30 @@ export function LoadCalculator() {
     sections: [
       {
         title: '1. Viviendas',
-        columns: ['Vivienda', 'Electrificación', 'Potencia (W)', 'Superficie (m²/viv.)', 'Unidades', 'Subtotal (W)'],
+        columns: ['Vivienda', 'Electrificación', `Potencia (${powerUnit})`, 'Superficie (m²/viv.)', 'Unidades', `Subtotal (${powerUnit})`],
         rows: housing.map((row, index) => [`Vivienda ${index + 1}`, row.level, fmt(row.power), fmt(row.area || 0), row.homes, fmt(row.power * row.homes)]),
       },
       {
         title: '2. Servicios generales',
         columns: ['Descripción', 'Tipo', 'Potencia'],
         rows: [
-          ...elevators.map(row => [row.name, row.ita, `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]),
-          ...motors.map(row => [row.name, 'Motor', `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]),
-          ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${fmt(result.motorIncrement)} W`],
-          ...otherLoads.map(row => [row.name, 'Otra carga', `${fmt(row.power)} W`]),
-          ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${fmt(previewLightingPower(row, settings))} W`]),
-          ['Subtotal alumbrado', '—', `${fmt(result.lightingPower)} W`],
+          ...elevators.map(row => [row.name, row.ita, `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]),
+          ...motors.map(row => [row.name, 'Motor', `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]),
+          ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${power(result.motorIncrement)}`],
+          ...otherLoads.map(row => [row.name, 'Otra carga', `${power(row.power)}`]),
+          ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${power(previewLightingPower(row, settings))}`]),
+          ['Subtotal alumbrado', '—', `${power(result.lightingPower)}`],
         ],
       },
       {
         title: '3. Locales y oficinas',
         columns: ['Descripción', 'Tipo', 'Superficie', 'Previsión'],
-        rows: locals.map(row => [row.name, row.type, `${row.area} m²`, `${fmt(previewLocalPower(row, settings))} W`]),
+        rows: locals.map(row => [row.name, row.type, `${row.area} m²`, `${powerValue(previewLocalPower(row, settings))} W`]),
       },
       {
         title: '4. Garajes',
         columns: ['Descripción', 'Ventilación', 'Superficie', 'Previsión'],
-        rows: garages.map(row => [row.name, row.ventilation, `${row.area} m²`, `${fmt(previewGaragePower(row, settings))} W`]),
+        rows: garages.map(row => [row.name, row.ventilation, `${row.area} m²`, `${powerValue(previewGaragePower(row, settings))} W`]),
       },
       {
         title: '5. IRVE',
@@ -562,16 +572,17 @@ export function LoadCalculator() {
           ['Opción de cálculo', IRVE_OPTION_LABELS[irveOption - 1]],
           ['Plazas consideradas', fmt(result.plazas)],
           ['Factor de simultaneidad', fmtDec(irveOption === 2 ? 0.3 : 1)],
-          ['P5', `${fmt(result.p5)} W`],
+          ['P5', `${power(result.p5)}`],
         ],
       },
     ],
+    powerUnit,
     lines: [
       {
         title: '6. LGA · ITC-BT-14',
         columns: ['Concepto', 'Valor'],
         rows: [
-          ['Potencia prevista', `${fmt(lga.powerW)} W`],
+          ['Potencia prevista', `${power(lga.powerW)}`],
           ['Intensidad de cálculo (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
           ['Intensidad máxima admisible (Iz)', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
           ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
@@ -593,7 +604,7 @@ export function LoadCalculator() {
         title: '7. DI · ITC-BT-15',
         columns: ['Concepto', 'Valor'],
         rows: [
-          ['Potencia prevista', `${fmt(di.powerW)} W`],
+          ['Potencia prevista', `${power(di.powerW)}`],
           ['Intensidad de cálculo (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
           ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
           ['Momento eléctrico (M)', `${fmt(diResult.momentKwM, 2)} kW·m`],
@@ -689,14 +700,14 @@ export function LoadCalculator() {
     doc.text('POTENCIA TOTAL PREVISTA', 22, 76)
     doc.setFontSize(18)
     doc.setFont('helvetica', 'bold')
-    doc.text(`${fmt(result.total)} W`, 22, 85)
+    doc.text(`${power(result.total)}`, 22, 85)
 
     let y = section('1. Resumen de resultados', 106)
-    autoTable(doc, { startY: y, head: [['Código', 'Concepto', 'Potencia prevista']], body: [['P1', 'Viviendas', `${fmt(result.p1)} W`], ['P2', 'Servicios generales', `${fmt(result.p2)} W`], ['P3', 'Locales y oficinas', `${fmt(result.p3)} W`], ['P4', 'Garajes', `${fmt(result.p4)} W`], ['P5', 'IRVE', `${fmt(result.p5)} W`], ['', 'TOTAL', `${fmt(result.total)} W`]], theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 9 }, margin: { left: 15, right: 15 } })
+    autoTable(doc, { startY: y, head: [['Código', 'Concepto', 'Potencia prevista']], body: [['P1', 'Viviendas', `${power(result.p1)}`], ['P2', 'Servicios generales', `${power(result.p2)}`], ['P3', 'Locales y oficinas', `${power(result.p3)}`], ['P4', 'Garajes', `${power(result.p4)}`], ['P5', 'IRVE', `${power(result.p5)}`], ['', 'TOTAL', `${power(result.total)}`]], theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 9 }, margin: { left: 15, right: 15 } })
     y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 145
     y += 15
     y = section('2. Datos de cálculo', y)
-    autoTable(doc, { startY: y, head: [['Parámetro', 'Valor']], body: [['Total viviendas', `${result.homes} uds.`], ['Potencia media vivienda', `${fmt(result.average)} W`], ['Coeficiente simultaneidad', `${result.cs}`], ['Plazas consideradas IRVE', `${result.plazas}`]], theme: 'striped', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 9 }, margin: { left: 15, right: 15 } })
+    autoTable(doc, { startY: y, head: [['Parámetro', 'Valor']], body: [['Total viviendas', `${result.homes} uds.`], ['Potencia media vivienda', `${power(result.average)}`], ['Coeficiente simultaneidad', `${result.cs}`], ['Plazas consideradas IRVE', `${result.plazas}`]], theme: 'striped', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 9 }, margin: { left: 15, right: 15 } })
 
     const addDetailPage = (title: string, head: string[], body: string[][]) => {
       doc.addPage()
@@ -734,11 +745,11 @@ export function LoadCalculator() {
       autoTable(doc, { startY: top, head: [['Concepto', 'Desarrollo']], body, theme: 'grid', headStyles: { fillColor: [8, 47, 73] }, styles: { fontSize: 8 }, margin: { left: 15, right: 15 } })
     }
     addExplanationPage('2.1 Desarrollo del cálculo · Previsión de cargas', loadExplanation as { steps: PdfExplanationStep[] })
-    addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ...motors.map(row => [row.name, 'Motor', `${fmt(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)} W`]), ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${fmt(result.motorIncrement)} W`], ...otherLoads.map(row => [row.name, 'Otra carga', `${fmt(row.power)} W`]), ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${fmt(previewLightingPower(row, settings))} W`]), ['Subtotal alumbrado', `×${fmtDec(settings.dischargeLampCoefficient)} lámparas de descarga`, `${fmt(result.lightingPower)} W`]])
-    addDetailPage('4. Locales y oficinas', ['Descripción', 'Tipo', 'Superficie', 'Previsión'], locals.map(row => [row.name, row.type, `${row.area} m²`, `${fmt(previewLocalPower(row, settings))} W`]))
+    addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]), ...motors.map(row => [row.name, 'Motor', `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]), ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${power(result.motorIncrement)}`], ...otherLoads.map(row => [row.name, 'Otra carga', `${power(row.power)}`]), ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${power(previewLightingPower(row, settings))}`]), ['Subtotal alumbrado', `×${fmtDec(settings.dischargeLampCoefficient)} lámparas de descarga`, `${power(result.lightingPower)}`]])
+    addDetailPage('4. Locales y oficinas', ['Descripción', 'Tipo', 'Superficie', 'Previsión'], locals.map(row => [row.name, row.type, `${row.area} m²`, `${powerValue(previewLocalPower(row, settings))} W`]))
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Plazas', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, fmt(row.plazas || 0), `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
     addDetailPage('6. Línea General de Alimentación · ITC-BT-14', ['Concepto', 'Valor'], [
-      ['Potencia prevista', `${fmt(lga.powerW)} W`],
+      ['Potencia prevista', `${power(lga.powerW)}`],
       ['Intensidad de cálculo (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
       ['Intensidad máxima admisible (Iz)', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
       ['Sección por caída de tensión', `${fmt(lgaResult.sectionByDrop, 2)} mm²`],
@@ -761,7 +772,7 @@ export function LoadCalculator() {
     ])
     addExplanationPage('6.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })
     addDetailPage('7. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
-      ['Potencia prevista', `${fmt(di.powerW)} W`],
+      ['Potencia prevista', `${power(di.powerW)}`],
       ['Intensidad de cálculo (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
       ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
       ['Momento eléctrico (M)', `${fmt(diResult.momentKwM, 2)} kW·m`],
@@ -776,13 +787,13 @@ export function LoadCalculator() {
       ['Iz corregida', diResult.correctedCurrent == null ? '—' : `${fmt(diResult.correctedCurrent, 1)} A`],
       ['Caída resultante con Ib', diResult.dropPercent == null ? '—' : `${fmt(diResult.dropPercent, 2)} %`],
       ...(diResult.dropPercentIn == null ? [] : [['Caída resultante con In', `${fmt(diResult.dropPercentIn, 2)} %`]]),
-      ...(diResult.housingIga == null ? [] : [['IGA (tabla A) · potencia máxima', `${fmt(diResult.housingIga)} A · ${fmt(diResult.maxAdmissiblePowerW ?? 0)} W`]]),
+      ...(diResult.housingIga == null ? [] : [['IGA (tabla A) · potencia máxima', `${fmt(diResult.housingIga)} A · ${power(diResult.maxAdmissiblePowerW ?? 0)}`]]),
       ['Protección (In)', diResult.protection == null ? '—' : `${fmt(diResult.protection)} A`],
       ['Método · aislamiento', `${di.method} · ${di.insulation}`],
       ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
     addExplanationPage('7.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
-    addDetailPage('8. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${fmt(derivation.powerW)} W`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
+    addDetailPage('8. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${power(derivation.powerW)}`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
@@ -803,15 +814,27 @@ export function LoadCalculator() {
           <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-3xl">
             <div className="mb-6 flex items-start justify-between gap-4"><div><DialogTitle id="settings-title" className="text-xl font-bold text-ink">Parámetros de cálculo</DialogTitle><DialogDescription id="settings-description" className="mt-1 text-sm text-ink-faint">Ajusta los valores utilizados en las previsiones. Los cambios se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar parámetros de cálculo" />}><X /></DialogClose></div>
             <div className="grid items-start gap-4 md:grid-cols-2">
+              <section className="rounded-control border border-line p-4 md:col-span-2">
+                <h3 className="mb-2 text-sm font-bold text-ink-soft">Unidades de potencia</h3>
+                <p className="mb-3 text-xs leading-5 text-ink-faint">Elegí cómo querés escribir y ver las potencias. El cálculo y el JSON guardado no cambian: el motor trabaja siempre en vatios.</p>
+                <div className="max-w-xs">
+                  <ChoiceSelect
+                    label="Unidades de potencia"
+                    value={powerUnit}
+                    items={[{ value: 'W', label: 'Vatios (W)' }, { value: 'kW', label: 'Kilovatios (kW)' }]}
+                    onChange={value => { if (isPowerUnit(value)) setSettings(current => ({ ...current, powerUnit: value })) }}
+                  />
+                </div>
+              </section>
               <section className="rounded-control border border-line p-4"><h3 className="mb-4 text-sm font-bold text-ink-soft">Viviendas y suministros</h3><div className="grid gap-4 sm:grid-cols-2">
-                <SettingInput label="Vivienda básica" value={settings.basicHousingPower} suffix="W" onChange={value => updateSetting('basicHousingPower', value)} />
-                <SettingInput label="Vivienda elevada" value={settings.elevatedHousingPower} suffix="W" onChange={value => updateSetting('elevatedHousingPower', value)} />
+                <SettingInput label="Vivienda básica" value={powerFieldValue(settings.basicHousingPower, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => updateSetting('basicHousingPower', storePower(value, powerUnit))} />
+                <SettingInput label="Vivienda elevada" value={powerFieldValue(settings.elevatedHousingPower, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => updateSetting('elevatedHousingPower', storePower(value, powerUnit))} />
               </div></section>
               <section className="rounded-control border border-line p-4"><h3 className="mb-4 text-sm font-bold text-ink-soft">Locales, oficinas e industrias</h3><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Comercial/oficina por superficie" value={settings.localPowerPerM2} suffix="W/m²" onChange={value => updateSetting('localPowerPerM2', value)} />
-                <SettingInput label="Comercial/oficina mínimo" value={settings.minimumSupplyPower} suffix="W" onChange={value => updateSetting('minimumSupplyPower', value)} />
+                <SettingInput label="Comercial/oficina mínimo" value={powerFieldValue(settings.minimumSupplyPower, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => updateSetting('minimumSupplyPower', storePower(value, powerUnit))} />
                 <SettingInput label="Industria por superficie" value={settings.industrialPowerPerM2} suffix="W/m²" onChange={value => updateSetting('industrialPowerPerM2', value)} />
-                <SettingInput label="Industria mínimo" value={settings.industrialMinimumSupplyPower} suffix="W" onChange={value => updateSetting('industrialMinimumSupplyPower', value)} />
+                <SettingInput label="Industria mínimo" value={powerFieldValue(settings.industrialMinimumSupplyPower, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => updateSetting('industrialMinimumSupplyPower', storePower(value, powerUnit))} />
               </div></section>
               <section className="rounded-control border border-line p-4"><h3 className="mb-4 text-sm font-bold text-ink-soft">Garajes</h3><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Ventilación forzada" value={settings.forcedGaragePowerPerM2} suffix="W/m²" onChange={value => updateSetting('forcedGaragePowerPerM2', value)} />
@@ -836,7 +859,7 @@ export function LoadCalculator() {
               <section className="rounded-control border border-line p-4 md:col-span-2"><h3 className="mb-4 text-sm font-bold text-ink-soft">Coeficientes y equipos</h3><div className="grid gap-4 sm:grid-cols-2">
                 <SettingInput label="Coeficiente de ascensores" value={settings.elevatorCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('elevatorCoefficient', value)} />
                 <SettingInput label="Coeficiente del motor mayor" value={settings.motorCoefficient} suffix="Cs" step="0.01" onChange={value => updateSetting('motorCoefficient', value)} />
-                <SettingInput label="Potencia del cargador IRVE" value={settings.evChargerPower} suffix="W" onChange={value => updateSetting('evChargerPower', value)} />
+                <SettingInput label="Potencia del cargador IRVE" value={powerFieldValue(settings.evChargerPower, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => updateSetting('evChargerPower', storePower(value, powerUnit))} />
                 <SettingInput label="Conversión de CV" value={settings.cvToWatts} suffix="W/CV" step="0.1" onChange={value => updateSetting('cvToWatts', value)} />
               </div></section>
             </div>
@@ -926,7 +949,7 @@ export function LoadCalculator() {
             y no fixed para no tapar el pie ni exigir relleno extra al final. */}
         <div className="sticky top-0 z-30 -mx-5 mb-4 flex items-center justify-between gap-3 border-b border-panel-line bg-panel px-5 py-2.5 text-panel-foreground shadow-lg shadow-panel/20 lg:-mx-8 lg:px-8 xl:hidden">
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-on-panel">Potencia total prevista</span>
-          <span className="text-lg font-bold tabular-nums">{fmt(result.total)} W</span>
+          <span className="text-lg font-bold tabular-nums">{power(result.total)}</span>
         </div>
         <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
           <div className="flex min-w-0 flex-col gap-6">
@@ -937,48 +960,48 @@ export function LoadCalculator() {
                   <div className="mb-3 flex items-center justify-between"><h4 className="text-sm font-semibold">Vivienda {i + 1}</h4><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></Button></div>
                   <div className="grid gap-3">
                     <label><span className="label">Electrificación</span><ChoiceSelect className="w-full" value={row.level} onChange={event => { const level = event as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }} items={['Básica', 'Elevada']} /></label>
-                    <label><span className="label">Potencia (W)</span><ChoiceSelect className="w-full" label={`Potencia (W) · Vivienda ${i + 1}`} value={String(row.power)} onChange={watts => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(watts) } : house))} items={housingPowerItems(row.level, row.power)} /></label>
+                    <label><span className="label">Potencia ({powerUnit})</span><ChoiceSelect className="w-full" label={`Potencia (${powerUnit}) · Vivienda ${i + 1}`} value={String(row.power)} onChange={watts => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(watts) } : house))} items={housingPowerItems(row.level, row.power, powerUnit)} /></label>
                     <label><span className="label">Superficie (m²/viv.)</span><Input aria-label="Superficie (m²/viv.)" className="w-full" type="number" min="0" value={row.area || ''} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, area: Number(event.target.value) } : house))} /></label>
                     <label><span className="label">Viviendas (uds.)</span><Input className="w-full" type="number" min="0" value={row.homes} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, homes: Number(event.target.value) } : house))} /></label>
-                    <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"><span className="text-ink-faint">Subtotal</span><strong className="tabular-nums">{fmt(row.power * row.homes)} W</strong></div>
+                    <div className="flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"><span className="text-ink-faint">Subtotal</span><strong className="tabular-nums">{power(row.power * row.homes)}</strong></div>
                   </div>
                 </article>)}
               </div>
               <div className="hidden min-w-0 overflow-x-auto md:block">
                 <Table className="w-full min-w-[700px] text-left text-sm">
-                  <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="pb-3">Vivienda</TableHead><TableHead scope="col" className="pb-3">Electrificación</TableHead><TableHead scope="col" className="pb-3">Potencia (W)</TableHead><TableHead scope="col" className="pb-3">M² / Vivienda</TableHead><TableHead scope="col" className="pb-3">Viviendas (uds.)</TableHead><TableHead scope="col" className="pb-3 text-right">Subtotal (W)</TableHead><TableHead scope="col" className="pb-3" /></TableRow></TableHeader>
+                  <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="pb-3">Vivienda</TableHead><TableHead scope="col" className="pb-3">Electrificación</TableHead><TableHead scope="col" className="pb-3">Potencia ({powerUnit})</TableHead><TableHead scope="col" className="pb-3">M² / Vivienda</TableHead><TableHead scope="col" className="pb-3">Viviendas (uds.)</TableHead><TableHead scope="col" className="pb-3 text-right">Subtotal ({powerUnit})</TableHead><TableHead scope="col" className="pb-3" /></TableRow></TableHeader>
                   <TableBody>{housing.map((row, i) => <TableRow key={i} className="border-b border-line-soft">
                     <TableCell className="py-3 font-medium">Vivienda {i + 1}</TableCell>
                     <TableCell className="py-3"><ChoiceSelect label={`Electrificación · Vivienda ${i + 1}`} value={row.level} onChange={event => { const level = event as HousingRow['level']; setHousing(current => current.map((house, index) => index === i ? { ...house, level, power: level === 'Básica' ? settings.basicHousingPower : settings.elevatedHousingPower } : house)) }} items={['Básica', 'Elevada']} /></TableCell>
-                    <TableCell className="py-3"><ChoiceSelect label={`Potencia (W) · Vivienda ${i + 1}`} className="w-32" value={String(row.power)} onChange={watts => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(watts) } : house))} items={housingPowerItems(row.level, row.power)} /></TableCell>
+                    <TableCell className="py-3"><ChoiceSelect label={`Potencia (${powerUnit}) · Vivienda ${i + 1}`} className="w-32" value={String(row.power)} onChange={watts => setHousing(current => current.map((house, index) => index === i ? { ...house, power: Number(watts) } : house))} items={housingPowerItems(row.level, row.power, powerUnit)} /></TableCell>
                     <TableCell className="py-3"><Input aria-label={`Superficie (m²/viv.) · Vivienda ${i + 1}`} className="w-20" type="number" min="0" value={row.area || ''} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, area: Number(event.target.value) } : house))} /></TableCell>
                     <TableCell className="py-3"><Input aria-label={`Viviendas (uds.) · Vivienda ${i + 1}`} className="w-20" type="number" min="0" value={row.homes} onChange={event => setHousing(current => current.map((house, index) => index === i ? { ...house, homes: Number(event.target.value) } : house))} /></TableCell>
-                    <TableCell className="py-3 text-right font-semibold tabular-nums">{fmt(row.power * row.homes)}</TableCell>
+                    <TableCell className="py-3 text-right font-semibold tabular-nums">{powerValue(row.power * row.homes)}</TableCell>
                     <TableCell className="py-3 text-right"><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar vivienda ${i + 1}`} onClick={() => setHousing(current => current.filter((_, index) => index !== i))}><Trash2 /></Button></TableCell>
                   </TableRow>)}</TableBody>
                 </Table>
               </div>
               {housing.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay viviendas añadidas.</p>}
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1, area: 0 }])}><Plus data-icon="inline-start" /> Añadir vivienda</Button><Metric label="P1 · Viviendas" value={`${fmt(result.p1)} W`} accent /></div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${fmt(result.average)} W`} /><Metric label="Superficie construida · informativo" value={`${fmt(dwellingArea)} m²`} /><div className="rounded-control bg-surface-muted p-3">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1, area: 0 }])}><Plus data-icon="inline-start" /> Añadir vivienda</Button><Metric label="P1 · Viviendas" value={`${power(result.p1)}`} accent /></div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${power(result.average)}`} /><Metric label="Superficie construida · informativo" value={`${fmt(dwellingArea)} m²`} /><div className="rounded-control bg-surface-muted p-3">
               <p className="text-xs text-ink-faint">Coeficiente de simultaneidad</p>
               <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold tabular-nums">{fmtDec(result.cs)}</p><Button type="button" variant="outline" size="icon" aria-label="Ver tabla del coeficiente de simultaneidad" aria-haspopup="dialog" aria-controls="simultaneity-dialog" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand" onClick={() => setShowSimultaneityTable(true)}><Table2 className="size-4" aria-hidden="true" /></Button></div>
             </div></div>
             {settings.showSourceNotes && <SourceNote label="ITC-BT-25 tabla A e ITC-BT-10 §3.1">ITC-BT-25 tabla A (escalones de 5.750 y 7.360 W en electrificación básica; 9.200, 11.500 y 14.490 W en elevada) e ITC-BT-10 §3.1, que aplica la tabla 1 de coeficientes de simultaneidad sobre la potencia media por vivienda. La superficie por vivienda es un dato informativo: no interviene en P1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
             </section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P2" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia ITA', 'Potencia real', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={value => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: value as ElevatorRow['ita'], power: itaPowerW(value as ElevatorRow['ita']), unit: 'W' } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <span key="ita-power" className="tabular-nums text-sm">{fmtDec(itaPowerW(row.ita) / 1000)} kW</span>, <Input key="power" aria-label={`Potencia real · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', 'Potencia (W)', '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${fmt(result.p2)} W`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {fmt(result.motorIncrement)} W. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P3" title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', 'Previsión real (W)', 'P prevista (W)', '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (W) · ${row.name}`} className="w-28" type="number" min="0" value={row.real || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${fmt(result.p3)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', 'P prevista (W)', '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{fmt(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${fmt(result.p4)} W`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la ITC-BT-10 §5.2 usa para el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${fmt(result.p5)} W`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P2" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia ITA', 'Potencia real', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={value => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: value as ElevatorRow['ita'], power: itaPowerW(value as ElevatorRow['ita']), unit: 'W' } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <span key="ita-power" className="tabular-nums text-sm">{fmtDec(itaPowerW(row.ita) / 1000)} kW</span>, <Input key="power" aria-label={`Potencia real · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', `Potencia (${powerUnit})`, '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${power(result.p2)}`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {fmt(result.motorIncrement)} W. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P3" title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', `Previsión real (${powerUnit})`, `P prevista (${powerUnit})`, '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (${powerUnit}) · ${row.name}`} className="w-28" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.real, powerUnit) || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: storePower(Number(e.target.value), powerUnit) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${power(result.p3)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la ITC-BT-10 §5.2 usa para el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${power(result.p5)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
-          <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-panel bg-panel text-panel-foreground shadow-panel"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{fmt(result.total)} <span className="text-lg font-medium text-panel-muted">W</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
+          <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-panel bg-panel text-panel-foreground shadow-panel"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{formatPowerValue(result.total, powerUnit)} <span className="text-lg font-medium text-panel-muted">{powerUnit}</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
   const amount = value as number
   const share = result.total > 0 ? (amount / result.total) * 100 : 0
   return <div key={code as string}>
-    <div className="flex items-baseline justify-between gap-3 text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{fmt(amount)} W</span></div>
+    <div className="flex items-baseline justify-between gap-3 text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{power(amount)}</span></div>
     <div aria-hidden="true" className="mt-1.5 h-1 overflow-hidden rounded-full bg-panel-line"><div className="h-full rounded-full bg-brand-on-panel/80" style={{ width: `${share}%` }} /></div>
   </div>
-})}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{fmt(result.total)} W</span></div></div></div>
+})}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{power(result.total)}</span></div></div></div>
             <button type="button" className="grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 rounded-card border border-line bg-paper p-5 text-left shadow-card transition-colors hover:border-brand-line hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowSettings(true)}>
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><SlidersHorizontal className="size-4" /></span>
               <span className="min-w-0 text-sm font-bold">Parámetros de cálculo</span>
@@ -1006,7 +1029,7 @@ export function LoadCalculator() {
                 <p className="mt-1 text-xs text-ink-faint">Suministros monofásicos a 230 V. El escalón fija el calibre del interruptor general automático (IGA).</p>
                 <div className="mt-2 overflow-hidden rounded-lg border border-line">
                   <Table className="w-full text-left text-sm">
-                    <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="px-4 py-3 text-center">Electrificación</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Potencia (W)</TableHead><TableHead scope="col" className="px-4 py-3 text-center">IGA (A)</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="px-4 py-3 text-center">Electrificación</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Potencia ({powerUnit})</TableHead><TableHead scope="col" className="px-4 py-3 text-center">IGA (A)</TableHead></TableRow></TableHeader>
                     <TableBody>{HOUSING_POWER_STEPS.map(([grade, watts, iga]) => <TableRow key={`${grade}-${watts}`} className="border-b border-line-soft"><TableCell className="px-4 py-2 text-center">{grade}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmt(Number(watts))}</TableCell><TableCell className="px-4 py-2 text-center tabular-nums">{iga}</TableCell></TableRow>)}</TableBody>
                   </Table>
                 </div>
@@ -1038,7 +1061,7 @@ export function LoadCalculator() {
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
-            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} />
+            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} powerUnit={powerUnit} />
           </TabsContent>
           <TabsContent value="di" data-dir={tabDirection} className="tab-panel">
             <section className="mb-6 rounded-card border border-line bg-paper p-5 shadow-card">
@@ -1074,7 +1097,7 @@ export function LoadCalculator() {
                             <TableCell className="py-2">{DERIVATION_LABELS[derivation.kind]}</TableCell>
                             <TableCell className="py-2 font-medium"><Button type="button" variant="link" aria-pressed={selectedDerivationId === derivation.id} className="h-auto whitespace-normal p-0 text-left font-medium text-ink underline-offset-4 hover:underline" onClick={() => setSelectedDerivationId(derivation.id)}>{derivation.label}</Button></TableCell>
                             <TableCell className="py-2">{derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica'}</TableCell>
-                            <TableCell className="py-2 text-right tabular-nums">{fmt(derivation.powerW)} W</TableCell>
+                            <TableCell className="py-2 text-right tabular-nums">{power(derivation.powerW)}</TableCell>
                             <TableCell className="py-2"><Input aria-label={`Longitud · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.lengthM} onChange={event => updateDerivation(derivation.id, { lengthM: Math.max(0, Number(event.target.value)) })} /></TableCell>
                             <TableCell className="py-2"><ChoiceSelect label={`Método · ${derivation.label}`} value={derivation.method} onChange={value => updateDerivation(derivation.id, { method: value as LineState['method'] })} items={[...METHODS]} /></TableCell>
                             <TableCell className="py-2"><Input aria-label={`Protección · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.protectionA || ''} onChange={event => updateDerivation(derivation.id, { protectionA: Math.max(0, Number(event.target.value)) })} /></TableCell>
@@ -1085,7 +1108,7 @@ export function LoadCalculator() {
                       </TableBody>
                     </Table>
                   </div>
-                  <p className="mt-3 text-xs text-ink-faint">{project.summary.derivationCount} derivaciones · {fmt(project.summary.derivationPower)} W instalados. La LGA se calcula aparte con la simultaneidad del edificio.</p>
+                  <p className="mt-3 text-xs text-ink-faint">{project.summary.derivationCount} derivaciones · {power(project.summary.derivationPower)} instalados. La LGA se calcula aparte con la simultaneidad del edificio.</p>
                   {project.summary.warnings.length > 0 && (
                     <div role="status" aria-live="polite" className="mt-3 rounded-lg bg-warning-soft p-3 text-xs leading-5 text-warning-ink">
                       <p className="mb-1 font-semibold">Revisá estos puntos</p>
@@ -1097,7 +1120,7 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
@@ -1134,13 +1157,13 @@ function LightingTable({ rows, settings, onChange }: { rows: LightingRow[]; sett
     <span key="label" className="text-sm font-medium">{LIGHTING_LABELS[row.id]}</span>,
     <ChoiceSelect key="lamp" label={`Tipo de lámpara · ${LIGHTING_LABELS[row.id]}`} value={row.lamp} onChange={value => update(row.id, { lamp: value as LightingRow['lamp'] })} items={['Incandescencia', 'Fluorescencia/LED']} />,
     row.id === 'known' ? <span key="area" className="text-sm text-ink-ghost">—</span> : <Input key="area" aria-label={`Superficie (m²) · ${LIGHTING_LABELS[row.id]}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={event => update(row.id, { area: Number(event.target.value) })} />,
-    <Input key="power" aria-label={`Potencia directa (W) · ${LIGHTING_LABELS[row.id]}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={event => update(row.id, { power: Number(event.target.value) })} />,
-    <strong key="total" className="tabular-nums">{fmt(previewLightingPower(row, settings))}</strong>,
+    <Input key="power" aria-label={`Potencia directa (${settings.powerUnit}) · ${LIGHTING_LABELS[row.id]}`} className="w-28" type="number" min="0" step={settings.powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.power, settings.powerUnit) || ''} onChange={event => update(row.id, { power: storePower(Number(event.target.value), settings.powerUnit) })} />,
+    <strong key="total" className="tabular-nums">{formatPowerValue(previewLightingPower(row, settings), settings.powerUnit)}</strong>,
   ])
   return <div>
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold text-ink-muted">Alumbrado</h4><span className="text-xs text-ink-faint">×{fmtDec(settings.dischargeLampCoefficient)} solo en lámparas de descarga</span></div>
-    <EditableTable headers={['Concepto', 'Tipo de lámpara', 'Superficie (m²)', 'Potencia directa (W)', 'P prevista (W)']} rows={tableRows} />
-    <div className="mt-3 flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"><span className="text-ink-faint">Subtotal alumbrado</span><strong className="tabular-nums">{fmt(sumLightingPowers(rows, settings))} W</strong></div>
+    <EditableTable headers={['Concepto', 'Tipo de lámpara', 'Superficie (m²)', `Potencia directa (${settings.powerUnit})`, `P prevista (${settings.powerUnit})`]} rows={tableRows} />
+    <div className="mt-3 flex items-center justify-between rounded-lg bg-surface-muted px-3 py-2 text-sm"><span className="text-ink-faint">Subtotal alumbrado</span><strong className="tabular-nums">{formatPower(sumLightingPowers(rows, settings), settings.powerUnit)}</strong></div>
   </div>
 }
 function ServiceTable({ title, addLabel, onAdd, headers, rows }: { title: string; addLabel: string; onAdd: () => void; headers: string[]; rows: React.ReactNode[][] }) { return <div><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-semibold text-ink-muted">{title}</h4><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-3 py-2 text-xs font-semibold sm:w-auto" onClick={onAdd}><Plus data-icon="inline-start" /> {addLabel}</Button></div><EditableTable headers={headers} rows={rows} />{rows.length === 0 && <p className="py-3 text-center text-sm text-ink-faint">No hay elementos añadidos.</p>}</div> }

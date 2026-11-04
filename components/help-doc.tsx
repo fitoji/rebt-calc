@@ -327,6 +327,7 @@ export function HelpDoc() {
                   El diálogo de parámetros reúne todos los valores que la app usa por defecto. Cambiarlos afecta a toda la previsión de golpe y se guarda en este navegador.
                 </p>
                 <Bullets items={[
+                  <><strong>Unidades de potencia.</strong> Vatios o kilovatios: cambia cómo se escriben y se ven las potencias, no el cálculo. El proyecto guardado y el JSON exportado siguen en vatios.</>,
                   <><strong>Viviendas y suministros.</strong> Potencia de una vivienda básica y de una elevada.</>,
                   <><strong>Locales, oficinas e industrias.</strong> Densidad por superficie y mínimo por abonado de cada tipo.</>,
                   <><strong>Garajes.</strong> Densidad con ventilación forzada y con ventilación natural.</>,

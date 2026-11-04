@@ -188,12 +188,12 @@ test('garage parking spaces are informative and never change P4', () => {
 
 test('the calculator renders row previews through the shared helpers', () => {
   assert.match(calc, /from '\.\.\/lib\/load-previews\.mjs'/, 'calculator imports the preview helpers')
-  assert.match(calc, /fmt\(previewLocalPower\(row, settings\)\)/, 'local rows render the shared preview')
-  assert.match(calc, /fmt\(previewGaragePower\(row, settings\)\)/, 'garage rows render the shared preview')
+  assert.match(calc, /powerValue\(previewLocalPower\(row, settings\)\)/, 'local rows render the shared preview')
+  assert.match(calc, /powerValue\(previewGaragePower\(row, settings\)\)/, 'garage rows render the shared preview')
   assert.match(calc, /aria-label=\{`Plazas · \$\{row\.name\}`\}/, 'garage rows record the parking count')
   assert.match(calc, /sumLocalPowers\(locals, settings\)/, 'P3 uses the shared sum')
   assert.match(calc, /sumGaragePowers\(garages, settings\)/, 'P4 uses the shared sum')
-  assert.match(calc, /fmt\(previewLightingPower\(row, settings\)\)/, 'lighting rows render the shared preview')
+  assert.match(calc, /formatPowerValue\(previewLightingPower\(row, settings\), settings.powerUnit\)/, 'lighting rows render the shared preview')
   assert.match(calc, /sumLightingPowers\(lighting, settings\)/, 'P2 uses the shared lighting sum')
   assert.doesNotMatch(calc, /row\.area \* 100/, 'no hardcoded 100 W/m2 in the rows')
   assert.doesNotMatch(calc, /row\.area \? 3450 : 0/, 'no hardcoded 3450 W minimum in the rows')
