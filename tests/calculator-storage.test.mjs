@@ -76,7 +76,7 @@ test('persists calculator inputs using a versioned snapshot', () => {
   saveCalculatorInputs(storage, sampleInputs)
 
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 2)
+  assert.equal(snapshot.version, 3)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
 })
 
@@ -222,14 +222,113 @@ test('persists and restores the enlace scenario', () => {
   assert.equal(loaded.installationType, undefined, 'it falls back to the calculator default')
 })
 
-test('persists the derivation list in a v2 snapshot', () => {
+test('persists the derivation list in a v3 snapshot', () => {
   const storage = createMemoryStorage()
 
   saveCalculatorInputs(storage, { ...sampleInputs, derivations: [sampleDerivation] })
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 2)
+  assert.equal(snapshot.version, 3)
   assert.deepEqual(snapshot.derivations, [sampleDerivation])
   assert.deepEqual(loadCalculatorInputs(storage).derivations, [sampleDerivation])
+})
+
+test('persists the meter centre and drops a malformed one without losing the project', () => {
+  const meterCenter = {
+    placement: 'concentrated',
+    meters: null,
+    concentrations: 2,
+    assembly: 'local',
+    cabinet: 'adosado',
+    floor: 'baja',
+    buildingFloors: 4,
+    mainSwitchA: 250,
+    hasMando: true,
+    hasTelecom: false,
+    exterior: false,
+  }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, meterCenter })
+  assert.deepEqual(loadCalculatorInputs(storage).meterCenter, meterCenter, 'the centre survives a reload')
+
+  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
+    version: 3,
+    ...sampleInputs,
+    meterCenter: { ...meterCenter, assembly: 'garaje' },
+  }))
+  const loaded = loadCalculatorInputs(storage)
+  assert.notEqual(loaded, null, 'a malformed centre never discards the project')
+  assert.equal(loaded.meterCenter, undefined, 'the block falls back to the default centre')
+})
+
+test('a default meter centre is not written, so clearing the project still clears storage', () => {
+  const storage = createMemoryStorage()
+  const defaults = {
+    placement: 'concentrated',
+    meters: null,
+    concentrations: 1,
+    assembly: 'local',
+    cabinet: 'adosado',
+    floor: 'baja',
+    buildingFloors: 1,
+    mainSwitchA: 160,
+    hasMando: false,
+    hasTelecom: false,
+    exterior: false,
+  }
+
+  saveCalculatorInputs(storage, { ...sampleInputs, meterCenter: defaults })
+  const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
+  assert.equal('meterCenter' in snapshot, false, 'the untouched centre is not project data')
+
+  saveCalculatorInputs(storage, {
+    housing: [], locals: [], garages: [], elevators: [], motors: [], otherLoads: [],
+    parking: 0, irveOption: 1, meterCenter: defaults,
+  })
+  assert.equal(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY), null, 'an empty project with the default centre leaves no snapshot')
+})
+
+test('persists the interior circuits of a supply and drops a malformed block', () => {
+  const circuits = [{ id: 'c1', description: 'Alumbrado', use: 'alumbrado', powerW: 500, lengthM: 12 }]
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interiorCircuits: circuits }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interiorCircuits, circuits, 'the board survives a reload')
+
+  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
+    version: 3,
+    ...sampleInputs,
+    derivations: [{ ...sampleDerivation, interiorCircuits: [{ ...circuits[0], use: 'otro' }] }],
+  }))
+  const loaded = loadCalculatorInputs(storage)
+  assert.notEqual(loaded, null, 'a malformed board never discards the project')
+  assert.equal(loaded.derivations, undefined, 'the derivation block falls back instead of loading half of it')
+})
+
+test('persists the circuit lengths of a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, lengths: { C1: 20, C2: 15.5 } }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the lengths survive a reload')
+})
+
+test('persists the dwelling rooms and their systems', () => {
+  const interior = {
+    contractedPowerW: 5750,
+    circuits: 5,
+    hasSurge: false,
+    lengths: { C1: 20 },
+    rooms: [{ id: 'room-1', type: 'salon', area: 20, length: 0 }],
+    hasHeating: true,
+    hasCooling: false,
+    hasDryer: true,
+  }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, housingAreaM2: 90, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the rooms survive a reload')
+  assert.equal(loadCalculatorInputs(storage).derivations[0].housingAreaM2, 90, 'the dwelling surface survives a reload')
 })
 
 test('migrates a v1 single DI into a derivation seed', () => {
@@ -448,6 +547,55 @@ test('a file without lines or derivations loads the load forecast only', () => {
   assert.equal('lgaPowerMode' in parsed.project.inputs, false, 'the power mode travels with the LGA')
   assert.equal('di' in parsed.project.inputs, false)
   assert.equal('derivations' in parsed.project.inputs, false)
+})
+
+test('a centre saved with the old enclosure field keeps its cabinet choice', () => {
+  const legacy = {
+    placement: 'concentrated',
+    meters: null,
+    concentrations: 1,
+    cabinet: 'adosado',
+    floor: 'baja',
+    buildingFloors: 1,
+    mainSwitchA: 160,
+    hasMando: false,
+    hasTelecom: false,
+    exterior: false,
+    enclosure: 'armario',
+  }
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 3, ...sampleInputs, meterCenter: legacy }),
+  })
+
+  const migrated = loadCalculatorInputs(storage)
+  assert.equal(migrated.meterCenter.assembly, 'armario', 'the legacy enclosure field is migrated')
+  assert.equal('enclosure' in migrated.meterCenter, false, 'the legacy key is dropped')
+  assert.equal(migrated.meterCenter.cabinet, 'adosado', 'the cabinet survives')
+})
+
+test('an imported meter centre is restored, and a malformed one rejects the whole file', () => {
+  const meterCenter = {
+    placement: 'concentrated',
+    meters: null,
+    concentrations: 2,
+    assembly: 'local',
+    cabinet: 'adosado',
+    floor: 'intermedias',
+    buildingFloors: 14,
+    mainSwitchA: 160,
+    hasMando: false,
+    hasTelecom: true,
+    exterior: true,
+  }
+
+  const ok = readProjectExport(JSON.stringify(exportedProject({ inputs: { ...exportedInputs, meterCenter } })))
+  assert.equal(ok.ok, true, 'a valid centre is accepted')
+  assert.deepEqual(ok.project.inputs.meterCenter, meterCenter, 'every field round-trips')
+
+  const broken = readProjectExport(JSON.stringify(exportedProject({
+    inputs: { ...exportedInputs, meterCenter: { ...meterCenter, placement: 'otra' } },
+  })))
+  assert.equal(broken.ok, false, 'an unknown placement rejects the file instead of losing the block')
 })
 
 test('unknown keys inside the file inputs never reach the calculator', () => {

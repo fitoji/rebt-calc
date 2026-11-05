@@ -68,6 +68,6 @@ test('the line panels and the didactic steps receive the unit', () => {
 })
 
 test('the export keeps the watt as the unit of record', () => {
-  assert.match(calc, /inputs: \{ housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, lgaPowerMode, di, derivations \}/, 'the JSON carries the raw inputs in watts')
+  assert.match(calc, /inputs: \{ housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption, lga, lgaPowerMode, di, derivations \}/, 'the JSON carries the raw inputs in watts')
   assert.match(calc, /momentKwM/, 'the moment stays in kW·m whatever the preference')
 })

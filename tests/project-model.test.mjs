@@ -27,7 +27,7 @@ const defaults = {
 }
 
 const load = {
-  housing: [{ level: 'Básica', power: 5750, homes: 3 }],
+  housing: [{ level: 'Básica', power: 5750, homes: 3, area: 90 }],
   locals: [{ name: 'Local 1', type: 'Comercial/oficina', area: 20, real: 0 }],
   garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 100 }],
   parking: 30,
@@ -76,6 +76,15 @@ test('buildDerivations creates one derivation per consumer', () => {
   assert.equal(derivations[4].powerW, 0, 'common services uses P2')
   assert.equal(derivations[5].powerW, 2000, 'garage uses its preview power')
   assert.equal(derivations[6].powerW, loadResult.p5, 'IRVE uses P5')
+})
+
+test('generated dwellings carry the surface of their housing row', () => {
+  const derivations = buildDerivations(load, loadResult, defaults)
+  const dwellings = derivations.filter(item => item.kind === 'dwelling')
+  assert.ok(dwellings.every(item => item.housingAreaM2 === 90), 'every dwelling inherits the row surface')
+
+  const changed = syncDerivationPowers(derivations, { ...load, housing: [{ ...load.housing[0], area: 110 }] }, loadResult)
+  assert.ok(changed.filter(item => item.kind === 'dwelling').every(item => item.housingAreaM2 === 110), 'the surface follows the row edit')
 })
 
 test('each derivation keeps its own system and voltage', () => {

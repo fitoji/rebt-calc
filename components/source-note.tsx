@@ -5,6 +5,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 export const BOE_REBT = 'https://www.boe.es/buscar/act.php?id=BOE-A-2002-18099'
 /** RD 1053/2014, which added the EV charging section to the REBT. */
 export const BOE_ITC_BT_52 = 'https://www.boe.es/buscar/doc.php?id=BOE-A-2014-13681'
+/**
+ * Ministry's ITC-BT-52 application guide. Its Anexo 2 is the source of the
+ * 10 % EV load forecast; the instruction itself only fixes the technical
+ * requirements.
+ */
+export const GUIA_BT_52 = 'https://industria.gob.es/Calidad-Industrial/seguridadindustrial/instalacionesindustriales/baja-tension/Documents/bt/guia_bt_52_nov17R1.pdf'
 
 /**
  * Footer that cites where a card's numbers come from.
@@ -30,7 +36,7 @@ export function SourceNote({ label, children }: { label: string; children: React
   )
 }
 
-/** Link to the consolidated text in the BOE. */
+/** Link to an official source: the BOE consolidated text or a ministry guide. */
 export function BoeLink({ href, label }: { href: string; label: string }) {
   return <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-brand underline underline-offset-4">{label}<span className="sr-only"> (se abre en una pestaña nueva)</span></a>
 }

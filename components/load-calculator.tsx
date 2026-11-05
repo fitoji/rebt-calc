@@ -12,8 +12,16 @@ import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectEx
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
-import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
-import { explainLineCalculation, explainLoadForecast } from '../lib/calculation-explanations.mjs'
+import { limitsForInstallation } from '../lib/installation-config.mjs'
+import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PLACEMENT_LABELS, evaluateMeterCenter, installationTypeFor, meterCenterFromInstallationType, suggestMeterCount } from '../lib/meter-center.mjs'
+import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
+import { InteriorPanel, type InteriorDwelling } from '@/components/interior-panel'
+import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
+import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
+import { CIRCUIT_USE_LABELS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
+import { housingCircuitSizing, housingCircuitsFor } from '../lib/housing-circuits.mjs'
+import { POINT_CIRCUITS, ROOM_LABELS, totalPoints } from '../lib/housing-points.mjs'
+import { explainLineCalculation, explainLoadForecast, explainMeterCenter } from '../lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
@@ -35,7 +43,7 @@ import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode,
 import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
 import { LGA_INSULATION } from '../lib/line-state.mjs'
-import { BoeLink, BOE_ITC_BT_52, BOE_REBT, SourceNote } from '@/components/source-note'
+import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
 
 type ProjectInfo = {
@@ -68,7 +76,7 @@ type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
 type LightingRow = { id: LightingId; area: number; lamp: 'Incandescencia' | 'Fluorescencia/LED'; power: number }
 type DerivationKind = 'dwelling' | 'local' | 'common-services' | 'garage' | 'irve' | 'custom'
-type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase' }
+type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase'; housingAreaM2?: number; interior?: { contractedPowerW: number; circuits: number; hasSurge: boolean }; interiorCircuits?: Array<{ id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }> }
 const DERIVATION_LABELS: Record<DerivationKind, string> = { dwelling: 'Vivienda', local: 'Local', 'common-services': 'Servicios generales', garage: 'Garaje', irve: 'IRVE', custom: 'Manual' }
 type PdfExplanationStep = {
   id: string
@@ -169,9 +177,15 @@ const housingPowerItems = (level: HousingRow['level'], current: number, unit: 'W
   const items: ChoiceItem[] = steps.map(watts => ({ value: String(watts), label: formatPower(watts, unit) }))
   return steps.includes(current) ? items : [...items, { value: String(current), label: formatPower(current, unit) }]
 }
-const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15' }
+const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di' | 'interiores', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15', interiores: 'ITC-BT-25 / 19' }
+const roomLabel = (type: string) => ROOM_LABELS[type as keyof typeof ROOM_LABELS] ?? type
+const INSTALLATION_LABELS: Record<string, string> = {
+  centralized: 'Contadores totalmente centralizados',
+  partial: 'Contadores en más de un lugar',
+  'single-user': 'Único usuario sin LGA',
+}
 // Orden de los módulos: decide hacia dónde entra el panel al cambiar de pestaña.
-const TAB_ORDER = ['cargas', 'lga', 'di'] as const
+const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores'] as const
 type TabValue = (typeof TAB_ORDER)[number]
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
 
@@ -185,9 +199,9 @@ export function LoadCalculator() {
   const [lighting, setLighting] = useState<LightingRow[]>(emptyLighting)
   const [parking, setParking] = useState(0)
   const [irveOption, setIrveOption] = useState(1)
-  const [activeTab, setActiveTab] = useState<'cargas' | 'lga' | 'di'>('cargas')
+  const [activeTab, setActiveTab] = useState<TabValue>('cargas')
   const [tabDirection, setTabDirection] = useState<'forward' | 'back'>('forward')
-  const [installationType, setInstallationType] = useState<InstallationType>('centralized')
+  const [meterCenter, setMeterCenter] = useState<MeterCenterState>({ ...DEFAULT_METER_CENTER })
   const [theme, setTheme] = useState<Theme>('light')
   const [explanationMode, setExplanationMode] = useState<ExplanationMode>('calculation')
   const [showLineTables, setShowLineTables] = useState(false)
@@ -207,20 +221,13 @@ export function LoadCalculator() {
   })
   const [derivations, setDerivations] = useState<Derivation[]>([])
   const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null)
+  const [selectedDwellingId, setSelectedDwellingId] = useState<string | null>(null)
+  const [selectedSupplyId, setSelectedSupplyId] = useState<string | null>(null)
   const [lgaPowerMode, setLgaPowerMode] = useState<'auto' | 'manual'>('auto')
   const openLineTables = (tables?: TableKey[]) => { setLineTableFocus(tables ?? null); setShowLineTables(true) }
   const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); if ('powerW' in patch) setLgaPowerMode('manual'); setLga(current => ({ ...current, ...patch })) }
   const changeLgaPowerMode = (mode: 'auto' | 'manual') => { setLgaPowerMode(mode); setLineTouched(true) }
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
-  const changeInstallationType = (type: InstallationType) => {
-    const limits = limitsForInstallation(type)
-    setInstallationType(type)
-    setLineTouched(true)
-    if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
-    setDi(current => ({ ...current, maxDropPercent: limits.di }))
-    setDerivations(current => current.map(derivation => ({ ...derivation, maxDropPercent: limits.di })))
-    if (limits.lga == null) setActiveTab(current => current === 'lga' ? 'di' : current)
-  }
   const toggleTheme = () => {
     const next = nextTheme(theme)
     setTheme(next)
@@ -256,7 +263,7 @@ export function LoadCalculator() {
   // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
   // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
   // que ese vaciado deliberado sobreviva a la recarga.
-  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setInstallationType('centralized'); setLga(current => ({ ...current, maxDropPercent: 0.5, sectionOverride: 0 })); setDi(current => ({ ...current, maxDropPercent: 1, sectionOverride: 0 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
+  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setMeterCenter({ ...DEFAULT_METER_CENTER }); setLga(current => ({ ...current, maxDropPercent: 0.5, sectionOverride: 0 })); setDi(current => ({ ...current, maxDropPercent: 1, sectionOverride: 0 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
 
   useEffect(() => {
     let stored: string | null = null
@@ -288,7 +295,8 @@ export function LoadCalculator() {
         setMotors(savedInputs.motors)
         setOtherLoads(savedInputs.otherLoads)
         if (savedInputs.lighting) setLighting(savedInputs.lighting)
-        if (savedInputs.installationType) setInstallationType(savedInputs.installationType)
+        if (savedInputs.meterCenter) setMeterCenter(savedInputs.meterCenter as MeterCenterState)
+        else setMeterCenter(meterCenterFromInstallationType(savedInputs.installationType) as MeterCenterState)
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
         if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
@@ -322,19 +330,6 @@ export function LoadCalculator() {
 
     setStorageLoaded(true)
   }, [])
-
-  useEffect(() => {
-    if (!storageLoaded) return
-    try {
-      saveCalculatorInputs(window.localStorage, {
-        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption,
-        lga: lineTouched ? lga : null,
-        lgaPowerMode,
-        di: lineTouched ? di : null,
-        derivations: derivations.length > 0 ? derivations : undefined,
-      })
-    } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -389,6 +384,100 @@ export function LoadCalculator() {
       plazas, lightingPower, motorIncrement, elevatorPower, motorPower, largestMotorPower, otherPower, localPowers, garagePowers, irveCs,
     }
   }, [housing, locals, garages, elevators, motors, otherLoads, lighting, parking, irveOption, settings])
+
+  // La centralización de contadores manda sobre el supuesto de enlace.
+  const suggestedMeters = useMemo(() => suggestMeterCount({
+    dwellings: result.homes,
+    locals: locals.length,
+    hasCommonServices: result.p2 > 0,
+    hasIrve: parking > 0,
+  }), [result.homes, result.p2, locals.length, parking])
+  const effectiveMeterCenter = useMemo(
+    () => ({ ...meterCenter, meters: meterCenter.meters ?? suggestedMeters }),
+    [meterCenter, suggestedMeters],
+  )
+  const installationType = useMemo(() => installationTypeFor(effectiveMeterCenter), [effectiveMeterCenter])
+  const meterEvaluation = useMemo(
+    () => evaluateMeterCenter(effectiveMeterCenter, { powerW: result.total }),
+    [effectiveMeterCenter, result.total],
+  )
+  const meterExplanation = useMemo(
+    () => explainMeterCenter(effectiveMeterCenter, meterEvaluation),
+    [effectiveMeterCenter, meterEvaluation],
+  )
+
+  const dwellingDerivations = useMemo(() => derivations.filter(derivation => derivation.kind === 'dwelling'), [derivations])
+  const effectiveDwellingId = selectedDwellingId != null && dwellingDerivations.some(derivation => derivation.id === selectedDwellingId)
+    ? selectedDwellingId
+    : dwellingDerivations[0]?.id ?? null
+  const interiorDwellings: InteriorDwelling[] = useMemo(
+    () => dwellingDerivations.map(derivation => ({
+      id: derivation.id,
+      label: derivation.label,
+      powerW: derivation.powerW,
+      housingIgaA: derivation.housingIgaA,
+      housingAreaM2: derivation.housingAreaM2,
+      interior: derivation.interior,
+    })),
+    [dwellingDerivations],
+  )
+  const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean }>) => {
+    setLineTouched(true)
+    setDerivations(current => current.map(derivation => derivation.id === id
+      ? { ...derivation, interior: { ...resolveInterior(derivation.powerW, derivation.interior), ...patch } }
+      : derivation))
+  }
+
+  const circuitSupplies: CircuitSupply[] = useMemo(
+    () => derivations.filter(derivation => derivation.kind !== 'dwelling').map(derivation => ({
+      id: derivation.id,
+      label: derivation.label,
+      system: derivation.system,
+      powerW: derivation.powerW,
+      method: derivation.method,
+      insulation: derivation.insulation,
+      installation: derivation.installation,
+      layout: derivation.layout,
+      circuits: derivation.interiorCircuits ?? [],
+    })),
+    [derivations],
+  )
+  const effectiveSupplyId = selectedSupplyId != null && circuitSupplies.some(supply => supply.id === selectedSupplyId)
+    ? selectedSupplyId
+    : circuitSupplies[0]?.id ?? null
+  const updateDerivationCircuits = (id: string, circuits: CircuitRow[]) => {
+    setLineTouched(true)
+    setDerivations(current => current.map(derivation => derivation.id === id ? { ...derivation, interiorCircuits: circuits } : derivation))
+  }
+
+  const updateMeterCenter = (patch: Partial<MeterCenterState>) => {
+    const next = { ...meterCenter, ...patch }
+    // La colocación manda sobre el conjunto: individual solo admite CPM y una
+    // concentración no puede resolverse con una CPM.
+    if (patch.placement === 'individual') next.assembly = 'cpm'
+    else if (patch.placement === 'concentrated' && next.assembly === 'cpm') next.assembly = 'local'
+    setMeterCenter(next)
+    const type = installationTypeFor({ ...next, meters: next.meters ?? suggestedMeters })
+    if (type === installationType) return
+    const limits = limitsForInstallation(type)
+    setLineTouched(true)
+    if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
+    setDi(current => ({ ...current, maxDropPercent: limits.di }))
+    setDerivations(current => current.map(derivation => ({ ...derivation, maxDropPercent: limits.di })))
+  }
+
+  useEffect(() => {
+    if (!storageLoaded) return
+    try {
+      saveCalculatorInputs(window.localStorage, {
+        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption,
+        lga: lineTouched ? lga : null,
+        lgaPowerMode,
+        di: lineTouched ? di : null,
+        derivations: derivations.length > 0 ? derivations : undefined,
+      })
+    } catch { /* Storage failure does not block calculator use. */ }
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched])
 
   // Recuento informativo: las plazas de los garajes no intervienen en P4.
   const garageParkingSpaces = garages.reduce((sum, row) => sum + Math.max(0, row.plazas || 0), 0)
@@ -446,7 +535,7 @@ export function LoadCalculator() {
     setMotors([])
     setOtherLoads([])
     setLighting(emptyLighting)
-    setInstallationType('centralized')
+    setMeterCenter({ ...DEFAULT_METER_CENTER })
     setParking(0)
     setIrveOption(1)
     setDerivations([])
@@ -469,7 +558,7 @@ export function LoadCalculator() {
     setMotors(inputs.motors)
     setOtherLoads(inputs.otherLoads)
     setLighting(inputs.lighting ?? emptyLighting)
-    setInstallationType(inputs.installationType ?? 'centralized')
+    setMeterCenter((inputs.meterCenter ?? meterCenterFromInstallationType(inputs.installationType)) as MeterCenterState)
     setParking(inputs.parking)
     setIrveOption(inputs.irveOption)
     if (inputs.lga) setLga(inputs.lga as LineState)
@@ -518,6 +607,40 @@ export function LoadCalculator() {
     link.remove()
     URL.revokeObjectURL(url)
   }
+
+  const housingCircuitReportRows = () => interiorDwellings.flatMap(dwelling => housingCircuitsFor(dwelling.powerW, { hasIrve: parking > 0 }).map(circuit => {
+    const lengthM = dwelling.interior?.lengths?.[circuit.id] ?? 0
+    const sizing = housingCircuitSizing(circuit, lengthM)
+    return [
+      dwelling.label,
+      `${circuit.id} · ${circuit.name}`,
+      circuit.breakerA == null ? '—' : `${circuit.breakerA} A`,
+      sizing.section == null ? '—' : `${sizing.section} mm²`,
+      `${fmt(lengthM, 1)} m`,
+      sizing.dropPercent == null ? '—' : `${fmt(sizing.dropPercent, 2)} %`,
+    ]
+  }))
+
+  const housingRoomReportRows = () => interiorDwellings.flatMap(dwelling => {
+    const interior = resolveInterior(dwelling.powerW, dwelling.interior)
+    return (interior.rooms ?? []).map(room => [
+      dwelling.label,
+      roomLabel(room.type),
+      `${fmt(room.area, 1)} m²`,
+      `${fmt(room.length, 1)} m`,
+    ])
+  })
+
+  const housingPointReportRows = () => interiorDwellings.map(dwelling => {
+    const interior = resolveInterior(dwelling.powerW, dwelling.interior)
+    const points = totalPoints(interior.rooms ?? [], {
+      hasHeating: interior.hasHeating,
+      hasCooling: interior.hasCooling,
+      hasDryer: interior.hasDryer,
+      hasIrve: parking > 0,
+    })
+    return [dwelling.label, ...POINT_CIRCUITS.map(circuit => String(points.totals[circuit])), String(points.totalPoints)]
+  })
 
   const buildReport = () => ({
     title: 'Informe de previsión de cargas',
@@ -577,11 +700,28 @@ export function LoadCalculator() {
           ['P5', `${power(result.p5)}`],
         ],
       },
+      {
+        title: '6. Centralización de contadores (ITC-BT-16)',
+        columns: ['Concepto', 'Valor'],
+        rows: [
+          ['Forma de colocación', PLACEMENT_LABELS[meterCenter.placement]],
+          ['Contadores', fmt(effectiveMeterCenter.meters)],
+          ['Concentraciones', fmt(meterCenter.concentrations)],
+          ['Conjunto de medida', ASSEMBLY_LABELS[meterCenter.assembly]],
+          ...(meterCenter.assembly === 'armario' ? [['Tipo de armario', CABINET_LABELS[meterCenter.cabinet]]] : []),
+          ['Tipo de local', meterCenter.exterior ? 'Exterior · IP43 · IK09' : 'Interior · IP40 · IK09'],
+          ['Planta', FLOOR_LABELS[meterCenter.floor]],
+          ['Plantas del edificio', fmt(meterCenter.buildingFloors)],
+          ['Interruptor general de maniobra', meterEvaluation.mainSwitch.required ? (meterEvaluation.mainSwitch.outOfRange ? 'Fuera de la tabla (más de 150 kW)' : `${fmt(meterCenter.mainSwitchA)} A`) : 'No obligatorio (hasta 2 usuarios)'],
+          ['Unidades funcionales', [meterCenter.hasMando ? 'Mando' : null, meterCenter.hasTelecom ? 'Telecomunicaciones' : null].filter(Boolean).join(' · ') || 'Ninguna adicional'],
+          ['Supuesto de enlace', INSTALLATION_LABELS[installationType]],
+        ],
+      },
     ],
     powerUnit,
     lines: [
       {
-        title: '6. LGA · ITC-BT-14',
+        title: '7. LGA · ITC-BT-14',
         columns: ['Concepto', 'Valor'],
         rows: [
           ['Potencia prevista', `${power(lga.powerW)}`],
@@ -603,7 +743,7 @@ export function LoadCalculator() {
         ],
       },
       {
-        title: '7. DI · ITC-BT-15',
+        title: '8. DI · ITC-BT-15',
         columns: ['Concepto', 'Valor'],
         rows: [
           ['Potencia prevista', `${power(di.powerW)}`],
@@ -622,6 +762,62 @@ export function LoadCalculator() {
           ['Método · aislamiento', `${di.method} · ${di.insulation}`],
         ],
       },
+      {
+        title: '9. Instalaciones interiores · ITC-BT-25',
+        columns: ['Vivienda', 'IGA', 'P máx.', 'P contratada', 'ICP', 'Diferenciales', 'Sobretensiones'],
+        rows: interiorDwellings.length === 0
+          ? [['—', 'Sin viviendas generadas', '', '', '', '', '']]
+          : interiorDwellings.map(dwelling => {
+            const interior = resolveInterior(dwelling.powerW, dwelling.interior)
+            const evaluation = evaluateInterior({ igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...interior })
+            return [
+              dwelling.label,
+              evaluation.igaA == null ? '—' : `${evaluation.igaA} A`,
+              evaluation.maxPowerW == null ? '—' : `${fmt(evaluation.maxPowerW)} W`,
+              interior.contractedPowerW > 0 ? `${fmt(interior.contractedPowerW)} W` : '—',
+              evaluation.icpCurrentA == null ? '—' : `${fmtDec(evaluation.icpCurrentA)} A`,
+              `${evaluation.differentials} × ${evaluation.sensitivityMa} mA`,
+              interior.hasSurge ? 'Sí' : 'No',
+            ]
+          }),
+      },
+      {
+        title: '10. Cuadros interiores de locales y servicios generales · ITC-BT-19',
+        columns: ['Suministro', 'P suministro', 'IGA', 'Circuito', 'Uso', 'Potencia', 'Longitud', 'Sección', 'Protección', 'Caída'],
+        rows: circuitSupplies.flatMap(supply => {
+          const board = evaluateBoard(supply.circuits, supply)
+          return supply.circuits.map(circuit => {
+            const result = sizeInteriorCircuit(circuit, supply)
+            return [
+              supply.label,
+              `${fmt(supply.powerW)} W`,
+              board.supplySwitchA == null ? '—' : `${fmt(board.supplySwitchA)} A`,
+              circuit.description,
+              CIRCUIT_USE_LABELS[circuit.use],
+              `${fmt(circuit.powerW)} W`,
+              `${fmt(circuit.lengthM, 1)} m`,
+              result.finalSection == null ? '—' : `${fmt(result.finalSection, 1)} mm²`,
+              result.protection == null ? '—' : `${fmt(result.protection)} A`,
+              result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`,
+            ]
+          })
+        }).concat(circuitSupplies.every(supply => supply.circuits.length === 0) ? [['—', '', '', 'Sin circuitos definidos', '', '', '', '', '', '']] : []),
+      },
+      {
+        title: '11. Circuitos de vivienda · ITC-BT-25',
+        columns: ['Vivienda', 'Circuito', 'PIA', 'Sección', 'Longitud', 'Caída'],
+        rows: interiorDwellings.length === 0 ? [['—', 'Sin viviendas generadas', '', '', '', '']] : housingCircuitReportRows(),
+      },
+      {
+        title: '12. Estancias de vivienda · ITC-BT-25 §4',
+        columns: ['Vivienda', 'Estancia', 'Superficie', 'Longitud'],
+        rows: housingRoomReportRows().length === 0 ? [['—', 'Sin estancias cargadas', '', '']] : housingRoomReportRows(),
+      },
+      {
+        title: '13. Puntos mínimos por vivienda · ITC-BT-25 §4',
+        columns: ['Vivienda', ...POINT_CIRCUITS, 'Total'],
+        rows: housingPointReportRows().length === 0 ? [['—', ...POINT_CIRCUITS.map(() => ''), '']] : housingPointReportRows(),
+      },
     ],
   })
 
@@ -629,12 +825,13 @@ export function LoadCalculator() {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, parking, irveOption, lga, lgaPowerMode, di, derivations },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption, lga, lgaPowerMode, di, derivations },
       settings,
       calculations: result,
       lines: {
         lga: { inputs: lga, result: lgaResult },
         di: { inputs: di, result: diResult },
+        meterCenter: { inputs: effectiveMeterCenter, result: meterEvaluation },
       },
       project: {
         lga: project.lga,
@@ -750,7 +947,21 @@ export function LoadCalculator() {
     addDetailPage('3. Servicios generales', ['Descripción', 'Tipo', 'Potencia'], [...elevators.map(row => [row.name, row.ita, `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]), ...motors.map(row => [row.name, 'Motor', `${power(row.unit === 'CV' ? row.power * settings.cvToWatts : row.power)}`]), ['Incremento del motor mayor', `×${fmtDec(settings.motorCoefficient)}`, `${power(result.motorIncrement)}`], ...otherLoads.map(row => [row.name, 'Otra carga', `${power(row.power)}`]), ...lighting.filter(row => previewLightingPower(row, settings) > 0).map(row => [LIGHTING_LABELS[row.id], row.lamp, `${power(previewLightingPower(row, settings))}`]), ['Subtotal alumbrado', `×${fmtDec(settings.dischargeLampCoefficient)} lámparas de descarga`, `${power(result.lightingPower)}`]])
     addDetailPage('4. Locales y oficinas', ['Descripción', 'Tipo', 'Superficie', 'Previsión'], locals.map(row => [row.name, row.type, `${row.area} m²`, `${powerValue(previewLocalPower(row, settings))} W`]))
     addDetailPage('5. Garajes', ['Descripción', 'Ventilación', 'Plazas', 'Superficie', 'Previsión'], garages.map(row => [row.name, row.ventilation, fmt(row.plazas || 0), `${row.area} m²`, `${fmt(Math.max(row.area * (row.ventilation === 'Forzada' ? settings.forcedGaragePowerPerM2 : settings.naturalGaragePowerPerM2), row.area ? settings.minimumSupplyPower : 0))} W`]))
-    addDetailPage('6. Línea General de Alimentación · ITC-BT-14', ['Concepto', 'Valor'], [
+    addDetailPage('6. Centralización de contadores · ITC-BT-16', ['Concepto', 'Valor'], [
+      ['Forma de colocación', PLACEMENT_LABELS[meterCenter.placement]],
+      ['Contadores', fmt(effectiveMeterCenter.meters)],
+      ['Concentraciones', fmt(meterCenter.concentrations)],
+      ['Conjunto de medida', ASSEMBLY_LABELS[meterCenter.assembly]],
+      ...(meterCenter.assembly === 'armario' ? [['Tipo de armario', CABINET_LABELS[meterCenter.cabinet]]] : []),
+      ['Tipo de local', meterCenter.exterior ? 'Exterior · IP43 · IK09' : 'Interior · IP40 · IK09'],
+      ['Planta', FLOOR_LABELS[meterCenter.floor]],
+      ['Plantas del edificio', fmt(meterCenter.buildingFloors)],
+      ['Interruptor general de maniobra', meterEvaluation.mainSwitch.required ? (meterEvaluation.mainSwitch.outOfRange ? 'Fuera de la tabla (más de 150 kW)' : `${fmt(meterCenter.mainSwitchA)} A`) : 'No obligatorio (hasta 2 usuarios)'],
+      ['Unidades funcionales', [meterCenter.hasMando ? 'Mando' : null, meterCenter.hasTelecom ? 'Telecomunicaciones' : null].filter(Boolean).join(' · ') || 'Ninguna adicional'],
+      ['Supuesto de enlace', INSTALLATION_LABELS[installationType]],
+    ])
+    addExplanationPage('6.1 Desarrollo del cálculo · Contadores', meterExplanation as { steps: PdfExplanationStep[] })
+    addDetailPage('7. Línea General de Alimentación · ITC-BT-14', ['Concepto', 'Valor'], [
       ['Potencia prevista', `${power(lga.powerW)}`],
       ['Intensidad de cálculo (Ib)', `${fmt(lgaResult.ratedCurrent, 2)} A`],
       ['Intensidad máxima admisible (Iz)', lgaResult.correctedCurrent == null ? '—' : `${fmt(lgaResult.correctedCurrent, 1)} A`],
@@ -772,8 +983,8 @@ export function LoadCalculator() {
       ['Método · aislamiento', `${lga.method} · ${LGA_INSULATION}`],
       ['Observaciones', lgaResult.problems.length > 0 ? lgaResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
-    addExplanationPage('6.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })
-    addDetailPage('7. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
+    addExplanationPage('7.1 Desarrollo del cálculo · LGA', lgaExplanation as { steps: PdfExplanationStep[] })
+    addDetailPage('8. Derivación Individual · ITC-BT-15', ['Concepto', 'Valor'], [
       ['Potencia prevista', `${power(di.powerW)}`],
       ['Intensidad de cálculo (Ib)', `${fmt(diResult.ratedCurrent, 2)} A`],
       ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
@@ -794,8 +1005,23 @@ export function LoadCalculator() {
       ['Método · aislamiento', `${di.method} · ${di.insulation}`],
       ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
-    addExplanationPage('7.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
-    addDetailPage('8. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${power(derivation.powerW)}`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
+    addExplanationPage('8.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
+    addDetailPage('9. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${power(derivation.powerW)}`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
+    addDetailPage('10. Instalaciones interiores · ITC-BT-25', ['Vivienda', 'IGA', 'P máx.', 'P contratada', 'ICP', 'Diferenciales', 'Sobretensiones'], interiorDwellings.map(dwelling => {
+      const interior = resolveInterior(dwelling.powerW, dwelling.interior)
+      const evaluation = evaluateInterior({ igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...interior })
+      return [dwelling.label, evaluation.igaA == null ? '—' : `${evaluation.igaA} A`, evaluation.maxPowerW == null ? '—' : `${fmt(evaluation.maxPowerW)} W`, interior.contractedPowerW > 0 ? `${fmt(interior.contractedPowerW)} W` : '—', evaluation.icpCurrentA == null ? '—' : `${fmtDec(evaluation.icpCurrentA)} A`, `${evaluation.differentials} × ${evaluation.sensitivityMa} mA`, interior.hasSurge ? 'Sí' : 'No']
+    }))
+    addDetailPage('11. Cuadros interiores de locales y servicios generales · ITC-BT-19', ['Suministro', 'P suministro', 'IGA', 'Circuito', 'Uso', 'Potencia', 'Longitud', 'Sección', 'Protección', 'Caída'], circuitSupplies.flatMap(supply => {
+      const board = evaluateBoard(supply.circuits, supply)
+      return supply.circuits.map(circuit => {
+        const result = sizeInteriorCircuit(circuit, supply)
+        return [supply.label, `${fmt(supply.powerW)} W`, board.supplySwitchA == null ? '—' : `${fmt(board.supplySwitchA)} A`, circuit.description, CIRCUIT_USE_LABELS[circuit.use], `${fmt(circuit.powerW)} W`, `${fmt(circuit.lengthM, 1)} m`, result.finalSection == null ? '—' : `${fmt(result.finalSection, 1)} mm²`, result.protection == null ? '—' : `${fmt(result.protection)} A`, result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`]
+      })
+    }).concat(circuitSupplies.every(supply => supply.circuits.length === 0) ? [['—', '', '', 'Sin circuitos definidos', '', '', '', '', '', '']] : []))
+    addDetailPage('12. Circuitos de vivienda · ITC-BT-25', ['Vivienda', 'Circuito', 'PIA', 'Sección', 'Longitud', 'Caída'], interiorDwellings.length === 0 ? [['—', 'Sin viviendas generadas', '', '', '', '']] : housingCircuitReportRows())
+    addDetailPage('13. Estancias de vivienda · ITC-BT-25 §4', ['Vivienda', 'Estancia', 'Superficie', 'Longitud'], housingRoomReportRows().length === 0 ? [['—', 'Sin estancias cargadas', '', '']] : housingRoomReportRows())
+    addDetailPage('14. Puntos mínimos por vivienda · ITC-BT-25 §4', ['Vivienda', ...POINT_CIRCUITS, 'Total'], housingPointReportRows().length === 0 ? [['—', ...POINT_CIRCUITS.map(() => ''), '']] : housingPointReportRows())
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
@@ -942,8 +1168,9 @@ export function LoadCalculator() {
           <TabsList data-active-tab={activeTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
             <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
-            <TabsTrigger value="lga" disabled={installationType === 'single-user'} title={installationType === 'single-user' ? 'El supuesto de único usuario no tiene línea general de alimentación' : undefined} className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
+            <TabsTrigger value="lga" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
             <TabsTrigger value="di" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />DI</TabsTrigger>
+            <TabsTrigger value="interiores" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />Cuadros</TabsTrigger>
           </TabsList>
           <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
@@ -993,8 +1220,8 @@ export function LoadCalculator() {
             </section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P2" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia ITA', 'Potencia real', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={value => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: value as ElevatorRow['ita'], power: itaPowerW(value as ElevatorRow['ita']), unit: 'W' } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <span key="ita-power" className="tabular-nums text-sm">{fmtDec(itaPowerW(row.ita) / 1000)} kW</span>, <Input key="power" aria-label={`Potencia real · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', `Potencia (${powerUnit})`, '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-28" type="number" min="0" value={row.power || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${power(result.p2)}`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {fmt(result.motorIncrement)} W. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P3" title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', `Previsión real (${powerUnit})`, `P prevista (${powerUnit})`, '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (${powerUnit}) · ${row.name}`} className="w-28" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.real, powerUnit) || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: storePower(Number(e.target.value), powerUnit) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${power(result.p3)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la ITC-BT-10 §5.2 usa para el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${power(result.p5)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §5.2">ITC-BT-10 §5.2 (apartado añadido por el RD 1053/2014): 3.680 W por cada plaza del 10 % de las plazas construidas, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Ese 10 % es el mínimo legal; las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${power(result.p5)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="Guía-BT-52 · Anexo 2">Guía-BT-52, Anexo 2 («Previsión de cargas en edificios de viviendas de nueva construcción con garajes en régimen de condominio»): 3.680 W por el 10 % de las plazas construidas, que la Guía declara valor mínimo reglamentario, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Es previsión de potencia, no la preinstalación de conductos, que fija el CTE (DB-HE 6: 100 % de las plazas en residencial privado). Las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={GUIA_BT_52} label="Guía-BT-52 · Anexo 2" /> · <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
           <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-panel bg-panel text-panel-foreground shadow-panel"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{formatPowerValue(result.total, powerUnit)} <span className="text-lg font-medium text-panel-muted">{powerUnit}</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
   const amount = value as number
@@ -1064,7 +1291,10 @@ export function LoadCalculator() {
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
-            <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} powerUnit={powerUnit} />
+            <MeterCenterCard center={meterCenter} onChange={updateMeterCenter} suggestedMeters={suggestedMeters} evaluation={meterEvaluation} explanation={meterExplanation} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+            {installationType === 'single-user'
+              ? <p className="mt-6 rounded-card border border-line bg-brand-soft p-4 text-sm leading-6 text-brand-ink"><b>Único usuario sin línea general.</b> La medida es individual: no hay LGA. El supuesto y la centralización se gestionan en la card de arriba.</p>
+              : <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} powerUnit={powerUnit} />}
           </TabsContent>
           <TabsContent value="di" data-dir={tabDirection} className="tab-panel">
             <section className="mb-6 rounded-card border border-line bg-paper p-5 shadow-card">
@@ -1123,7 +1353,13 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} onInstallationTypeChange={changeInstallationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} />
+          </TabsContent>
+          <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
+            <div className="flex flex-col gap-6">
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+            </div>
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />

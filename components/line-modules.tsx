@@ -314,7 +314,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
         )}
       </div>
       {result.housingIga != null && (
-        <p className="mt-3 text-[11px] leading-4 text-panel-muted">El IGA no es el ICP: fija la potencia máxima admisible de la vivienda, no la potencia contratada.</p>
+        <p className="mt-3 text-[11px] leading-4 text-panel-muted">El IGA no es el ICP ni la protección In: fija la potencia máxima admisible de la vivienda y va en el cuadro (DGMP). In es el dispositivo que protege la línea, con Ib ≤ In ≤ Iz.</p>
       )}
       {elements && elements.length > 0 && (
         <div className="mt-5 border-t border-panel-line pt-4">
@@ -557,7 +557,7 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
       />
       <NumberField
         id={`${idPrefix}-protection`}
-        label="Protección ya elegida (0 = automática)"
+        label="Protección de la línea (In) · 0 = automática"
         value={state.protectionA}
         suffix="A"
         onChange={value => onChange({ protectionA: Math.max(0, value) })}
@@ -576,28 +576,26 @@ export function computeLine(state: LineState, system: 'three-phase' | 'single-ph
 
 function formatLimit(value: number) { return `${value.toString().replace('.', ',')} %` }
 
-function InstallationField({ value, onChange, limit, configured }: { value: InstallationType; onChange: (type: InstallationType) => void; limit: number | null; configured: number }) {
+function InstallationField({ value, limit, configured }: { value: InstallationType; limit: number | null; configured: number }) {
   const mismatch = mismatchesLimit(limit, configured)
+  const label = INSTALLATION_SCENARIOS.find(scenario => scenario.id === value)?.label ?? 'Supuesto de enlace'
 
   return <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-control bg-surface-muted px-3 py-2">
-    <label htmlFor="installation-type" className="text-xs font-semibold text-ink-muted">Supuesto de enlace</label>
-    <Select value={value} onValueChange={next => { if (next != null) onChange(String(next) as InstallationType) }}>
-      <SelectTrigger id="installation-type" className="h-8 w-full min-w-0 text-xs sm:w-auto sm:min-w-[16rem]"><SelectValue>{(selected: string | null) => INSTALLATION_SCENARIOS.find(scenario => scenario.id === selected)?.label ?? 'Supuesto de enlace'}</SelectValue></SelectTrigger>
-      <SelectContent alignItemWithTrigger={false} className="w-max max-w-[20rem]"><SelectGroup>{INSTALLATION_SCENARIOS.map(scenario => <SelectItem key={scenario.id} value={scenario.id}>{scenario.label}</SelectItem>)}</SelectGroup></SelectContent>
-    </Select>
+    <span className="text-xs font-semibold text-ink-muted">Supuesto de enlace</span>
+    <span className="text-xs font-medium">{label}</span>
+    <span className="text-xs text-ink-faint">Se deriva de la centralización de contadores.</span>
     {limit == null
       ? <span className="text-xs text-ink-faint">Este supuesto no tiene línea general.</span>
       : mismatch && <span className="flex items-center gap-1 text-xs font-semibold text-warning-ink"><TriangleAlert className="size-3.5" aria-hidden="true" />El supuesto fija {formatLimit(limit)}</span>}
   </div>
 }
 
-export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', powerMode = 'auto', onPowerModeChange, loadTotal = 0, powerUnit = 'W' }: {
+export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', powerMode = 'auto', onPowerModeChange, loadTotal = 0, powerUnit = 'W' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
   showSourceNotes?: boolean
   installationType: InstallationType
-  onInstallationTypeChange: (type: InstallationType) => void
   explanationMode?: ExplanationMode
   powerMode?: 'auto' | 'manual'
   onPowerModeChange?: (mode: 'auto' | 'manual') => void
@@ -619,7 +617,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
           </Button>
         </div>
         <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
-        <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.lga} configured={state.maxDropPercent} />
+        <InstallationField value={installationType} limit={limits.lga} configured={state.maxDropPercent} />
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
@@ -645,13 +643,12 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, onInstallationTypeChange, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W' }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W' }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
   showSourceNotes?: boolean
   installationType: InstallationType
-  onInstallationTypeChange: (type: InstallationType) => void
   explanationMode?: ExplanationMode
   system?: 'single-phase' | 'three-phase'
   editingLabel?: string
@@ -680,7 +677,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           </Button>
         </div>
         <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
-        <InstallationField value={installationType} onChange={onInstallationTypeChange} limit={limits.di} configured={state.maxDropPercent} />
+        <InstallationField value={installationType} limit={limits.di} configured={state.maxDropPercent} />
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
           <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
@@ -777,7 +774,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
           <section key={table.key} className="mt-6 first:mt-0">
             <h4 className="mb-2 text-sm font-semibold text-ink-muted">{table.title}</h4>
             <SimpleTable head={table.head} rows={table.rows} minWidth={860} />
-            <p className="mt-1 text-xs text-ink-faint">{table.doc}</p>
+            <SourceNote label={table.doc.split('.')[0]}>{table.doc} <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>
           </section>
         ))}
 

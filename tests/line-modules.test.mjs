@@ -62,8 +62,8 @@ test('line inputs persist and reach the exports', () => {
   assert.match(calc, /di: lineTouched \? di : null/, 'DI saved only once touched')
   assert.match(calc, /setLga\(savedInputs\.lga as LineState\)/, 'LGA restored from storage')
   assert.match(calc, /lines: \{/, 'JSON export carries a lines block')
-  assert.ok(calc.includes("'6. Línea General de Alimentación · ITC-BT-14'"), 'PDF has an LGA page')
-  assert.ok(calc.includes("'7. Derivación Individual · ITC-BT-15'"), 'PDF has a DI page')
+  assert.ok(calc.includes("'7. Línea General de Alimentación · ITC-BT-14'"), 'PDF has an LGA page')
+  assert.ok(calc.includes("'8. Derivación Individual · ITC-BT-15'"), 'PDF has a DI page')
 })
 
 test('the table viewer shows the reference source instead of an unattributed list', () => {
@@ -72,6 +72,7 @@ test('the table viewer shows the reference source instead of an unattributed lis
   assert.match(modules, /guías BT-14/, 'the LGA guide is cited')
   assert.match(modules, /BT-15/, 'the DI guide is cited')
   assert.ok(modules.includes('GUIDE_TABLES'), 'the transcribed guide tables are rendered')
+  assert.match(modules, /<SourceNote label=\{table\.doc\.split\('\.'\)\[0\]\}/, 'each guide table cites its source in a hover note')
   assert.match(read('lib/guide-tables.mjs'), /BT14_AIR_COPPER/, 'table A of the LGA guide is transcribed')
   assert.match(modules, /40 °C/, 'reference ambient temperature stated')
   assert.match(modules, /400 mm²/, 'published erratum disclosed')

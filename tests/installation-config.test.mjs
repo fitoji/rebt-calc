@@ -42,15 +42,16 @@ test('the calculator applies the scenario to both lines', () => {
   assert.match(calc, /maxDropPercent: 1,/, 'DI starts at the centralised-meter limit')
 })
 
-test('the LGA tab is disabled when the scenario has no line', () => {
-  assert.match(calc, /disabled=\{installationType === 'single-user'\}/, 'the tab follows the scenario')
-  assert.match(calc, /no tiene línea general de alimentación/, 'the disabled tab explains why')
-  assert.match(calc, /setActiveTab\(current => current === 'lga' \? 'di' : current\)/, 'an open LGA tab moves away when it disappears')
+test('the LGA tab stays open and explains the single-user scenario', () => {
+  assert.doesNotMatch(calc, /<TabsTrigger value="lga" disabled=/, 'the tab is never disabled: the card lives there')
+  assert.match(calc, /Único usuario sin línea general\./, 'the panel explains why there is no LGA')
+  assert.match(calc, /installationType === 'single-user'\s*\? <p/, 'the notice replaces the LGA panel in that scenario')
+  assert.match(calc, /<MeterCenterCard/, 'the meter card is always reachable')
 })
 
-test('the scenario select shows Spanish labels, not internal ids', () => {
-  assert.match(lines, /INSTALLATION_SCENARIOS\.find\(scenario => scenario\.id === selected\)\?\.label/, 'the trigger maps ids to labels')
-  assert.doesNotMatch(lines, /<SelectValue \/>/, 'no bare SelectValue that would print the raw id')
-  assert.match(lines, /<label htmlFor="installation-type"/, 'the visible label is a real label')
-  assert.match(lines, /<SelectTrigger id="installation-type"/, 'the trigger is associated with that label')
+test('the scenario is shown as derived from the meter centre, not as a second selector', () => {
+  assert.match(lines, /Se deriva de la centralización de contadores/, 'the field names where the scenario comes from')
+  assert.match(lines, /INSTALLATION_SCENARIOS\.find\(scenario => scenario\.id === value\)\?\.label/, 'the field maps ids to Spanish labels')
+  assert.doesNotMatch(lines, /id="installation-type"/, 'the old scenario selector is gone')
+  assert.match(calc, /<MeterCenterCard/, 'the meter centre card is the source of the scenario')
 })

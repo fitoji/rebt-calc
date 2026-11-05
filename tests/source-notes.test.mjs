@@ -12,9 +12,12 @@ const notes = [...calc.matchAll(/<SourceNote\b([\s\S]*?)<\/SourceNote>/g)].map(m
 test('every load card documents its regulatory source', () => {
   assert.equal(notes.length, 5, 'the five previsión cards carry a source note')
   for (const note of notes) {
-    assert.match(note, /ITC-BT-10 §/, 'each note cites the ITC-BT-10 section')
-    assert.match(note, /BoeLink/, 'each note links to the BOE')
+    assert.match(note, /BoeLink/, 'each note links to its source')
   }
+  for (const note of notes.slice(0, 4)) {
+    assert.match(note, /ITC-BT-10 §/, 'each load note cites the ITC-BT-10 section')
+  }
+  assert.match(notes[4], /Guía-BT-52/, 'the EV forecast cites the guide that fixes it')
 })
 
 test('source notes cite the verified sections', () => {
@@ -26,7 +29,8 @@ test('source notes cite the verified sections', () => {
   assert.match(premises, /§3\.3/, 'commercial premises come from ITC-BT-10 §3.3')
   assert.match(premises, /§4\.2/, 'industry concentration comes from ITC-BT-10 §4.2')
   assert.match(garages, /§3\.4/, 'garages come from ITC-BT-10 §3.4')
-  assert.match(irve, /§5\.2/, 'EV charging comes from ITC-BT-10 §5.2')
+  assert.match(irve, /Guía-BT-52/, 'EV charging comes from Guía-BT-52, Anexo 2')
+  assert.doesNotMatch(irve, /ITC-BT-10 §5\.2/, 'the guide is not an ITC-BT-10 clause')
 })
 
 test('BOE links point to the consolidated regulation', () => {
@@ -34,6 +38,7 @@ test('BOE links point to the consolidated regulation', () => {
 
   assert.match(shared, /https:\/\/www\.boe\.es\/buscar\/act\.php\?id=BOE-A-2002-18099/, 'REBT consolidated text')
   assert.match(shared, /https:\/\/www\.boe\.es\/buscar\/doc\.php\?id=BOE-A-2014-13681/, 'RD 1053/2014 for the EV section')
+  assert.match(shared, /guia_bt_52_nov17R1\.pdf/, 'Guía-BT-52, the source of the 10 % forecast')
 })
 
 test('source notes can be switched off from the calculation settings', () => {
@@ -55,18 +60,20 @@ test('source notes can be switched off from the calculation settings', () => {
 test('the line modules cite their own norm and follow the same toggle', () => {
   const lines = readFileSync(path.join(root, 'components/line-modules.tsx'), 'utf8')
   const notes = [...lines.matchAll(/<SourceNote\b([\s\S]*?)<\/SourceNote>/g)].map(match => match[1])
+  const panelNotes = notes.slice(0, 2)
 
-  assert.equal(notes.length, 2, 'LGA and DI each carry a source note')
+  assert.ok(notes.length >= 2, 'the guide tables add their own source notes')
   assert.match(notes[0], /ITC-BT-14 §3/, 'LGA cites ITC-BT-14')
   assert.match(notes[0], /0,5 %/, 'LGA cites the centralised-meter limit')
   assert.match(notes[1], /ITC-BT-15 §3/, 'DI cites ITC-BT-15')
   assert.match(notes[1], /0,5 %[\s\S]*1 %[\s\S]*1,5 %/, 'DI cites all three drop limits')
-  for (const note of notes) assert.match(note, /BoeLink/, 'each note links to the BOE')
+  for (const note of panelNotes) assert.match(note, /BoeLink/, 'each panel note links to the BOE')
+  assert.match(lines, /<SourceNote label=\{table\.doc\.split\('\.'\)\[0\]\}/, 'each guide table cites its source')
 
   assert.equal(
     [...lines.matchAll(/\{showSourceNotes && <SourceNote\b/g)].length,
     2,
-    'both notes are behind the settings toggle',
+    'both panel notes are behind the settings toggle',
   )
   assert.match(lines, /showSourceNotes\?: boolean/, 'the panels accept the toggle as a prop')
 })
@@ -76,7 +83,7 @@ test('the on-screen note is only the short reference; the detail lives in the ho
   const lines = readFileSync(path.join(root, 'components/line-modules.tsx'), 'utf8')
   const shared = readFileSync(path.join(root, 'components/source-note.tsx'), 'utf8')
 
-  const labels = ['ITC-BT-25 tabla A e ITC-BT-10 §3.1', 'ITC-BT-10 §3.2', 'ITC-BT-10 §3.3 y §4.2', 'ITC-BT-10 §3.4', 'ITC-BT-10 §5.2', 'ITC-BT-14 §3', 'ITC-BT-15 §3']
+  const labels = ['ITC-BT-25 tabla A e ITC-BT-10 §3.1', 'ITC-BT-10 §3.2', 'ITC-BT-10 §3.3 y §4.2', 'ITC-BT-10 §3.4', 'Guía-BT-52 · Anexo 2', 'ITC-BT-14 §3', 'ITC-BT-15 §3']
   for (const label of labels) assert.ok(`${calc}\n${lines}`.includes(`label="${label}"`), `short label present: ${label}`)
 
   assert.match(shared, /<HoverCard>/, 'the note uses the shadcn hover card')

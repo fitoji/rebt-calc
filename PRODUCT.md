@@ -61,10 +61,17 @@ on-screen row, the subtotal and the PDF, so display, totals and export cannot di
 
 **Confirmed capability**
 
-- Three modules in one app: previsión de cargas (P1–P5 + total), LGA, DI.
+- Four modules in one app: previsión de cargas (P1–P5 + total), LGA, DI, and the
+  boards: the dwelling DGMP (ITC-BT-25) and the interior board of locals and
+  common services (ITC-BT-19).
+- Meter forms (ITC-BT-16) inside the LGA tab: placement, assembly (CPM, room,
+  cabinet, modules, panels), cabinet type, meter count, floor and functional
+  units, with the instruction checks, the room requirements and the link
+  scenario derived from it.
 - Previsión blocks: P1 viviendas with simultaneity coefficient, P2 servicios generales
   (elevators, largest-motor 25 % uplift, other loads, common-area lighting), P3 locales
-  and industry, P4 garajes, P5 IRVE (with the legal 10 % minimum), plus the total.
+  and industry, P4 garajes, P5 IRVE (with the 10 % minimum set by Guía-BT-52,
+  Anexo 2), plus the total.
 - Line sizing returns `Ib`, section by voltage drop, normalized section adopted, `Iz`
   corrected by grouping/laying, proposed protection with `Ib ≤ In ≤ Iz` verified, and
   neutral/PE derived from the phase section.
@@ -72,7 +79,7 @@ on-screen row, the subtotal and the PDF, so display, totals and export cannot di
   once per project and fixes both the LGA and DI drop limits together.
 - Editable calculation parameters with documented defaults (5 750 / 9 200 W
   electrificación, 3 450 W local minimum, 20 / 10 W/m² garaje, lighting densities,
-  3 680 W per IRVE plaza, 735,5 W/CV).
+  3 680 W per IRVE charging point, 735,5 W/CV).
 - Persistence in versioned `localStorage` keys with row-by-row validation on read;
   "Limpiar" clears project data but keeps calculation parameters.
 - Light/dark theme applied before first paint, stored preference, OS does not override it.

@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { BOE_ITC_BT_52, BOE_REBT } from '@/components/source-note'
+import { BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52 } from '@/components/source-note'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { HELP_GROUPS } from '@/lib/help-sections.mjs'
@@ -284,7 +284,7 @@ export function HelpDoc() {
                   Los garajes se prevén por superficie y por cómo se ventilan, porque la ventilación es lo que determina la carga de los extractores.
                 </p>
                 <p>
-                  Cada garaje lleva además el número de plazas. Es un dato informativo: no cambia la potencia de P4, que sale de la superficie, y sirve para el recuento de plazas construidas que la ITC-BT-10 §5.2 usa en el mínimo del 10 % de recarga.
+                  Cada garaje lleva además el número de plazas. Es un dato informativo: no cambia la potencia de P4, que sale de la superficie, y sirve para el recuento de plazas construidas que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de recarga.
                 </p>
                 <DataTable
                   head={['Ventilación', 'Densidad', 'Mínimo']}
@@ -302,7 +302,7 @@ export function HelpDoc() {
 
               <Section id="p5" title="P5 · Recarga de vehículos">
                 <p>
-                  La recarga del vehículo eléctrico entra en la previsión desde la modificación del REBT por el RD 1053/2014: <strong>3.680 W por cada plaza</strong> de las que hay que prever. Cuántas plazas se consideran depende del escenario que elijas.
+                  La recarga del vehículo eléctrico entra en la previsión con la ITC-BT-52 (añadida por el RD 1053/2014): <strong>3.680 W por cada plaza</strong> de las que hay que prever. Cuántas plazas se consideran depende del escenario que elijas; el mínimo del 10 % lo fija el Anexo 2 de la Guía-BT-52.
                 </p>
                 <DataTable
                   head={['Escenario', 'Plazas consideradas', 'Simultaneidad']}
@@ -313,7 +313,7 @@ export function HelpDoc() {
                   ]}
                 />
                 <p>
-                  El 10 % es el mínimo legal. Las dos opciones de «todas las plazas» son una previsión ampliada: tienen sentido cuando el promotor ya sabe que va a electrificar el aparcamiento completo y quiere dimensionar la LGA para ello. El SPL (sistema de protección de la línea) permite aplicar el 0,3 de la ITC-BT-52.
+                  El 10 % es el mínimo reglamentario de previsión de potencia: lo fija el Anexo 2 de la Guía-BT-52 para vivienda nueva con garaje en régimen de condominio, no un apartado de la ITC-BT-10. La preinstalación de conductos es otra obligación: el CTE (DB-HE 6) la lleva al 100 % de las plazas en residencial privado. Las dos opciones de «todas las plazas» son una previsión ampliada: tienen sentido cuando el promotor ya sabe que va a electrificar el aparcamiento completo y quiere dimensionar la LGA para ello. El SPL (sistema de protección de la línea) permite aplicar el 0,3 de la ITC-BT-52.
                 </p>
                 <Shot
                   id="irve"
@@ -346,13 +346,13 @@ export function HelpDoc() {
 
               <Section id="supuestos" title="Supuesto de instalación">
                 <p>
-                  Antes de dimensionar hay que decir cómo está resuelta la instalación, porque de eso dependen las caídas máximas admisibles. El selector está en la pestaña de la LGA y cambia el reparto entre la línea general y las derivaciones individuales.
+                  Antes de dimensionar hay que decir cómo está resuelta la instalación, porque de eso dependen las caídas máximas admisibles. El supuesto no se elige suelto: se deriva de la card de <strong>formas de contadores</strong> (ITC-BT-16) que está al principio de la pestaña de la LGA. Ahí se dice si la medida es individual, concentrada en un lugar o en más de un lugar; de ahí salen el supuesto y el reparto de caídas.
                 </p>
                 <DataTable
                   head={['Supuesto de enlace', 'Caída en la LGA', 'Caída en la DI']}
                   rows={[
                     ['Contadores totalmente centralizados', '0,5 %', '1 %'],
-                    ['Centralizaciones parciales (más de un local)', '1 %', '0,5 %'],
+                    ['Centralizaciones parciales (más de un lugar)', '1 %', '0,5 %'],
                     ['Único usuario sin LGA', 'No hay LGA', '1,5 %'],
                   ]}
                 />
@@ -360,6 +360,25 @@ export function HelpDoc() {
                   <p>La LGA se calcula siempre trifásica: es la línea que alimenta el edificio desde la caja general de protección.</p>
                   <p>En el supuesto de único usuario la pestaña <code>LGA</code> se desactiva, porque esa línea no existe: se pasa de la caja general a la derivación individual.</p>
                   <p>Cada derivación usa el sistema que le corresponde: las viviendas y los garajes, monofásicos; los servicios generales, trifásicos; los locales e industrias, según su tipo.</p>
+                </Note>
+              </Section>
+
+              <Section id="contadores" title="Formas de contadores">
+                <p>
+                  Entre la LGA y las derivaciones individuales está la centralización de contadores. La card de la pestaña <code>LGA</code> recoge las formas de contadores de la ITC-BT-16 y avisa cuando la combinación no cumple: forma de colocación (individual, concentrada en un lugar o concentrada en más de un lugar), conjunto de medida (caja de protección y medida, local, armario, módulos o paneles), tipo de armario, número de contadores, concentraciones, planta y unidades funcionales. Debajo lista los requisitos del cuarto que la instrucción exige para el conjunto elegido.
+                </p>
+                <DataTable
+                  head={['Regla', 'Límite']}
+                  rows={[
+                    ['Armario de contadores', 'Hasta 16 contadores por concentración'],
+                    ['Más de 16 contadores', 'Local obligatorio'],
+                    ['Edificios de más de 12 plantas', 'Se admite concentrar en plantas intermedias, 6 o más plantas por concentración'],
+                    ['Interruptor general de maniobra', 'Obligatorio con más de dos usuarios: 160 A hasta 90 kW, 250 A hasta 150 kW'],
+                    ['Montaje', '0,25 m del suelo y 1,80 m como máximo al cuadrante de lectura'],
+                  ]}
+                />
+                <Note title="El número de contadores">
+                  <p>La app lo propone desde la previsión: una unidad por vivienda, una por local, una para los servicios generales y otra para la infraestructura de recarga si hay plazas. Se puede fijar a mano y volver a la propuesta cuando quieras.</p>
                 </Note>
               </Section>
 
@@ -382,7 +401,7 @@ export function HelpDoc() {
                     ['Método de instalación', 'Columna de la tabla: A, B1, B2, C, E o F'],
                     ['Aislamiento', 'Fijo en XLPE: la ITC-BT-14 sólo admite RZ1-K o DZ1-K de 0,6/1 kV'],
                     ['Circuitos agrupados, capas y tubos', 'Factores de reducción de las tablas E, F, G, H e I'],
-                    ['Protección ya elegida', '0 deja que la app elija; otro valor fija el interruptor'],
+                    ['Protección de la línea (In)', '0 deja que la app elija; otro valor fija el interruptor que verifica Ib ≤ In ≤ Iz. No es el IGA.'],
                   ]}
                 />
                 <SubHeading>Qué te devuelve</SubHeading>
@@ -393,7 +412,7 @@ export function HelpDoc() {
                   <><strong>Intensidad de cálculo (Ib) e intensidad admisible corregida (Iz).</strong> La corriente que la línea debe transportar y la que admite la sección elegida después de aplicar el agrupamiento, enfrentadas en la cabecera de la tarjeta.</>,
                   <><strong>Sección de fase.</strong> La que propone el cálculo o la que fijes a mano; al cambiarla se recalculan todos los conductores.</>,
                   <><strong>Conductores y caída de tensión.</strong> La sección de fase que pide la caída, la caída resultante frente al límite y el detalle de fase, neutro, protección y tubo.</>,
-                  <><strong>Protección (In).</strong> El interruptor automático de la serie normalizada que protege esa sección, con la verificación Ib ≤ In ≤ Iz.</>,
+                  <><strong>Protección de la línea (In).</strong> El interruptor automático de la serie normalizada que protege esa sección, con la verificación Ib ≤ In ≤ Iz. No es el IGA ni el ICP: es el dispositivo que garantiza que el conductor no se sobrecargue.</>,
                 ]} />
                 <Shot
                   id="lga"
@@ -431,6 +450,24 @@ export function HelpDoc() {
                   alt="Pestaña de derivaciones individuales con la lista de suministros del edificio a la izquierda y el panel de la derivación seleccionada a la derecha con su resultado"
                   caption="DI de una vivienda del ejemplo: la lista de suministros sale del proyecto y cada uno tiene su propia línea."
                 />
+              </Section>
+
+              <Section id="interiores" title="Cuadros e instalación interior">
+                <p>
+                  La pestaña <code>Cuadros</code> tiene dos bloques. El primero muestra el cuadro de mando y protección (DGMP) de cada vivienda: el IGA que fija su escalón de potencia, el ICP que depende de la potencia contratada y los diferenciales que exige la ITC-BT-25. El segundo resuelve el cuadro interior de un local o de los servicios generales, que no tienen lista fija de circuitos: se cargan las cargas reales y cada una se dimensiona con la ITC-BT-19 (3 % en alumbrado, 5 % en los demás usos; 4,5 % y 6,5 % en industria alimentada en alta tensión con transformador propio), con la protección de la ITC-BT-22 y el diferencial de 30 mA de la ITC-BT-24. Arriba se muestran la potencia prevista del suministro y el IGA que le corresponde, y abajo el interruptor general que pide el conjunto de circuitos.
+                </p>
+                <DataTable
+                  head={['Elemento', 'Criterio']}
+                  rows={[
+                    ['IGA', 'Tabla A de la ITC-BT-25 según el escalón; potencia máxima 230 × IGA'],
+                    ['ICP', 'Envolvente precintable; su calibre lo fija la potencia contratada (ITC-BT-17)'],
+                    ['Diferenciales', '30 mA, intensidad asignada ≥ IGA, uno por cada 5 circuitos'],
+                    ['Sobretensiones', 'Solo cuando la ITC-BT-23 lo exige'],
+                  ]}
+                />
+                <p>
+                  Los únicos datos que se cargan a mano son la potencia contratada, el número de circuitos instalados y si lleva protección contra sobretensiones. El número de circuitos arranca en el valor del grado (5 en básica, 10 en elevada) y se puede cambiar. Debajo, la tabla de circuitos de la ITC-BT-25 muestra el nombre, el PIA, la sección mínima, el tubo, el máximo de puntos y la potencia por toma de cada circuito del grado; C13 aparece si el proyecto prevé recarga de vehículos. Cada fila admite la longitud del circuito: con ella se calcula la caída al 3 % a la intensidad del PIA y, si la sección de tabla no alcanza, se adopta la superior; si no hay sección en la serie, la caída se marca en rojo con el máximo permitido. Más abajo se cargan las estancias de la vivienda (salón, cocina, baños, dormitorios, pasillos, terrazas, garaje) con su superficie y longitud: la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y de tomas por circuito, y los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El IGA y la potencia máxima salen del escalón de la vivienda; el ICP se muestra como la intensidad que implica la potencia contratada, no como un calibre inventado.
+                </p>
               </Section>
 
               <Section id="seccion" title="Cómo se elige la sección">
@@ -477,6 +514,9 @@ export function HelpDoc() {
                 </p>
                 <p>
                   En las líneas recorre los mismos pasos que pide el ELEC-3: el momento eléctrico, la sección por caída con su parcial y su total, la tabla de candidatas con la razón por la que cada una se descarta, los conductores con su designación y el diámetro del tubo, la protección y la caída con <code>In</code> —que es la que decide la sección cuando la protección está fijada—. En las derivaciones de vivienda añade el IGA del escalón de potencia y la potencia máxima admisible.
+                </p>
+                <p>
+                  En <strong>formas de contadores</strong> desarrolla la colocación elegida, el conjunto de medida, el supuesto de enlace que se deriva con sus caídas, las comprobaciones de la ITC-BT-16 y los requisitos del cuarto. Es el mismo texto que sale en la página 6.1 del PDF.
                 </p>
                 <Shot
                   id="didactico"
@@ -559,8 +599,9 @@ export function HelpDoc() {
               <Section id="fuentes" title="Normativa y fuentes">
                 <p>Las reglas que aplica la app salen de estos textos:</p>
                 <Bullets items={[
-                  <><a href={BOE_REBT} target="_blank" rel="noopener noreferrer" className={LINK}>RD 842/2002 · Reglamento Electrotécnico de Baja Tensión<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, con sus instrucciones técnicas complementarias ITC-BT-10 (previsión de cargas), ITC-BT-14 (LGA), ITC-BT-15 (derivaciones individuales), ITC-BT-19 (intensidades admisibles) y ITC-BT-47 (motores).</>,
-                  <><a href={BOE_ITC_BT_52} target="_blank" rel="noopener noreferrer" className={LINK}>RD 1053/2014<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, que añadió al REBT la infraestructura para la recarga del vehículo eléctrico (ITC-BT-52) y la previsión de P5.</>,
+                  <><a href={BOE_REBT} target="_blank" rel="noopener noreferrer" className={LINK}>RD 842/2002 · Reglamento Electrotécnico de Baja Tensión<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, con sus instrucciones técnicas complementarias ITC-BT-10 (previsión de cargas), ITC-BT-14 (LGA), ITC-BT-15 (derivaciones individuales), ITC-BT-16 (centralización de contadores), ITC-BT-19 (intensidades admisibles) y ITC-BT-47 (motores).</>,
+                  <><a href={BOE_ITC_BT_52} target="_blank" rel="noopener noreferrer" className={LINK}>RD 1053/2014<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, que añadió al REBT la infraestructura para la recarga del vehículo eléctrico (ITC-BT-52).</>,
+                  <><a href={GUIA_BT_52} target="_blank" rel="noopener noreferrer" className={LINK}>Guía-BT-52, Anexo 2<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, que fija en el 10 % de las plazas construidas la previsión de potencia mínima para la recarga en vivienda nueva.</>,
                   <>Guía-BT-19 del Ministerio de Industria, Turismo y Comercio (febrero de 2009, revisión 2), que reproduce las tablas de la UNE 20460-5-523:2004 que la instrucción aplica.</>,
                 ]} />
                 <p className="pt-2 text-sm text-ink-faint">

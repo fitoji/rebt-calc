@@ -2,11 +2,12 @@
 
 Calculadora web **open source** para calcular la **previsión de cargas eléctricas** de un edificio en **baja tensión** y dimensionar sus líneas, conforme al **REBT** (Reglamento Electrotécnico de Baja Tensión, España).
 
-Tres módulos en la misma app:
+Cuatro módulos en la misma app:
 
 - **Previsión de cargas** — ITC-BT-10, desglose P1–P5 y total del suministro.
-- **LGA** — Línea General de Alimentación, ITC-BT-14.
+- **LGA** — Línea General de Alimentación, ITC-BT-14, con la centralización de contadores (ITC-BT-16).
 - **DI** — Derivación Individual, ITC-BT-15.
+- **Cuadros** — DGMP de la vivienda (ITC-BT-25) y cuadro interior de locales y servicios generales (ITC-BT-19).
 
 Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proyecto y obtenés potencias y secciones al instante, sin hojas de cálculo frágiles. Todo corre en el navegador: **ningún dato sale del equipo**.
 
@@ -93,6 +94,10 @@ Y para las líneas, cada módulo devuelve:
 | Protección `In` | serie normalizada, con verificación `Ib ≤ In ≤ Iz` | ídem |
 | Neutro y PE | — | prefijados desde la sección de fase y editables |
 
+Entre la LGA y la DI, la pestaña de la LGA incluye la card **Formas de contadores** (ITC-BT-16): forma de colocación (individual · CPM, concentrada en un lugar · LGA 0,5 % / DI 1 %, concentrada en más de un lugar · LGA 1 % / DI 0,5 %), conjunto de medida (caja de protección y medida, local, armario, módulos o paneles), tipo de armario, número de contadores y de concentraciones, planta y unidades funcionales, con los requisitos del cuarto a la vista. La card verifica las combinaciones (armario solo hasta 16 contadores por concentración, local obligatorio por encima, interruptor general de maniobra de 160 o 250 A según potencia) y de ella se deriva el supuesto de enlace que fija las caídas de la LGA y de la DI.
+
+La pestaña **Cuadros** tiene dos bloques. El primero muestra el cuadro de mando y protección de cada vivienda: el IGA que fija su escalón de potencia, la potencia máxima admisible, el ICP que implica la potencia contratada y los diferenciales de 30 mA (uno por cada cinco circuitos, con 5 circuitos por defecto en básica y 10 en elevada), más la protección contra sobretensiones. Debajo despliega la tabla de circuitos de la ITC-BT-25 del grado (nombre, PIA, sección, tubo, máximo de puntos y potencia por toma; C13 si hay recarga de vehículos), con la longitud de cada circuito para verificar la caída al 3 % y adoptar la sección superior cuando la de tabla no alcanza. Más abajo se cargan las estancias con su superficie y longitud y la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y tomas por circuito, con los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El segundo resuelve el **cuadro interior de un local o de los servicios generales**, que no tienen lista fija de circuitos: se cargan las cargas reales (descripción, uso, potencia y longitud) y cada una se dimensiona con la ITC-BT-19 (3 % en alumbrado, 5 % en los demás usos), la protección `Ib ≤ In ≤ Iz` y el diferencial de 30 mA, con el interruptor general propuesto a partir de la intensidad del conjunto y la potencia del suministro con su IGA.
+
 Valores de referencia (los parámetros de cálculo se editan desde *Parámetros de cálculo*):
 
 - Escalones de potencia de vivienda (ITC-BT-25, tabla A): **básica** 5.750 W (25 A) o 7.360 W (32 A) · **elevada** 9.200 W (40 A), 11.500 W (50 A) o 14.490 W (63 A)
@@ -160,7 +165,7 @@ El tipo se elige por fila, así que un mismo edificio puede sumar locales comerc
 
 - Ventilación forzada: 20 W/m² · natural: 10 W/m².
 - Una fila sin superficie aporta 0.
-- Cada garaje registra su **número de plazas**. Es informativo: no interviene en la fórmula de P4 y solo se suma para mostrar el total de plazas de estacionamiento, que es el dato que la ITC-BT-10 §5.2 usa en el mínimo del 10 % de IRVE.
+- Cada garaje registra su **número de plazas**. Es informativo: no interviene en la fórmula de P4 y solo se suma para mostrar el total de plazas de estacionamiento, que es el dato que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de IRVE.
 
 ### P5 · IRVE
 
@@ -168,7 +173,7 @@ El tipo se elige por fila, así que un mismo edificio puede sumar locales comerc
 
 - `Cs = 1` sin SPL · `Cs = 0,3` con SPL.
 - Con la opción de mínimo 10 % se consideran `⌈plazas × 0,1⌉` plazas (al menos una).
-- El 10 % de las plazas es el mínimo legal (ITC-BT-10 §5.2); las opciones «todas las plazas» son una previsión ampliada.
+- El 10 % es el mínimo reglamentario de **previsión de potencia** y lo fija el Anexo 2 de la Guía-BT-52 para vivienda nueva con garaje en régimen de condominio; no es un apartado de la ITC-BT-10. La **preinstalación de conductos** es otra obligación: el CTE (DB-HE 6) la lleva al 100 % de las plazas en residencial privado. Las opciones «todas las plazas» son una previsión ampliada.
 
 ### Total del suministro
 
@@ -302,6 +307,7 @@ Reglas:
 ├── lib/                      # Fórmulas y tablas, sin React
 ├── tests/                    # Suite node:test
 ├── data/                     # Hoja original, guías del REBT y modelo ELEC-3
+├── docs/                     # Mapa de fuentes normativas y su estado
 ├── public/                   # Iconos e imágenes
 ├── odd/tasks/                # Notas de diseño y especificaciones de features
 └── mcp-excel-server/         # Utilidad aparte para leer la hoja original (opcional)
@@ -316,6 +322,11 @@ Reglas:
 | `service-loads.mjs` | P2: ascensores, motor mayor, otras cargas y alumbrado |
 | `line-sizing.mjs` | Dimensionado de LGA/DI: `Ib`, sección por caída, protección, momento y caída con `In` |
 | `housing-supply.mjs` | Escalones de potencia de vivienda: IGA y potencia máxima admisible |
+| `meter-center.mjs` | Centralización de contadores: selecciones de la ITC-BT-16 y sus verificaciones |
+| `interior-installation.mjs` | DGMP de la vivienda: IGA, ICP y diferenciales de la ITC-BT-25 |
+| `interior-circuits.mjs` | Cuadro interior de locales y servicios generales: circuitos libres de la ITC-BT-19 |
+| `housing-circuits.mjs` | Circuitos de la vivienda por grado, tabla 1 de la ITC-BT-25 |
+| `housing-points.mjs` | Puntos de utilización mínimos por estancia, tabla 2 de la ITC-BT-25 |
 | `cable-tables.mjs` | Intensidades admisibles y factores de corrección |
 | `export-formats.mjs` | Informe en Markdown y texto simple |
 | `pdf-theme.mjs` | Paleta del PDF (equivalente a los tokens de color) |

@@ -12,7 +12,7 @@ test('S1/S2/S4: the cards show the moment, the conductivity, both drops and the 
   assert.ok(modules.includes('${result.cableType}'), 'the conductor designation comes from the result, not from a literal')
   assert.equal(modules.includes('(RZ1-K 0,6/1 kV)`'), false, 'the hardcoded RZ1-K of the DI is gone')
   assert.match(modules, /id="lga-tube"/, 'the LGA tube can be set, so its minimum is actionable')
-  assert.match(modules, /El IGA no es el ICP/, 'the card says what the IGA is not')
+  assert.match(modules, /El IGA no es el ICP ni la protección In/, 'the card tells the IGA, the ICP and In apart')
 })
 
 test('S1/S4/S5: the memoria prints the same numbers as the card', () => {
