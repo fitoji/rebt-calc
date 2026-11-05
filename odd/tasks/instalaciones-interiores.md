@@ -117,3 +117,9 @@ Branch: `main`. Delivery: work-unit commits. Test runner: `node --test tests/*.t
   superficie de la fila de previsión, sincronizada al editar la fila); el card de
   estancias muestra superficie de la vivienda, suma de estancias y disponible, y marca en
   rojo cuando la suma la supera. Suite 344/344.
+- L15 (user, verbatim): "revisa ahora que llegue todo al informe, luego que el modo
+  didactico explique bien todas las opciones , commit y push, guarda en engram". El
+  informe Markdown/texto suma las secciones 11 (circuitos de vivienda), 12 (estancias) y
+  13 (puntos mínimos), y el PDF las páginas 12, 13 y 14. El modo didáctico explica el
+  DGMP (IGA, ICP, diferenciales), las estancias y puntos (tabla 2) y los cuadros de
+  locales/servicios (Ib, interruptor, circuitos). Commit cd76906 y push a main.
