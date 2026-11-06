@@ -4,6 +4,8 @@
 
 /* La copia antigua de la app no forma parte del build: no debe escanearse ni aportar clases. */
 @source not "../conversion-de-planilla-a-web";
+/* El prototipo del esquema unifilar es una referencia, no código de la app. */
+@source not "../data/esquema-unifiliar";
 /* La documentación de skills no es código de la app. */
 @source not "../.agents";
 
@@ -126,6 +128,7 @@
   --color-tab-di: var(--tab-di);
   --color-tab-di-soft: var(--tab-di-soft);
   --color-tab-di-ink: var(--tab-di-ink);
+  --color-tab-esquema: var(--tab-esquema);
 }
 
 :root {
@@ -237,6 +240,28 @@
   --tab-di: oklch(60.6% 0.25 292.717);
   --tab-di-soft: oklch(96.9% 0.016 293.756);
   --tab-di-ink: oklch(49.1% 0.27 292.581);
+  /* Esquema unifilar: ámbar de plano, el único acento cálido de la barra. */
+  --tab-esquema: oklch(72% 0.15 70);
+
+  /*
+   * Categóricos del esquema unifilar. Son seis tipos que deben distinguirse
+   * entre sí en el plano, no seis tonos de marca: por eso viven una sola vez y
+   * no se retocan por modo (didáctico/cálculo), donde la marca sí cambia.
+   * `line` pinta el trazo; `ink` escribe el rótulo, con la variante oscura que
+   * necesita un texto de 9 px sobre el papel.
+   */
+  --kind-dwelling: #2563eb;
+  --kind-dwelling-ink: #1d4ed8;
+  --kind-local: #b45309;
+  --kind-local-ink: #92400e;
+  --kind-common: #047857;
+  --kind-common-ink: #065f46;
+  --kind-garage: #475569;
+  --kind-garage-ink: #334155;
+  --kind-irve: #7c3aed;
+  --kind-irve-ink: #6d28d9;
+  --kind-custom: #0e7490;
+  --kind-custom-ink: #155e75;
 
   /*
    * Forma y relieve por defecto (= modo cálculo).
@@ -355,6 +380,21 @@
   --tab-di: oklch(70.2% 0.183 293.541);
   --tab-di-soft: oklch(28% 0.06 293);
   --tab-di-ink: oklch(84% 0.12 293);
+  --tab-esquema: oklch(80% 0.14 75);
+
+  /* Los mismos seis tipos, aclarados para el papel de noche. */
+  --kind-dwelling: #60a5fa;
+  --kind-dwelling-ink: #93c5fd;
+  --kind-local: #f59e0b;
+  --kind-local-ink: #fbbf24;
+  --kind-common: #34d399;
+  --kind-common-ink: #6ee7b7;
+  --kind-garage: #94a3b8;
+  --kind-garage-ink: #cbd5e1;
+  --kind-irve: #a78bfa;
+  --kind-irve-ink: #c4b5fd;
+  --kind-custom: #22d3ee;
+  --kind-custom-ink: #67e8f9;
 }
 
 /*
@@ -869,6 +909,10 @@ html.dark[data-explanation-mode="calculation"] {
 
   .tab-bar[data-active-tab='di'] {
     --tab-accent: var(--tab-di);
+  }
+
+  .tab-bar[data-active-tab='esquema'] {
+    --tab-accent: var(--tab-esquema);
   }
 
   .tab-indicator {

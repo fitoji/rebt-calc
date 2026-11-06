@@ -45,6 +45,7 @@ import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.
 import { LGA_INSULATION } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
+import { UnifilarPanel } from '@/components/unifilar-panel'
 
 type ProjectInfo = {
   companyName: string
@@ -177,7 +178,7 @@ const housingPowerItems = (level: HousingRow['level'], current: number, unit: 'W
   const items: ChoiceItem[] = steps.map(watts => ({ value: String(watts), label: formatPower(watts, unit) }))
   return steps.includes(current) ? items : [...items, { value: String(current), label: formatPower(current, unit) }]
 }
-const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di' | 'interiores', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15', interiores: 'ITC-BT-25 / 19' }
+const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di' | 'interiores' | 'esquema', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15', interiores: 'ITC-BT-25 / 19', esquema: 'ITC-BT-14 / 15 / 25' }
 const roomLabel = (type: string) => ROOM_LABELS[type as keyof typeof ROOM_LABELS] ?? type
 const INSTALLATION_LABELS: Record<string, string> = {
   centralized: 'Contadores totalmente centralizados',
@@ -185,7 +186,7 @@ const INSTALLATION_LABELS: Record<string, string> = {
   'single-user': 'Único usuario sin LGA',
 }
 // Orden de los módulos: decide hacia dónde entra el panel al cambiar de pestaña.
-const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores'] as const
+const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores', 'esquema'] as const
 type TabValue = (typeof TAB_ORDER)[number]
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
 
@@ -1165,12 +1166,13 @@ export function LoadCalculator() {
           </DialogContent>
         </Dialog>
         <Tabs value={activeTab} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
-          <TabsList data-active-tab={activeTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 rounded-tab-track border border-line bg-paper p-1">
+          <TabsList data-active-tab={activeTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
             <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
             <TabsTrigger value="lga" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
             <TabsTrigger value="di" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />DI</TabsTrigger>
             <TabsTrigger value="interiores" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />Cuadros</TabsTrigger>
+            <TabsTrigger value="esquema" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-esquema" />Esquema</TabsTrigger>
           </TabsList>
           <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
@@ -1360,6 +1362,15 @@ export function LoadCalculator() {
               <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
+          </TabsContent>
+          <TabsContent value="esquema" data-dir={tabDirection} className="tab-panel">
+            <UnifilarPanel
+              lga={{ ...lga, result: lgaResult }}
+              derivations={calculatedDerivations}
+              installationType={installationType}
+              onGenerateDerivations={generateDerivations}
+              onOpenDerivations={() => changeTab('di')}
+            />
           </TabsContent>
         </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
