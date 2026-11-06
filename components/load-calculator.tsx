@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/compo
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
-import { LGA_INSULATION } from '../lib/line-state.mjs'
+import { LGA_INSULATION, defaultLineState } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
 import { UnifilarPanel } from '@/components/unifilar-panel'
@@ -208,18 +208,8 @@ export function LoadCalculator() {
   const [showLineTables, setShowLineTables] = useState(false)
   const [lineTableFocus, setLineTableFocus] = useState<TableKey[] | null>(null)
   const [lineTouched, setLineTouched] = useState(false)
-  const [lga, setLga] = useState<LineState>({
-    powerW: 75000, voltageV: 400, cosPhi: 1, lengthM: 25, maxDropPercent: 0.5,
-    method: 'B1', insulation: 'XLPE', circuits: 1, protectionA: 0,
-    neutralSection: 35, peSection: 35, controlSection: 1.5, tubeDiameter: 140,
-    installation: 'air', layout: 'embedded', layers: 1, tubes: 1, sectionOverride: 0,
-  })
-  const [di, setDi] = useState<LineState>({
-    powerW: 9200, voltageV: 230, cosPhi: 1, lengthM: 20, maxDropPercent: 1,
-    method: 'B1', insulation: 'PVC', circuits: 1, protectionA: 0,
-    neutralSection: 16, peSection: 16, controlSection: 1.5, tubeDiameter: 40,
-    installation: 'air', layout: 'embedded', layers: 1, tubes: 1, sectionOverride: 0,
-  })
+  const [lga, setLga] = useState<LineState>(defaultLineState('lga'))
+  const [di, setDi] = useState<LineState>(defaultLineState('di'))
   const [derivations, setDerivations] = useState<Derivation[]>([])
   const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null)
   const [selectedDwellingId, setSelectedDwellingId] = useState<string | null>(null)
@@ -540,6 +530,14 @@ export function LoadCalculator() {
     setParking(0)
     setIrveOption(1)
     setDerivations([])
+    setSelectedDerivationId(null)
+    setSelectedDwellingId(null)
+    setSelectedSupplyId(null)
+    // The trimmed lines return to their defaults and leave the snapshot, so a
+    // cleared project cannot reopen with the previous lengths and overrides.
+    setLga(defaultLineState('lga'))
+    setDi(defaultLineState('di'))
+    setLineTouched(false)
     setLgaPowerMode('auto')
     setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
   }
