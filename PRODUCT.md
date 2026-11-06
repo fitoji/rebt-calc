@@ -61,9 +61,10 @@ on-screen row, the subtotal and the PDF, so display, totals and export cannot di
 
 **Confirmed capability**
 
-- Four modules in one app: previsión de cargas (P1–P5 + total), LGA, DI, and the
-  boards: the dwelling DGMP (ITC-BT-25) and the interior board of locals and
-  common services (ITC-BT-19).
+- Five modules in one app: previsión de cargas (P1–P5 + total), LGA, DI, the
+  boards —dwelling DGMP (ITC-BT-25) and the interior board of locals and common
+  services (ITC-BT-19)— and the single-line diagram (UNE-EN 60617) drawn from the
+  results the other modules already computed.
 - Meter forms (ITC-BT-16) inside the LGA tab: placement, assembly (CPM, room,
   cabinet, modules, panels), cabinet type, meter count, floor and functional
   units, with the instruction checks, the room requirements and the link

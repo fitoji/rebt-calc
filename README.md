@@ -2,12 +2,13 @@
 
 Calculadora web **open source** para calcular la **previsión de cargas eléctricas** de un edificio en **baja tensión** y dimensionar sus líneas, conforme al **REBT** (Reglamento Electrotécnico de Baja Tensión, España).
 
-Cuatro módulos en la misma app:
+Cinco módulos en la misma app:
 
 - **Previsión de cargas** — ITC-BT-10, desglose P1–P5 y total del suministro.
 - **LGA** — Línea General de Alimentación, ITC-BT-14, con la centralización de contadores (ITC-BT-16).
 - **DI** — Derivación Individual, ITC-BT-15.
 - **Cuadros** — DGMP de la vivienda (ITC-BT-25) y cuadro interior de locales y servicios generales (ITC-BT-19).
+- **Esquema** — unifilar del edificio con los símbolos de la UNE-EN 60617, dibujado con los resultados ya calculados.
 
 Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proyecto y obtenés potencias y secciones al instante, sin hojas de cálculo frágiles. Todo corre en el navegador: **ningún dato sale del equipo**.
 
@@ -58,8 +59,9 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 
 ## Interfaz
 
-- **Tres pestañas** con identidad de color propia: Previsión de cargas (marca), LGA (verde) y DI (violeta). El color se repite en el borde de las cards y en el punto de la pestaña activa.
+- **Cinco pestañas** con identidad de color propia: Previsión de cargas (marca), LGA (verde), DI (violeta), Cuadros (violeta) y Esquema (ámbar). El color se repite en el borde de las cards y en el punto de la pestaña activa.
 - **Cabecera con referencia normativa dinámica**: muestra `ITC-BT-10`, `ITC-BT-14` o `ITC-BT-15` según la pestaña abierta.
+- **Esquema unifilar**: la pestaña `Esquema` dibuja acometida, embarrado y una columna por derivación con los símbolos de la UNE-EN 60617, leyendo el resultado que ya calculó cada línea. La lámina se desplaza en horizontal y adapta sus colores al tema claro y oscuro.
 - **Panel de resultado** por módulo: en previsión, el total y el desglose P1–P5; en LGA y DI, la sección normalizada, la intensidad y los avisos de incumplimiento.
 - **Nota de fuente en cada card**: el apartado del BOE del que sale el criterio, con enlace al texto consolidado. Se puede ocultar desde *Parámetros de cálculo* («Leyendas en el pie de cada card»).
 - **Unidades de potencia**: vatios o kilovatios, desde *Parámetros de cálculo*. Cambia cómo se escriben y se ven las potencias (formularios, tarjetas, PDF e informes), no el cálculo: el proyecto guardado, el motor y el JSON exportado siguen en vatios, y las fórmulas del modo didáctico se escriben en vatios.
@@ -303,6 +305,9 @@ Reglas:
 ├── components/
 │   ├── load-calculator.tsx   # Estado, pestañas, previsión de cargas y exports
 │   ├── line-modules.tsx      # Módulos LGA/DI y visor de tablas
+│   ├── unifilar-diagram.tsx  # Lámina del esquema unifilar
+│   ├── unifilar-symbols.tsx  # Símbolos UNE-EN 60617, en variables CSS
+│   ├── unifilar-panel.tsx    # Pestaña Esquema: lámina, leyenda y símbolos
 │   └── ui/                   # Primitivas shadcn/ui (Base UI)
 ├── lib/                      # Fórmulas y tablas, sin React
 ├── tests/                    # Suite node:test
@@ -330,6 +335,7 @@ Reglas:
 | `cable-tables.mjs` | Intensidades admisibles y factores de corrección |
 | `export-formats.mjs` | Informe en Markdown y texto simple |
 | `pdf-theme.mjs` | Paleta del PDF (equivalente a los tokens de color) |
+| `unifilar.mjs` | Categorías, rótulos, diferenciales y geometría del esquema unifilar |
 | `calculator-storage.mjs` | Persistencia versionada con validación por fila |
 
 La regla es una sola: **ninguna fórmula se duplica**. Si una regla aparece en la fila, en el subtotal y en el PDF, vive en `lib/` y los tres la llaman.
@@ -354,6 +360,7 @@ Sin framework: `node:test` + `node:assert/strict`, sin dependencias.
 | `line-modules.test.mjs` | Sección de protección y tablas de línea |
 | `calculator-storage.test.mjs` | Persistencia, snapshots incompletos y limpieza |
 | `export-formats.test.mjs` | Informe Markdown y texto |
+| `unifilar.test.mjs` | Categorías, rótulos, geometría y diferenciales del esquema unifilar |
 | `source-notes.test.mjs` | Cada card cita su apartado del BOE y el toggle las oculta |
 | `design-tokens.test.mjs` | Ningún color de paleta cruda ni token sin declarar |
 | `contrast.test.mjs` | Contraste AA de los pares texto/fondo y 3:1 de bordes y foco, más el nombre accesible de cada control de tabla |

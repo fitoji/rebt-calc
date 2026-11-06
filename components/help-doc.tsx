@@ -470,6 +470,35 @@ export function HelpDoc() {
                 </p>
               </Section>
 
+              <Section id="esquema" title="Esquema unifilar">
+                <p>
+                  La pestaña <code>Esquema</code> dibuja el unifilar del edificio con los mismos resultados que ya
+                  calcularon las pestañas anteriores: no vuelve a dimensionar nada. A la izquierda está la acometida
+                  —la LGA con su protección y su cable—, de ella sale el embarrado general y de él cuelga una columna
+                  por derivación individual. Cada columna muestra el contador, la protección de la línea, el
+                  diferencial del cuadro del abonado y el receptor con su potencia.
+                </p>
+                <DataTable
+                  head={['Rótulo', 'Qué es']}
+                  rows={[
+                    ['In', 'Protección de la línea (Ib ≤ In ≤ Iz), no el IGA de la vivienda'],
+                    ['IGA', 'Escalón de potencia de la vivienda; solo se rotula si difiere de In'],
+                    ['IΔn · 30 mA', 'Sensibilidad del diferencial del cuadro del abonado (ITC-BT-24)'],
+                    ['ΔU', 'Caída de tensión de la línea, frente al límite de su supuesto'],
+                    ['Conforme / Revisar', 'Si el dimensionado de esa línea cumple todos sus criterios'],
+                  ]}
+                />
+                <p>
+                  El color identifica el tipo de suministro —vivienda, local, servicios generales, garaje, recarga de
+                  vehículos o derivación manual— y la leyenda bajo la lámina lo repite. Los símbolos siguen la norma
+                  UNE-EN 60617. Si el proyecto todavía no tiene derivaciones, la pestaña ofrece generarlas desde la
+                  previsión. En el suministro de único usuario no hay LGA y la lámina lo refleja: de la caja general
+                  se pasa a la medida individual y al embarrado, sin inventar una línea que el proyecto no tiene. La
+                  lámina crece a lo ancho y se desplaza en horizontal, así que en un edificio con muchas viviendas hay
+                  que arrastrarla para ver el final.
+                </p>
+              </Section>
+
               <Section id="seccion" title="Cómo se elige la sección">
                 <p>
                   La sección de una línea no sale de una sola fórmula: tiene que cumplir tres cosas a la vez, y la app adopta la primera sección comercial que las cumple todas. Si ninguna las cumple, no devuelve la mayor de la tabla: avisa de qué criterio falla.
