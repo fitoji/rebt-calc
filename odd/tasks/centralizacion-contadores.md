@@ -92,8 +92,9 @@ Branch: `main`. Delivery: work-unit commits. Test runner: `node --test tests/*.t
 - El umbral de armario se aplica por concentración (lectura de §2.2.2: «contadores a
   centralizar»), no al total del edificio. Queda anotado como interpretación.
 - Advertencia preexistente, fuera de alcance: «Limpiar» no resetea `lineTouched`, así que
-  un proyecto con la LGA tocada vuelve a guardar la LGA en el snapshot. No lo introduce
-  esta entrega.
+  los datos de entrada de las líneas sobreviven a una recarga tras limpiar (y un proyecto
+  con la LGA tocada vuelve a guardar la LGA en el snapshot). No lo introduce esta entrega.
+  *(Resuelto el 2026-11-06 por el fix `4dc1916` de `fix(cargas)`.)*
 - Verificación final: suite 305/305, `tsc --noEmit` limpio, `pnpm build` OK.
 - L5 (user, verbatim): "quiero que haya el select con los diferentes formas de contadores,
   pon lo en un card independiente dentro del tab lga, y agrega las opciones de forma de
