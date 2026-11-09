@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B · Sidebar izquierdo — Electro-cálculos</title>
+<style>
+  :root{
+    --surface-page:#f5f6f8; --paper:#fff; --surface-muted:#f3f4f6;
+    --line:#e5e7eb; --line-soft:#eee;
+    --ink:#111827; --ink-muted:#68707d; --ink-faint:#5f6673; --ink-ghost:#6b7280;
+    --brand:#527575; --brand-ink:#111827; --brand-soft:#eee; --brand-line:#d87943; --brand-mark:#d87943; --brand-on-panel:#e78a53;
+    --primary:#d87943; --primary-hover:#bd6533; --primary-fg:#fff;
+    --panel:#111827; --panel-fg:#c1c1c1; --panel-muted:#888; --panel-line:#222; --panel-edge:#333;
+    --danger:#b91c1c;
+    --tab-lga:#527575; --tab-di:#d87943; --tab-esquema:oklch(72% 0.15 70);
+    --r-tab:4px; --r-control:5px; --r-card:8px; --r-panel:10px; --r-track:8px;
+    --card-lift:0 1px 0 rgb(0 0 0 / 13%), 0 3px 7px -5px rgb(0 0 0 / 32%);
+    --panel-lift:0 1px 0 rgb(0 0 0 / 14%), 0 26px 40px -24px rgb(0 0 0 / 60%);
+    --control-lift:inset 0 1px 2px rgb(0 0 0 / 12%), inset 0 -1px 0 rgb(255 255 255 / 80%);
+    --font-sans:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--surface-page);color:var(--ink);font-family:var(--font-sans);font-size:14px;line-height:1.5;isolation:isolate}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:linear-gradient(to right, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--brand) 22%, transparent) 1px, transparent 1px),
+      linear-gradient(to right, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklab, var(--ink) 7%, transparent) 1px, transparent 1px);
+    background-size:480px 480px, 480px 480px, 96px 96px, 96px 96px;
+    -webkit-mask-image:linear-gradient(to bottom, rgb(0 0 0 / 55%), rgb(0 0 0 / 14%) 60%, transparent);
+    mask-image:linear-gradient(to bottom, rgb(0 0 0 / 55%), rgb(0 0 0 / 14%) 60%, transparent)}
+  /* shell: sidebar + main */
+  .app{display:grid;min-height:100vh;grid-template-columns:1fr}
+  @media(min-width:1180px){.app{grid-template-columns:284px minmax(0,1fr)}}
+  /* sidebar */
+  .side{border-right:1px solid var(--line);background:color-mix(in oklab, var(--paper) 92%, transparent);display:flex;flex-direction:column;gap:18px;padding:18px 16px 20px}
+  @media(min-width:1180px){.side{position:sticky;top:0;height:100vh;overflow:auto}}
+  .side .top{display:flex;align-items:center;gap:10px;padding:0 4px}
+  .side .glyph{width:28px;height:28px;border-radius:var(--r-card);background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700}
+  .side .top b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.05em}
+  .side .top small{display:block;font-size:10px;color:var(--ink-faint);letter-spacing:.1em;text-transform:uppercase}
+  /* total compacto en la sidebar */
+  .total{background:var(--panel);color:var(--panel-fg);border-radius:var(--r-panel);padding:14px 16px;box-shadow:var(--panel-lift)}
+  .total .k{margin:0;font-size:9.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--brand-on-panel)}
+  .total .n{margin:8px 0 0;font-size:24px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .total .n span{font-size:12px;font-weight:500;color:var(--panel-muted)}
+  .total .rows{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+  .total .r{display:flex;align-items:center;gap:8px;font-size:10.5px;color:var(--panel-muted)}
+  .total .r b{color:var(--brand-on-panel);width:18px;flex:none}
+  .total .r .v{margin-left:auto;color:#fff;font-variant-numeric:tabular-nums}
+  .total .r .t{height:3px;width:38px;border-radius:999px;background:var(--panel-line);overflow:hidden;flex:none}
+  .total .r .t i{display:block;height:100%;background:color-mix(in oklab, var(--brand-on-panel) 80%, transparent)}
+  /* nav */
+  nav{display:flex;flex-direction:column;gap:16px}
+  .group{display:flex;flex-direction:column;gap:2px}
+  .group > p{margin:0 0 4px;padding:0 8px;font-size:9.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
+  .navitem{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border:1px solid transparent;border-radius:var(--r-control);padding:9px 10px;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+  .navitem .i{width:20px;flex:none;text-align:center;color:var(--brand);font-size:12px}
+  .navitem small{display:block;font-weight:400;font-size:10px;color:var(--ink-faint);line-height:1.35}
+  .navitem:hover{background:color-mix(in oklab, var(--ink) 5%, transparent);border-color:var(--line)}
+  .navitem.primary{background:var(--primary);color:var(--primary-fg);border-color:transparent}
+  .navitem.primary .i{color:var(--primary-fg)}
+  .navitem.primary:hover{background:var(--primary-hover)}
+  .navitem.danger{color:var(--danger)}
+  .navitem.danger .i{color:var(--danger)}
+  .navitem:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .side .spacer{flex:1}
+  .sidenote{border-top:1px solid var(--line);padding-top:12px;font-size:10px;line-height:1.55;color:var(--ink-faint)}
+  /* main */
+  .main{min-width:0}
+  .site{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:12px 28px;border-bottom:1px solid var(--line)}
+  .site .right{display:flex;align-items:center;gap:16px}
+  .norm{text-align:right;line-height:1.3}
+  .norm small{display:block;font-size:10px;color:var(--ink-faint)}
+  .norm strong{font-size:12px}
+  .switch{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:600;color:var(--ink-faint);max-width:86px;text-align:right}
+  .switch i{width:30px;height:17px;border-radius:999px;background:var(--brand-line);position:relative;display:block;flex:none}
+  .switch i::after{content:"";position:absolute;top:2px;right:2px;width:13px;height:13px;border-radius:999px;background:#fff}
+  .iconbtn{width:30px;height:30px;border-radius:var(--r-control);border:1px solid transparent;background:transparent;color:var(--ink-faint);display:grid;place-items:center;cursor:pointer;font-size:13px}
+  .iconbtn:hover{background:var(--surface-muted);color:var(--ink)}
+  .iconbtn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .wrap{padding:24px 28px 40px}
+  .intro{max-width:76ch;margin-bottom:20px}
+  .intro h1{font-size:26px;margin:0;letter-spacing:-.02em}
+  .intro p{margin:8px 0 0;color:var(--ink-muted);font-size:13px}
+  .tabbar{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--paper);padding:4px;border-radius:var(--r-track);box-shadow:var(--card-lift);position:relative;max-width:100%;overflow:auto}
+  .tabbar button{position:relative;z-index:1;display:flex;align-items:center;gap:8px;border:0;background:transparent;border-radius:var(--r-tab);padding:6px 16px;font:inherit;font-size:13px;font-weight:600;color:var(--ink-muted);cursor:pointer;white-space:nowrap}
+  .tabbar button:hover{color:var(--ink);background:color-mix(in oklab, var(--ink) 6%, transparent)}
+  .tabbar button[aria-selected="true"]{color:var(--ink);background:transparent}
+  .tabbar .dot{width:6px;height:6px;border-radius:999px;flex:none;opacity:.55;transform:scale(.72);transition:transform 320ms cubic-bezier(.16,1,.3,1),opacity 320ms}
+  .tabbar button[aria-selected="true"] .dot{opacity:1;transform:scale(1)}
+  .caret{position:absolute;z-index:0;border-radius:var(--r-tab);background:color-mix(in oklab, var(--tab-mark) 18%, var(--paper));box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--tab-mark) 46%, transparent), var(--control-lift);transition:transform 320ms cubic-bezier(.16,1,.3,1),width 320ms cubic-bezier(.16,1,.3,1),height 320ms}
+  .panels{margin-top:22px}
+  .panel[hidden]{display:none}
+  .panel{animation:enter 300ms cubic-bezier(.16,1,.3,1)}
+  @keyframes enter{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion: reduce){.caret,.tabbar .dot{transition-duration:1ms}.panel{animation:none}}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-card);padding:20px;box-shadow:var(--card-lift)}
+  .card + .card{margin-top:16px}
+  .sechead{margin-bottom:18px}
+  .sechead h2{display:flex;align-items:center;gap:8px;margin:0;font-size:16px}
+  .code{display:inline-flex;align-items:center;border:1px solid var(--brand-line);background:var(--brand-soft);color:var(--brand-ink);border-radius:var(--r-tab);padding:2px 6px;font-size:11px;line-height:1;letter-spacing:.08em}
+  .sechead p{margin:4px 0 0;font-size:12px;color:var(--ink-faint)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);border-bottom:1px solid var(--line);padding:8px 10px;font-weight:600}
+  td{padding:9px 10px;border-bottom:1px solid var(--line-soft)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .mini-input{display:inline-block;min-width:56px;border:1px solid var(--line);border-radius:var(--r-control);padding:4px 8px;font:inherit;font-size:12px;background:var(--paper);box-shadow:var(--control-lift);text-align:center}
+  .metricrow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+  .metric{background:var(--surface-muted);border-radius:var(--r-control);padding:12px}
+  .metric p{margin:0;font-size:11px;color:var(--ink-faint)}
+  .metric strong{display:block;margin-top:3px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.accent{background:var(--brand-soft)}
+  .metric.accent strong{color:var(--brand)}
+  .addrow{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:var(--r-control);padding:9px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-outline{background:var(--paper);border-color:var(--line);color:var(--ink)}
+  .btn-outline:hover{border-color:color-mix(in oklab, var(--line), var(--ink) 22%);background:color-mix(in oklab, var(--ink) 3%, transparent)}
+  .hint{margin:16px 0 0;display:flex;gap:8px;background:var(--brand-soft);border-radius:var(--r-card);padding:10px 12px;font-size:11px;line-height:1.6;color:var(--brand-ink)}
+  .foot{margin-top:26px;font-size:10.5px;color:var(--ink-faint)}
+  .tag-demo{display:inline-flex;border:1px dashed var(--line);border-radius:999px;padding:3px 10px;font-size:10px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Proyecto y acciones">
+    <div class="top">
+      <span class="glyph" aria-hidden="true">⚡</span>
+      <span><b>Electro-cálculos</b><small>REBT · Diseño B</small></span>
+    </div>
+
+    <div class="total">
+      <p class="k">Potencia total prevista</p>
+      <p class="n">77.940 <span>W</span></p>
+      <div class="rows">
+        <div class="r"><b>P1</b>Viviendas<span class="t"><i style="width:100%"></i></span><span class="v">62.560</span></div>
+        <div class="r"><b>P2</b>Servicios<span class="t"><i style="width:8%"></i></span><span class="v">4.800</span></div>
+        <div class="r"><b>P3</b>Locales<span class="t"><i style="width:0%"></i></span><span class="v">0</span></div>
+        <div class="r"><b>P4</b>Garajes<span class="t"><i style="width:11%"></i></span><span class="v">6.900</span></div>
+        <div class="r"><b>P5</b>IRVE<span class="t"><i style="width:6%"></i></span><span class="v">3.680</span></div>
+      </div>
+    </div>
+
+    <nav aria-label="Acciones del proyecto">
+      <div class="group">
+        <p>Proyecto</p>
+        <button class="navitem"><span class="i" aria-hidden="true">▤</span><span>Cargar proyecto<small>Abrir un JSON guardado</small></span></button>
+        <button class="navitem"><span class="i" aria-hidden="true">↺</span><span>Cargar ejemplo<small>Edificio de referencia</small></span></button>
+      </div>
+      <div class="group">
+        <p>Configuración</p>
+        <button class="navitem"><span class="i" aria-hidden="true">⚙</span><span>Parámetros de cálculo<small>Coeficientes y equipos</small></span></button>
+        <button class="navitem"><span class="i" aria-hidden="true">▦</span><span>Datos de la memoria<small>Membrete del PDF</small></span></button>
+      </div>
+      <div class="group">
+        <p>Salida</p>
+        <button class="navitem primary"><span class="i" aria-hidden="true">⤓</span><span>Descargar datos<small style="color:inherit;opacity:.85">PDF · JSON · Markdown · texto</small></span></button>
+        <button class="navitem"><span class="i" aria-hidden="true">{}</span><span>Ver ELEC-3<small>Vista previa de la memoria</small></span></button>
+      </div>
+      <div class="group">
+        <p>Referencias</p>
+        <button class="navitem"><span class="i" aria-hidden="true">▥</span><span>Tablas y referencias<small>ITC-BT-10 y ITC-BT-25</small></span></button>
+      </div>
+    </nav>
+
+    <div class="spacer"></div>
+
+    <button class="navitem danger"><span class="i" aria-hidden="true">🗑</span><span>Limpiar proyecto</span></button>
+    <p class="sidenote">Separado del resto por ser destructivo: se sigue pidiendo confirmación.</p>
+  </aside>
+
+  <div class="main">
+    <header class="site">
+      <div class="norm" style="text-align:left"><small>Referencia normativa</small><strong>ITC-BT-10 · REBT</strong></div>
+      <div class="right">
+        <div class="switch"><span>Modo cálculo</span><i aria-hidden="true"></i></div>
+        <button class="iconbtn" aria-label="Cambiar tema">☾</button>
+        <button class="iconbtn" aria-label="Requisitos para proyecto o memoria técnica">☑</button>
+        <button class="iconbtn" aria-label="Cómo usar la app">?</button>
+      </div>
+    </header>
+
+    <div class="wrap">
+      <div class="intro">
+        <h1>De la previsión de cargas a cada derivación</h1>
+        <p>Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda, local, garaje o servicios generales.</p>
+      </div>
+
+      <div class="tabbar" id="tabs" role="tablist" aria-label="Módulos del proyecto" style="--tab-mark:#d87943">
+        <span class="caret" id="caret" aria-hidden="true"></span>
+        <button role="tab" id="tab-cargas" aria-selected="true" aria-controls="p-cargas" data-mark="#d87943"><span class="dot" style="background:#d87943"></span>Previsión de cargas</button>
+        <button role="tab" id="tab-lga" aria-selected="false" aria-controls="p-lga" data-mark="#527575"><span class="dot" style="background:#527575"></span>LGA</button>
+        <button role="tab" id="tab-di" aria-selected="false" aria-controls="p-di" data-mark="#d87943"><span class="dot" style="background:#d87943"></span>DI</button>
+        <button role="tab" id="tab-interiores" aria-selected="false" aria-controls="p-interiores" data-mark="#d87943"><span class="dot" style="background:#d87943"></span>Cuadros</button>
+        <button role="tab" id="tab-esquema" aria-selected="false" aria-controls="p-esquema" data-mark="oklch(72% 0.15 70)"><span class="dot" style="background:oklch(72% 0.15 70)"></span>Esquema</button>
+      </div>
+
+      <div class="panels">
+        <section class="panel" id="p-cargas" role="tabpanel" aria-labelledby="tab-cargas">
+          <div class="card">
+            <div class="sechead"><h2><span class="code">P1</span>Viviendas</h2><p>Electrificación básica y elevada por unidad</p></div>
+            <table>
+              <thead><tr><th>Vivienda</th><th>Electrificación</th><th>Potencia</th><th>Superficie</th><th>Unidades</th><th>Plazas garaje</th><th style="text-align:right">Subtotal</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>Vivienda 1</td><td>Básica</td><td><span class="mini-input">5.750</span></td><td><span class="mini-input">90</span></td><td><span class="mini-input">8</span></td><td>—</td><td class="num">46.000 W</td><td>🗑</td></tr>
+                <tr><td>Vivienda 2</td><td>Elevada</td><td><span class="mini-input">9.200</span></td><td><span class="mini-input">130</span></td><td><span class="mini-input">3</span></td><td>—</td><td class="num">27.600 W</td><td>🗑</td></tr>
+              </tbody>
+            </table>
+            <div class="addrow">
+              <button class="btn btn-outline">＋ Añadir vivienda</button>
+              <div class="metric accent" style="min-width:200px"><p>P1 · Viviendas</p><strong>62.560 W</strong></div>
+            </div>
+            <div class="metricrow">
+              <div class="metric"><p>Total viviendas</p><strong>11 uds.</strong></div>
+              <div class="metric"><p>Potencia media</p><strong>6.690 W</strong></div>
+              <div class="metric"><p>Superficie construida</p><strong>1.110 m²</strong></div>
+              <div class="metric"><p>Coeficiente de simultaneidad</p><strong>8,5</strong></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="sechead"><h2><span class="code">P2</span>Servicios generales</h2><p>Ascensores, motores, otras cargas y alumbrado de zonas comunes</p></div>
+            <table>
+              <thead><tr><th>Concepto</th><th>ITA</th><th>Potencia ITA</th><th>Potencia real</th><th>Unidad</th><th style="text-align:right">Total</th></tr></thead>
+              <tbody>
+                <tr><td>Ascensor 1</td><td>ITA-3</td><td>4.800 W</td><td><span class="mini-input">4.800</span></td><td>W</td><td class="num">4.800 W</td></tr>
+              </tbody>
+            </table>
+            <div class="addrow"><button class="btn btn-outline">＋ Añadir ascensor</button><div class="metric accent" style="min-width:200px"><p>P2 · Servicios generales</p><strong>4.800 W</strong></div></div>
+          </div>
+        </section>
+
+        <section class="panel" id="p-lga" role="tabpanel" aria-labelledby="tab-lga" hidden>
+          <div class="card">
+            <div class="sechead"><h2><span class="code" style="border-color:#527575">LGA</span>Línea general de alimentación</h2><p>ITC-BT-14 · 11 viviendas, contadores centralizados</p></div>
+            <div class="metricrow" style="grid-template-columns:repeat(3,1fr)">
+              <div class="metric"><p>Longitud</p><strong>18 m</strong></div>
+              <div class="metric"><p>Cable</p><strong>4×25 mm²</strong></div>
+              <div class="metric accent"><p>Sección</p><strong>25 mm²</strong></div>
+            </div>
+            <p class="hint">El contenido gana ancho: 1.076 px útiles en lugar de 762, porque el panel de resultado vive en la barra lateral.</p>
+          </div>
+        </section>
+
+        <section class="panel" id="p-di" role="tabpanel" aria-labelledby="tab-di" hidden>
+          <div class="card">
+            <div class="sechead"><h2><span class="code">DI</span>Derivaciones individuales</h2><p>12 líneas generadas desde la previsión</p></div>
+            <table>
+              <thead><tr><th>Línea</th><th>Origen</th><th>Tipo</th><th>Longitud</th><th>Sección</th><th>Método</th><th style="text-align:right">Potencia</th></tr></thead>
+              <tbody>
+                <tr><td>Vivienda 1 · Básica</td><td>Previsión P1</td><td>Monofásica</td><td>20 m</td><td>6 mm²</td><td>B1</td><td class="num">5.750 W</td></tr>
+                <tr><td>Servicios generales</td><td>Previsión P2</td><td>Trifásica</td><td>12 m</td><td>4 mm²</td><td>B1</td><td class="num">4.800 W</td></tr>
+                <tr><td>Garaje 1</td><td>Previsión P4</td><td>Monofásica</td><td>24 m</td><td>6 mm²</td><td>B2</td><td class="num">6.900 W</td></tr>
+              </tbody>
+            </table>
+            <div class="addrow"><span style="font-size:11.5px;color:var(--ink-faint)">Las tablas anchas caben sin scroll horizontal.</span><button class="btn btn-outline">Generar desde previsión</button></div>
+          </div>
+        </section>
+
+        <section class="panel" id="p-interiores" role="tabpanel" aria-labelledby="tab-interiores" hidden>
+          <div class="card">
+            <div class="sechead"><h2><span class="code">CGMP</span>Cuadros de vivienda</h2><p>ITC-BT-25 · circuitos interiores por vivienda</p></div>
+            <div class="metricrow" style="grid-template-columns:repeat(4,1fr)">
+              <div class="metric"><p>Circuito</p><strong>C1 · Iluminación</strong></div>
+              <div class="metric"><p>Puntos</p><strong>18</strong></div>
+              <div class="metric"><p>Conductor</p><strong>1,5 mm²</strong></div>
+              <div class="metric accent"><p>Cuadro</p><strong>9 circuitos</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="p-esquema" role="tabpanel" aria-labelledby="tab-esquema" hidden>
+          <div class="card">
+            <div class="sechead"><h2><span class="code" style="border-color:oklch(72% 0.15 70)">ESQ</span>Esquema unifilar</h2><p>Acometida, LGA, centralización y derivaciones en una hoja</p></div>
+            <div style="border:1px dashed var(--line);border-radius:var(--r-card);padding:36px;text-align:center;color:var(--ink-faint);font-size:12px">Diagrama unifilar · hoja ancha</div>
+          </div>
+        </section>
+      </div>
+
+      <p class="foot"><span class="tag-demo">Datos de demostración</span> &nbsp;Dirección B · barra lateral izquierda con las acciones agrupadas; el contenido pierde la columna de resultado y gana ancho.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  const tabs = [...document.querySelectorAll('#tabs [role="tab"]')];
+  const caret = document.getElementById('caret');
+  const bar = document.getElementById('tabs');
+  function place(){
+    const active = tabs.find(t => t.getAttribute('aria-selected') === 'true');
+    if(!active) return;
+    bar.style.setProperty('--tab-mark', active.dataset.mark);
+    caret.style.width = active.offsetWidth + 'px';
+    caret.style.height = active.offsetHeight + 'px';
+    caret.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+  }
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.setAttribute('aria-selected', String(x === t)));
+    document.querySelectorAll('.panel').forEach(p => { p.hidden = p.id !== t.getAttribute('aria-controls') });
+    place();
+  }));
+  place();
+  window.addEventListener('resize', place);
+</script>
+</body>
+</html>

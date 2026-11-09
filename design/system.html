@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design system · Electro-cálculos</title>
+<style>
+  :root{
+    --surface-page:#f5f6f8; --paper:#fff; --surface-muted:#f3f4f6;
+    --line:#e5e7eb; --line-soft:#eee;
+    --ink:#111827; --ink-muted:#68707d; --ink-faint:#5f6673; --ink-ghost:#6b7280;
+    --brand:#527575; --brand-ink:#111827; --brand-soft:#eee; --brand-line:#d87943; --brand-mark:#d87943; --brand-on-panel:#e78a53;
+    --primary:#d87943; --primary-hover:#bd6533; --primary-fg:#fff;
+    --panel:#111827; --panel-fg:#c1c1c1; --panel-muted:#888; --panel-line:#222; --panel-edge:#333;
+    --warning-soft:#f3f4f6; --warning-ink:#111827; --danger:#b91c1c;
+    --tab-lga:#527575; --tab-di:#d87943; --tab-esquema:oklch(72% 0.15 70);
+    --r-tab:4px; --r-control:5px; --r-card:8px; --r-panel:10px; --r-track:8px;
+    --card-lift:0 1px 0 rgb(0 0 0 / 13%), 0 3px 7px -5px rgb(0 0 0 / 32%);
+    --panel-lift:0 1px 0 rgb(0 0 0 / 14%), 0 26px 40px -24px rgb(0 0 0 / 60%);
+    --font-sans:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface-page);color:var(--ink);font-family:var(--font-sans);font-size:14px;line-height:1.5}
+  .board{width:1440px;margin:0 auto;padding:40px}
+  header.masthead{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:32px}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-faint);margin:0}
+  h1{font-size:28px;margin:8px 0 6px;letter-spacing:-.02em}
+  .lede{margin:0;color:var(--ink-muted);font-size:13px;max-width:78ch}
+  section{margin-bottom:36px}
+  h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;margin:0 0 4px}
+  .source{font-size:11px;color:var(--ink-faint);margin:0 0 14px}
+  .grid{display:grid;gap:10px}
+  .swatches{grid-template-columns:repeat(6,1fr)}
+  .sw{border:1px solid var(--line);border-radius:var(--r-card);overflow:hidden;background:var(--paper);box-shadow:var(--card-lift)}
+  .sw .chip{height:52px;display:block}
+  .sw .meta{padding:8px 10px}
+  .sw code{font-size:11px;font-weight:600;display:block;color:var(--ink)}
+  .sw span{font-size:10px;color:var(--ink-faint);display:block;margin-top:2px}
+  .type{display:flex;flex-direction:column;gap:10px}
+  .type-row{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:baseline;border-bottom:1px solid var(--line-soft);padding-bottom:10px}
+  .type-row small{color:var(--ink-faint);font-size:11px}
+  .t-hero{font-size:32px;font-weight:700;letter-spacing:-.03em}
+  .t-h3{font-size:18px;font-weight:700}
+  .t-body{font-size:14px}
+  .t-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint)}
+  .t-eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.2em;color:var(--ink-faint)}
+  .t-num{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .radii{display:flex;gap:12px;flex-wrap:wrap}
+  .radii div{width:88px;border:1px solid var(--line);background:var(--paper);padding:10px;text-align:center;font-size:10px;color:var(--ink-faint)}
+  .radii b{display:block;height:26px;background:var(--brand-soft);border:1px solid var(--brand);margin-bottom:6px}
+  .shadows{display:flex;gap:16px;flex-wrap:wrap}
+  .shadows div{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-card);padding:14px 18px;font-size:11px;color:var(--ink-faint)}
+  /* components */
+  .tab-bar{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--paper);padding:4px;border-radius:var(--r-track);box-shadow:var(--card-lift);position:relative}
+  .tab-bar button{position:relative;z-index:1;display:flex;align-items:center;gap:8px;border:0;background:transparent;border-radius:var(--r-tab);padding:6px 14px;font:inherit;font-size:13px;font-weight:600;color:var(--ink-muted);cursor:pointer}
+  .tab-bar button[aria-selected="true"]{color:var(--ink)}
+  .tab-bar .dot{width:6px;height:6px;border-radius:999px;opacity:.55}
+  .caret{position:absolute;z-index:0;border-radius:var(--r-tab);background:color-mix(in oklab, var(--tab-mark, var(--brand-mark)) 18%, var(--paper));box-shadow:inset 0 0 0 1px color-mix(in oklab, var(--tab-mark, var(--brand-mark)) 46%, transparent)}
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-card);padding:20px;box-shadow:var(--card-lift)}
+  .card h4{margin:0;font-size:14px}
+  .card .sub{margin:4px 0 0;font-size:12px;color:var(--ink-faint)}
+  .chip-code{display:inline-flex;align-items:center;border:1px solid var(--brand-line);background:var(--brand-soft);color:var(--brand-ink);border-radius:var(--r-tab);padding:2px 6px;font-size:11px;line-height:1;letter-spacing:.08em;margin-right:6px}
+  .metric{background:var(--surface-muted);border-radius:var(--r-control);padding:12px}
+  .metric p{margin:0;font-size:11px;color:var(--ink-faint)}
+  .metric strong{display:block;margin-top:4px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.accent{background:var(--brand-soft)}
+  .metric.accent strong{color:var(--brand)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid transparent;border-radius:var(--r-control);padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .btn-default{background:var(--primary);color:var(--primary-fg)}
+  .btn-default:hover{background:var(--primary-hover)}
+  .btn-outline{background:var(--paper);border-color:var(--line);color:var(--ink)}
+  .btn-ghost{background:transparent;color:var(--ink-muted)}
+  .btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  .rpanel{background:var(--panel);color:var(--panel-fg);border-radius:var(--r-panel);padding:24px;box-shadow:var(--panel-lift);max-width:320px}
+  .rpanel .k{font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--brand-on-panel);margin:0}
+  .rpanel .big{margin:16px 0 0;font-size:32px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .rpanel .big span{font-size:15px;font-weight:500;color:var(--panel-muted)}
+  .rpanel .lbl{margin:2px 0 0;font-size:12px;color:var(--panel-muted)}
+  .bars{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+  .barrow{font-size:12px;color:var(--panel-muted)}
+  .barrow .row{display:flex;justify-content:space-between;gap:12px}
+  .barrow b{color:var(--brand-on-panel);margin-right:8px}
+  .barrow .val{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+  .track{height:4px;border-radius:999px;background:var(--panel-line);margin-top:5px;overflow:hidden}
+  .track i{display:block;height:100%;background:color-mix(in oklab, var(--brand-on-panel) 80%, transparent)}
+  .clickcard{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;width:100%;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-card);padding:16px;box-shadow:var(--card-lift);cursor:pointer;font:inherit}
+  .clickcard:hover{border-color:var(--brand-line);background:color-mix(in oklab, var(--brand-soft) 40%, var(--paper))}
+  .clickcard .ico{width:36px;height:36px;border-radius:var(--r-card);background:var(--brand-soft);color:var(--brand);display:grid;place-items:center;font-size:15px}
+  .clickcard .t{font-size:13px;font-weight:700;color:var(--ink)}
+  .clickcard .d{grid-column:1/-1;font-size:11px;color:var(--ink-faint);line-height:1.5;margin:0}
+  .clickcard .go{grid-column:1/-1;justify-self:end;font-size:11px;font-weight:600;color:var(--brand)}
+  .state{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--ink-faint)}
+  :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="board">
+  <header class="masthead">
+    <p class="eyebrow">Electro-cálculos · REBT</p>
+    <h1>Design system</h1>
+    <p class="lede">Tokens y componentes tal como existen en la app, en su modo por defecto <code>calculation</code>. Fuente: <code>app/globals.css</code> y <code>components/ui</code>. La app es <strong>monoespaciada</strong>: todo el texto usa Geist Mono.</p>
+  </header>
+
+  <section>
+    <h2>Superficies y tinta</h2>
+    <p class="source">app/globals.css:597-608</p>
+    <div class="grid swatches">
+      <div class="sw"><span class="chip" style="background:#f5f6f8"></span><div class="meta"><code>#f5f6f8</code><span>surface-page</span></div></div>
+      <div class="sw"><span class="chip" style="background:#fff;border-bottom:1px solid #e5e7eb"></span><div class="meta"><code>#ffffff</code><span>paper</span></div></div>
+      <div class="sw"><span class="chip" style="background:#f3f4f6"></span><div class="meta"><code>#f3f4f6</code><span>surface-muted</span></div></div>
+      <div class="sw"><span class="chip" style="background:#e5e7eb"></span><div class="meta"><code>#e5e7eb</code><span>line</span></div></div>
+      <div class="sw"><span class="chip" style="background:#111827"></span><div class="meta"><code>#111827</code><span>ink</span></div></div>
+      <div class="sw"><span class="chip" style="background:#5f6673"></span><div class="meta"><code>#5f6673</code><span>ink-faint</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Marca, acción y acentos</h2>
+    <p class="source">app/globals.css:609-615, 583-585, 628-633, 244</p>
+    <div class="grid swatches">
+      <div class="sw"><span class="chip" style="background:#527575"></span><div class="meta"><code>#527575</code><span>brand · tab-lga</span></div></div>
+      <div class="sw"><span class="chip" style="background:#d87943"></span><div class="meta"><code>#d87943</code><span>primary · tab-di</span></div></div>
+      <div class="sw"><span class="chip" style="background:oklch(72% 0.15 70)"></span><div class="meta"><code>oklch(72% .15 70)</code><span>tab-esquema</span></div></div>
+      <div class="sw"><span class="chip" style="background:#e78a53"></span><div class="meta"><code>#e78a53</code><span>brand-on-panel</span></div></div>
+      <div class="sw"><span class="chip" style="background:#eee"></span><div class="meta"><code>#eeeeee</code><span>brand-soft</span></div></div>
+      <div class="sw"><span class="chip" style="background:#b91c1c"></span><div class="meta"><code>#b91c1c</code><span>danger</span></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tipografía</h2>
+    <p class="source">app/globals.css:646-649 · load-calculator.tsx:1246, 1413</p>
+    <div class="type">
+      <div class="type-row"><small>título de página · 32/700</small><span class="t-hero">De la previsión de cargas a cada derivación</span></div>
+      <div class="type-row"><small>sección · 18/700</small><span class="t-h3">Servicios generales</span></div>
+      <div class="type-row"><small>cuerpo · 14/400</small><span class="t-body">Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda.</span></div>
+      <div class="type-row"><small>label · 12/600 · caps</small><span class="t-label">Potencia media</span></div>
+      <div class="type-row"><small>eyebrow · 11/600 · .2em</small><span class="t-eyebrow">Resultado del proyecto</span></div>
+      <div class="type-row"><small>cifra · tabular</small><span class="t-num">77.940 W</span></div>
+    </div>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>Radio</h2>
+      <p class="source">app/globals.css:634-638</p>
+      <div class="radii">
+        <div><b style="border-radius:4px"></b>tab 4</div>
+        <div><b style="border-radius:8px"></b>track 8</div>
+        <div><b style="border-radius:5px"></b>control 5</div>
+        <div><b style="border-radius:8px"></b>card 8</div>
+        <div><b style="border-radius:10px"></b>panel 10</div>
+      </div>
+    </div>
+    <div>
+      <h2>Sombras</h2>
+      <p class="source">app/globals.css:285-294</p>
+      <div class="shadows">
+        <div style="box-shadow:var(--card-lift)">card-lift</div>
+        <div style="box-shadow:var(--panel-lift)">panel-lift</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Barra de pestañas</h2>
+    <p class="source">app/globals.css:900-974 · acento por data-active-tab</p>
+    <div class="tab-bar" id="tb" style="--tab-mark:#d87943">
+      <span class="caret" id="caret" style="left:4px;top:4px;width:190px;height:30px"></span>
+      <button aria-selected="true" data-mark="#d87943"><span class="dot" style="background:#d87943"></span>Previsión de cargas</button>
+      <button data-mark="#527575"><span class="dot" style="background:#527575"></span>LGA</button>
+      <button data-mark="#d87943"><span class="dot" style="background:#d87943"></span>DI</button>
+      <button data-mark="#d87943"><span class="dot" style="background:#d87943"></span>Cuadros</button>
+      <button data-mark="oklch(72% 0.15 70)"><span class="dot" style="background:oklch(72% 0.15 70)"></span>Esquema</button>
+    </div>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>Controles</h2>
+      <p class="source">components/ui/button.tsx:6</p>
+      <div class="state" style="gap:10px">
+        <button class="btn btn-default">Descargar datos</button>
+        <button class="btn btn-outline">Cargar proyecto</button>
+        <button class="btn btn-ghost">Cancelar</button>
+      </div>
+      <div class="state" style="margin-top:14px;gap:10px">
+        <div class="metric" style="min-width:150px"><p>Total viviendas</p><strong>11 uds.</strong></div>
+        <div class="metric accent" style="min-width:150px"><p>P1 · Viviendas</p><strong>62.560 W</strong></div>
+      </div>
+    </div>
+    <div>
+      <h2>Tarjeta y sección</h2>
+      <p class="source">load-calculator.tsx:1205, 1413-1414</p>
+      <div class="card">
+        <h4><span class="chip-code">P1</span>Viviendas</h4>
+        <p class="sub">Electrificación básica y elevada por unidad</p>
+      </div>
+      <div style="margin-top:10px">
+        <button class="clickcard">
+          <span class="ico">⚙</span>
+          <span class="t">Parámetros de cálculo</span>
+          <span class="go">Configurar →</span>
+          <p class="d">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</p>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Panel de resultado</h2>
+    <p class="source">load-calculator.tsx:1246-1253</p>
+    <div class="rpanel">
+      <p class="k">Resultado del proyecto</p>
+      <p class="big">77.940 <span>W</span></p>
+      <p class="lbl">Potencia total prevista</p>
+      <div class="bars">
+        <div class="barrow"><div class="row"><span><b>P1</b>Viviendas</span><span class="val">62.560 W</span></div><div class="track"><i style="width:80.3%"></i></div></div>
+        <div class="barrow"><div class="row"><span><b>P2</b>Servicios generales</span><span class="val">4.800 W</span></div><div class="track"><i style="width:6.2%"></i></div></div>
+        <div class="barrow"><div class="row"><span><b>P4</b>Garajes</span><span class="val">6.900 W</span></div><div class="track"><i style="width:8.9%"></i></div></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="source" style="margin-top:40px">Cifras de demostración · board de referencia del design system.</p>
+</div>
+<script>
+  const bar = document.getElementById('tb');
+  const caret = document.getElementById('caret');
+  const buttons = [...bar.querySelectorAll('button')];
+  function place(){
+    const active = buttons.find(b => b.getAttribute('aria-selected') === 'true');
+    if(!active) return;
+    bar.style.setProperty('--tab-mark', active.dataset.mark);
+    caret.style.width = active.offsetWidth + 'px';
+    caret.style.height = active.offsetHeight + 'px';
+    caret.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+    caret.style.left = '0'; caret.style.top = '0';
+  }
+  buttons.forEach(b => b.addEventListener('click', () => {
+    buttons.forEach(x => x.setAttribute('aria-selected', String(x === b)));
+    place();
+  }));
+  place();
+  window.addEventListener('resize', place);
+</script>
+</body>
+</html>

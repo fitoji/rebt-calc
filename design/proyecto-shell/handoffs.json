@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "chosen": "01-rail-derecho.html",
+  "handoffs": {
+    "01-rail-derecho.html": {
+      "status": "implemented",
+      "queued": false,
+      "sentAt": "2026-11-09T12:34:30.408Z",
+      "startedAt": null,
+      "implementedAt": "2026-11-09T20:55:18.119Z",
+      "note": "Rail movido fuera de los paneles y agrupado; 374/374 tests, tipo y build limpios; render verificado en navegador (320 px, persiste en Previsión/LGA/DI).",
+      "previewUrl": "http://localhost:3010/"
+    }
+  }
+}

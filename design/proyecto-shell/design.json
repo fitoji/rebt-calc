@@ -1,0 +1,20 @@
+{
+  "title": "Shell del proyecto: dónde viven parámetros, datos, descarga y limpieza",
+  "brief": "Comparar dos formas de sacar las acciones de proyecto (parámetros de cálculo, datos de la memoria técnica, descargar datos, cargar proyecto, ver ELEC-3, limpiar) del interior de la pestaña Previsión, donde hoy desaparecen al cambiar de pestaña. App: calculadora REBT Electro-cálculos.",
+  "artboards": [
+    {
+      "file": "01-rail-derecho.html",
+      "title": "A · Rail derecho elevado",
+      "tradeoff": "Cambio mínimo y cero aprendizaje nuevo: el mismo rail de hoy, movido fuera de las pestañas para que persista. Cuesta ~316 px de ancho a las tablas de LGA y DI en pantallas grandes.",
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "file": "02-sidebar-izquierda.html",
+      "title": "B · Sidebar izquierdo",
+      "tradeoff": "Separa el proyecto del trabajo y devuelve 300 px de ancho al contenido; a cambio introduce una segunda navegación junto a las pestañas y exige un patrón responsive nuevo (drawer en móvil).",
+      "width": 1440,
+      "height": 1000
+    }
+  ]
+}
