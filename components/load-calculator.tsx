@@ -8,13 +8,15 @@ import { Check, ChevronRight, Download, FolderOpen, Info, Plus, RotateCcw, Trash
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
-import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectExport, saveCalculatorInputs, setClearedProjectMark } from '../lib/calculator-storage.mjs'
+import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectExport, saveCalculatorInputs, saveDocumentationSnapshot, setClearedProjectMark } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
 import { limitsForInstallation } from '../lib/installation-config.mjs'
 import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PLACEMENT_LABELS, evaluateMeterCenter, installationTypeFor, meterCenterFromInstallationType, suggestMeterCount } from '../lib/meter-center.mjs'
+import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } from '../lib/project-documentation.mjs'
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
+import { DocumentationPanel } from '@/components/documentation-panel'
 import { InteriorPanel, type InteriorDwelling } from '@/components/interior-panel'
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
@@ -218,6 +220,8 @@ export function LoadCalculator() {
   const [activeTab, setActiveTab] = useState<TabValue>('cargas')
   const [tabDirection, setTabDirection] = useState<'forward' | 'back'>('forward')
   const [meterCenter, setMeterCenter] = useState<MeterCenterState>({ ...DEFAULT_METER_CENTER })
+  // Los datos de documentación viajan con la previsión: no son cargas del edificio.
+  const [documentation, setDocumentation] = useState<Documentation>(() => ({ ...DEFAULT_DOCUMENTATION }))
   const [theme, setTheme] = useState<Theme>('light')
   const [explanationMode, setExplanationMode] = useState<ExplanationMode>('calculation')
   const [showLineTables, setShowLineTables] = useState(false)
@@ -305,6 +309,7 @@ export function LoadCalculator() {
         else setMeterCenter(meterCenterFromInstallationType(savedInputs.installationType) as MeterCenterState)
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
+        setDocumentation(normalizeDocumentation(savedInputs.documentation))
         if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
         if (savedInputs.lgaPowerMode) setLgaPowerMode(savedInputs.lgaPowerMode)
         if (savedInputs.di) { setDi(savedInputs.di as LineState); setLineTouched(true) }
@@ -476,14 +481,25 @@ export function LoadCalculator() {
     if (!storageLoaded) return
     try {
       saveCalculatorInputs(window.localStorage, {
-        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption,
+        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption,
         lga: lineTouched ? lga : null,
         lgaPowerMode,
         di: lineTouched ? di : null,
         derivations: derivations.length > 0 ? derivations : undefined,
       })
+      // La instantánea sale de la previsión ya calculada: /requisitos clasifica
+      // estos números con ITC-BT-04 en lugar de repetir P1–P5 por su cuenta.
+      saveDocumentationSnapshot(window.localStorage, {
+        totalW: result.total,
+        homes: result.homes,
+        localPowers: result.localPowers,
+        localTypes: locals.map(row => row.type),
+        garages: garages.map(row => ({ name: row.name, ventilation: row.ventilation, plazas: row.plazas })),
+        irvePowerW: result.p5,
+        cgpCount: meterCenter.concentrations,
+      })
     } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched])
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched, result])
 
   // Recuento informativo: las plazas de los garajes no intervienen en P4.
   const garageParkingSpaces = garages.reduce((sum, row) => sum + Math.max(0, row.plazas || 0), 0)
@@ -542,6 +558,7 @@ export function LoadCalculator() {
     setOtherLoads([])
     setLighting(emptyLighting)
     setMeterCenter({ ...DEFAULT_METER_CENTER })
+    setDocumentation({ ...DEFAULT_DOCUMENTATION })
     setParking(0)
     setIrveOption(1)
     setDerivations([])
@@ -573,6 +590,7 @@ export function LoadCalculator() {
     setOtherLoads(inputs.otherLoads)
     setLighting(inputs.lighting ?? emptyLighting)
     setMeterCenter((inputs.meterCenter ?? meterCenterFromInstallationType(inputs.installationType)) as MeterCenterState)
+    setDocumentation(normalizeDocumentation(inputs.documentation))
     setParking(inputs.parking)
     setIrveOption(inputs.irveOption)
     if (inputs.lga) setLga(inputs.lga as LineState)
@@ -839,7 +857,7 @@ export function LoadCalculator() {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, parking, irveOption, lga, lgaPowerMode, di, derivations },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, lga, lgaPowerMode, di, derivations },
       settings,
       calculations: result,
       lines: {
@@ -1258,7 +1276,7 @@ export function LoadCalculator() {
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${power(result.p5)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="Guía-BT-52 · Anexo 2">Guía-BT-52, Anexo 2 («Previsión de cargas en edificios de viviendas de nueva construcción con garajes en régimen de condominio»): 3.680 W por el 10 % de las plazas construidas, que la Guía declara valor mínimo reglamentario, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Es previsión de potencia, no la preinstalación de conductos, que fija el CTE (DB-HE 6: 100 % de las plazas en residencial privado). Las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={GUIA_BT_52} label="Guía-BT-52 · Anexo 2" /> · <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
-          
+          <DocumentationPanel documentation={documentation} onChange={patch => setDocumentation(current => ({ ...current, ...patch }))} />
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
