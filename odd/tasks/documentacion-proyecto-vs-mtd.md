@@ -42,11 +42,11 @@ S8. Ninguno de esos datos nuevos altera P1–P5 ni la potencia total prevista: s
 
 ## Tasks
 
-T1 · Modelo de datos de documentación (potencias y categorías) + persistencia en localStorage + export/import JSON + tests — S6, S8
-T2 · Bloque de UI en la pestaña Previsión para editar esos datos — S6, S8
-T3 · Motor de clasificación ITC-BT-04 §3/§4 (`lib/project-documentation.mjs`) + tests por grupo — S1–S5
-T4 · Reescribir `/requisitos` como clasificador y eliminar el checklist — S1, S7
-T5 · Ayuda y README alineados con la nueva página — S7
+T1 · Modelo de datos de documentación (potencias y categorías) + persistencia en localStorage + export/import JSON + tests — S6, S8 — hecho en `b04b572`
+T2 · Bloque de UI en la pestaña Previsión para editar esos datos — S6, S8 — hecho en `5cdaa80`
+T3 · Motor de clasificación ITC-BT-04 §3/§4 (`lib/project-documentation.mjs`) + tests por grupo — S1–S5 — hecho en `b04b572`
+T4 · Reescribir `/requisitos` como clasificador y eliminar el checklist — S1, S7 — hecho en `753cd03`
+T5 · Ayuda y README alineados con la nueva página — S7 — hecho en `abce4c6`
 
 ## Log
 
@@ -55,3 +55,5 @@ L1 — pedido del usuario, verbatim: «creo que entendiste mal, revisa https://w
 L2 — decisiones del usuario sobre el alcance: (a) los criterios no inferibles «Llevarlos a la previsión»; (b) grupo e evaluado «Por caja general de protección»; (c) el checklist actual se reemplaza.
 
 L3 — fuente normativa leída: BOE-A-2002-18099 consolidado (última actualización 03/09/2025), ITC-BT-04 §3.1, §3.2, §3.3 y §4. Se transcriben los umbrales en la tabla de arriba; ningún umbral se inventa.
+
+L4 — cierre. Verificado en navegador con dos casos reales: el proyecto de ejemplo (11 viviendas, 2 locales, 2 garajes, IRVE) da «Requiere proyecto» por §3.1 g, y el proyecto limpio con una vivienda de 5.750 W da «Solo memoria técnica de diseño» por §4. La card de documentación renderiza sus dos campos numéricos y las nueve categorías. 423/423 tests, `tsc --noEmit` y `next build` limpios. Decisión de implementación: la página no recalcula la previsión; la calculadora guarda un snapshot (`electrocalc-documentation-snapshot:v1`) y la página solo clasifica. El número de CGPs es `meterCenter.concentrations`, acotado a 1 mínimo.
