@@ -62,8 +62,29 @@ test('Limpiar queda al final y separado de las acciones de salida', () => {
 
 // El rail alto no debe cortar sus últimas acciones en pantallas bajas.
 test('el rail tiene scroll propio cuando no entra en la altura visible', () => {
-  const railTag = calc.slice(asideAt, calc.indexOf('>', asideAt))
+  const railTag = calc.slice(asideAt, calc.indexOf('<div className="overflow-hidden', asideAt))
   assert.match(railTag, /xl:sticky/)
   assert.match(railTag, /xl:max-h-\[calc\(100dvh-3rem\)\]/)
   assert.match(railTag, /xl:overflow-y-auto/)
+})
+
+// El rail es una columna flex con altura máxima: sin shrink-0 sus tarjetas se
+// comprimen hasta desaparecer. El panel de resultado llegó a medir 0 px.
+test('el rail no comprime sus tarjetas: cada hijo conserva su altura', () => {
+  const railTag = calc.slice(asideAt, calc.indexOf('<div className="overflow-hidden', asideAt))
+  assert.match(railTag, /\[\&\>\*\]:shrink-0/, 'rail children keep their intrinsic height')
+  assert.match(railTag, /xl:max-h-\[calc\(100dvh-3rem\)\]/, 'and the rail scrolls instead')
+})
+
+// Regla pedida: el desglose P1–P5 aparece a medida que se agregan cargas en
+// cada sección; un bloque sin carga no ocupa una fila en cero.
+test('el desglose P1–P5 solo lista los bloques con carga', () => {
+  const rail = calc.slice(asideAt, tabsEnd)
+
+  assert.match(rail, /'P1', 'Viviendas', result\.p1, result\.homes > 0/, 'P1 follows the dwellings')
+  assert.match(rail, /'P2', 'Servicios generales', result\.p2, result\.p2 > 0/, 'P2 follows its own power')
+  assert.match(rail, /'P3', 'Locales y oficinas', result\.p3, result\.p3 > 0/, 'P3 follows its own power')
+  assert.match(rail, /'P4', 'Garajes', result\.p4, result\.p4 > 0/, 'P4 follows its own power')
+  assert.match(rail, /'P5', 'IRVE', result\.p5, result\.p5 > 0/, 'P5 follows its own power')
+  assert.match(rail, /\.filter\(row => Boolean\(row\[3\]\)\)/, 'rows without load are hidden')
 })
