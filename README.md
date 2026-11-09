@@ -63,6 +63,7 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 - **Cabecera con referencia normativa dinámica**: muestra `ITC-BT-10`, `ITC-BT-14` o `ITC-BT-15` según la pestaña abierta.
 - **Esquema unifilar**: la pestaña `Esquema` dibuja acometida, embarrado y una columna por derivación con los símbolos de la UNE-EN 60617, leyendo el resultado que ya calculó cada línea. La lámina se desplaza en horizontal y adapta sus colores al tema claro y oscuro.
 - **Panel de resultado** por módulo: en previsión, el total y el desglose P1–P5; en LGA y DI, la sección normalizada, la intensidad y los avisos de incumplimiento.
+- **Documentación exigible (ITC-BT-04)**: la pestaña de previsión cierra con una card para los datos que no salen de las cargas —potencia de alumbrado exterior, potencia de piscinas y fuentes y nueve criterios de sí o no— y la página **Requisitos del proyecto** (`/requisitos`) los clasifica y devuelve el veredicto: **proyecto** o solo **memoria técnica de diseño**. No es una lista de comprobación: se calcula con la previsión del edificio.
 - **Nota de fuente en cada card**: el apartado del BOE del que sale el criterio, con enlace al texto consolidado. Se puede ocultar desde *Parámetros de cálculo* («Leyendas en el pie de cada card»).
 - **Unidades de potencia**: vatios o kilovatios, desde *Parámetros de cálculo*. Cambia cómo se escriben y se ven las potencias (formularios, tarjetas, PDF e informes), no el cálculo: el proyecto guardado, el motor y el JSON exportado siguen en vatios, y las fórmulas del modo didáctico se escriben en vatios.
 - **Membrete del proyecto**: la card de datos de la memoria muestra en miniatura el logo y el nombre de empresa tal como saldrán en el PDF.
@@ -84,6 +85,10 @@ La previsión se desglosa en cinco bloques (códigos **P1**–**P5**) y suma el 
 | **P4** | Garajes         | Potencia por superficie según ventilación (**forzada** 20 W/m² o **natural** 10 W/m²), con mínimo de 3.450 W por garaje. Cada fila registra además su **número de plazas**, un dato informativo que no entra en P4. |
 | **P5** | IRVE            | Recarga de vehículos eléctricos: todas las plazas (con o sin SPL) o mínimo 10 %. |
 | —      | **TOTAL**       | `P1 + P2 + P3 + P4 + P5`                                                            |
+
+La previsión lleva además los **datos de documentación** que la app no puede inferir de las cargas del edificio, en la card **Documentación exigible (ITC-BT-04 §3)**: la potencia de **alumbrado exterior**, la de **piscinas y fuentes** y nueve criterios de sí o no (pública concurrencia, riesgo de incendio o explosión, quirófanos y salas de intervención, locales húmedos/polvorientos/corrosivos, locales mojados, instalación de carácter temporal, máquinas de elevación y transporte, recarga en el exterior y recarga en modo de carga 4). Son datos de documentación, no cargas: **no suman a P1–P5 ni a la potencia total prevista**.
+
+Con ellos, la página **Requisitos del proyecto** (`/requisitos`) responde una sola pregunta: si el edificio exige **proyecto** o basta una **memoria técnica de diseño**, según la ITC-BT-04. Se aplican los grupos del §3.1; si la instalación cae en más de uno gana el criterio más exigente (§3.3) y, si no cae en ninguno, el §4 pide memoria técnica de diseño. Es el mínimo estatal del REBT: cada comunidad autónoma puede añadir requisitos propios de documentación.
 
 Y para las líneas, cada módulo devuelve:
 
@@ -248,7 +253,7 @@ Todo vive en `localStorage`, con claves propias y validación al leer:
 
 | Clave | Contenido |
 |-------|-----------|
-| `electrocalc-inputs:v1` | Filas de entrada, supuesto de enlace y estado de LGA/DI, en un snapshot versionado |
+| `electrocalc-inputs:v1` | Filas de entrada, datos de documentación (ITC-BT-04), supuesto de enlace y estado de LGA/DI, en un snapshot versionado |
 | `electrocalc-settings` | Parámetros de cálculo y preferencias de la interfaz |
 | `electrocalc-project-info` | Empresa, contacto, dirección de obra y logo |
 | `electrocalc-theme` | `light` o `dark`, aplicado por el script de arranque antes de hidratar |
@@ -330,6 +335,7 @@ Reglas:
 | `meter-center.mjs` | Centralización de contadores: selecciones de la ITC-BT-16 y sus verificaciones |
 | `interior-installation.mjs` | DGMP de la vivienda: IGA, ICP y diferenciales de la ITC-BT-25 |
 | `interior-circuits.mjs` | Cuadro interior de locales y servicios generales: circuitos libres de la ITC-BT-19 |
+| `project-documentation.mjs` | Clasificación ITC-BT-04 §3 y §4: ¿proyecto o memoria técnica de diseño? |
 | `housing-circuits.mjs` | Circuitos de la vivienda por grado, tabla 1 de la ITC-BT-25 |
 | `housing-points.mjs` | Puntos de utilización mínimos por estancia, tabla 2 de la ITC-BT-25 |
 | `cable-tables.mjs` | Intensidades admisibles y factores de corrección |
@@ -362,6 +368,9 @@ Sin framework: `node:test` + `node:assert/strict`, sin dependencias.
 | `export-formats.test.mjs` | Informe Markdown y texto |
 | `unifilar.test.mjs` | Categorías, rótulos, geometría y diferenciales del esquema unifilar |
 | `source-notes.test.mjs` | Cada card cita su apartado del BOE y el toggle las oculta |
+| `project-documentation.test.mjs` | Clasificación por grupo de la ITC-BT-04 §3.1, §3.3 y §4, y persistencia del bloque de documentación |
+| `documentation-inputs.test.mjs` | Card de documentación en la previsión: dos potencias, nueve criterios, autoguardado e importación/exportación |
+| `requisitos-page.test.mjs` | Página `/requisitos`: veredicto, tabla de grupos y lectura de la instantánea |
 | `design-tokens.test.mjs` | Ningún color de paleta cruda ni token sin declarar |
 | `contrast.test.mjs` | Contraste AA de los pares texto/fondo y 3:1 de bordes y foco, más el nombre accesible de cada control de tabla |
 | `dialog-a11y-regression.test.mjs` | Diálogos accesibles y botones de acción |

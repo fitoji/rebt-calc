@@ -171,6 +171,7 @@ export function HelpDoc() {
                 <SubHeading>Lo que sí hace</SubHeading>
                 <Bullets items={[
                   <>Previsión del edificio con los bloques P1 a P5 de la ITC-BT-10, cada uno con sus propios coeficientes.</>,
+                  <>Veredicto de documentación exigible (ITC-BT-04 §3 y §4): si la previsión pide <strong>proyecto</strong> o solo <strong>memoria técnica de diseño</strong>, con la tabla de los quince grupos del §3.1 para auditar el resultado.</>,
                   <>Línea General de Alimentación (ITC-BT-14): sección, protección, caída de tensión y elementos de la instalación.</>,
                   <>Una derivación individual (ITC-BT-15) por vivienda, local, garaje y servicios generales.</>,
                   <>Memoria en PDF, JSON, Markdown y texto simple, con los mismos números que ves en pantalla.</>,
@@ -218,6 +219,16 @@ export function HelpDoc() {
                 />
                 <p>
                   El coeficiente de simultaneidad de las viviendas sale de la tabla de la ITC-BT-10: 1 vivienda vale 1, 5 viviendas valen 3,8, 11 viviendas valen 9,2 y 21 viviendas valen 15,3. A partir de ahí crece 0,5 por vivienda adicional. La app lo muestra junto a la potencia media y lo aplica de golpe: <strong>P1 = potencia media × coeficiente</strong>.
+                </p>
+                <SubHeading>Los datos de documentación</SubHeading>
+                <p>
+                  Debajo de P5 está la tarjeta <strong>Documentación exigible (ITC-BT-04 §3)</strong>. Reúne lo que la previsión no puede deducir de las cargas del edificio: dos potencias —<strong>alumbrado exterior</strong> y <strong>piscinas y fuentes</strong>— y nueve criterios de sí o no: pública concurrencia, riesgo de incendio o explosión, quirófanos y salas de intervención, locales húmedos, polvorientos o con riesgo de corrosión, locales mojados, instalación de carácter temporal, máquinas de elevación y transporte, recarga de vehículo eléctrico en el exterior y recarga en modo de carga 4.
+                </p>
+                <p>
+                  Son datos de documentación, no cargas: no suman a P1–P5 ni a la potencia total prevista, y cambiarlos no mueve ninguna cifra de la previsión. Solo alimentan el veredicto de <Link href="/requisitos" className={LINK}>Requisitos del proyecto</Link>: si la instalación exige <strong>proyecto</strong> o basta una <strong>memoria técnica de diseño</strong>.
+                </p>
+                <p>
+                  El veredicto se resuelve con los grupos de la ITC-BT-04 §3.1: cuando la instalación cae en más de uno se aplica el criterio más exigente (§3.3) y, cuando no cae en ninguno, queda en el §4, que pide memoria técnica de diseño para lo no incluido en la lista. La página no añade cifras propias: clasifica la previsión ya guardada y muestra cada grupo con su valor frente a su límite. Es el mínimo estatal del REBT, así que conviene comprobar antes la normativa de la comunidad autónoma, que puede añadir requisitos propios de documentación.
                 </p>
               </Section>
 
@@ -628,7 +639,7 @@ export function HelpDoc() {
               <Section id="fuentes" title="Normativa y fuentes">
                 <p>Las reglas que aplica la app salen de estos textos:</p>
                 <Bullets items={[
-                  <><a href={BOE_REBT} target="_blank" rel="noopener noreferrer" className={LINK}>RD 842/2002 · Reglamento Electrotécnico de Baja Tensión<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, con sus instrucciones técnicas complementarias ITC-BT-10 (previsión de cargas), ITC-BT-14 (LGA), ITC-BT-15 (derivaciones individuales), ITC-BT-16 (centralización de contadores), ITC-BT-19 (intensidades admisibles) y ITC-BT-47 (motores).</>,
+                  <><a href={BOE_REBT} target="_blank" rel="noopener noreferrer" className={LINK}>RD 842/2002 · Reglamento Electrotécnico de Baja Tensión<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, con sus instrucciones técnicas complementarias ITC-BT-04 (documentación exigible: proyecto o memoria técnica de diseño), ITC-BT-10 (previsión de cargas), ITC-BT-14 (LGA), ITC-BT-15 (derivaciones individuales), ITC-BT-16 (centralización de contadores), ITC-BT-19 (intensidades admisibles) y ITC-BT-47 (motores).</>,
                   <><a href={BOE_ITC_BT_52} target="_blank" rel="noopener noreferrer" className={LINK}>RD 1053/2014<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, que añadió al REBT la infraestructura para la recarga del vehículo eléctrico (ITC-BT-52).</>,
                   <><a href={GUIA_BT_52} target="_blank" rel="noopener noreferrer" className={LINK}>Guía-BT-52, Anexo 2<span className="sr-only"> (se abre en una pestaña nueva)</span></a>, que fija en el 10 % de las plazas construidas la previsión de potencia mínima para la recarga en vivienda nueva.</>,
                   <>Guía-BT-19 del Ministerio de Industria, Turismo y Comercio (febrero de 2009, revisión 2), que reproduce las tablas de la UNE 20460-5-523:2004 que la instrucción aplica.</>,
