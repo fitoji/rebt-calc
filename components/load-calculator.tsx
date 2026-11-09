@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
@@ -190,6 +190,20 @@ const INSTALLATION_LABELS: Record<string, string> = {
 const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores', 'esquema'] as const
 type TabValue = (typeof TAB_ORDER)[number]
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
+
+/**
+ * Agrupa las acciones del rail por lo que la persona reconoce —proyecto,
+ * configuración, salida, referencias— para que el orden no dependa de dónde
+ * vive cada handler. El rail es estado del proyecto, no de la pestaña activa.
+ */
+function RailGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2" aria-label={title}>
+      <p className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-faint">{title}</p>
+      {children}
+    </section>
+  )
+}
 
 export function LoadCalculator() {
   const [housing, setHousing] = useState<HousingRow[]>([])
@@ -1192,6 +1206,8 @@ export function LoadCalculator() {
               <TabsTrigger value="esquema" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-esquema" />Esquema</TabsTrigger>
             )}
           </TabsList>
+          <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="min-w-0">
           <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
             total a la vista mientras se editan los bloques de la previsión. Es sticky
@@ -1200,8 +1216,7 @@ export function LoadCalculator() {
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-on-panel">Potencia total prevista</span>
           <span className="text-lg font-bold tabular-nums">{power(result.total)}</span>
         </div>
-        <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
-          <div className="flex min-w-0 flex-col gap-6">
+                  <div className="flex min-w-0 flex-col gap-6">
             <section className="rounded-card border border-line bg-paper p-5 shadow-card">
               <SectionTitle code="P1" title="Viviendas" subtitle="Añade cada vivienda y selecciona su grado de electrificación" />
               <div className="grid gap-3 md:hidden">
@@ -1243,71 +1258,7 @@ export function LoadCalculator() {
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P5" title="Recarga de vehículos eléctricos" subtitle="Selecciona el escenario de previsión" /><div className="grid gap-3 sm:grid-cols-[180px_1fr]"><LabeledInput label="Plazas de aparcamiento" value={parking === 0 ? '' : String(parking)} suffix="uds." onChange={e => setParking(Number(e.target.value))} /><FieldSet><FieldLegend className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Opción de cálculo</FieldLegend><RadioGroup value={irveOption} onValueChange={value => setIrveOption(Number(value))}>{IRVE_OPTION_LABELS.map((name, i) => <FieldLabel key={name} htmlFor={`irve-${i + 1}`} onClick={() => setIrveOption(i + 1)} className={`flex w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm ${irveOption === i + 1 ? 'border-brand-mark bg-brand-soft' : 'border-line'}`}><RadioGroupItem id={`irve-${i + 1}`} value={i + 1} />{name}<span className="ml-auto text-xs text-ink-faint">Cs {i === 1 ? '0,3' : '1'}</span></FieldLabel>)}</RadioGroup></FieldSet></div><div className="mt-4 flex justify-end"><Metric label={`P5 · IRVE · ${result.plazas} plazas consideradas`} value={`${power(result.p5)}`} accent /></div>{settings.showSourceNotes && <SourceNote label="Guía-BT-52 · Anexo 2">Guía-BT-52, Anexo 2 («Previsión de cargas en edificios de viviendas de nueva construcción con garajes en régimen de condominio»): 3.680 W por el 10 % de las plazas construidas, que la Guía declara valor mínimo reglamentario, multiplicado por el factor de simultaneidad de la ITC-BT-52 (1 sin SPL, 0,3 con SPL). Es previsión de potencia, no la preinstalación de conductos, que fija el CTE (DB-HE 6: 100 % de las plazas en residencial privado). Las opciones «todas las plazas» son una previsión ampliada. <BoeLink href={GUIA_BT_52} label="Guía-BT-52 · Anexo 2" /> · <BoeLink href={BOE_ITC_BT_52} label="RD 1053/2014 · BOE-A-2014-13681" /></SourceNote>}</section>
           </div>
-          <aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:self-start"><div className="overflow-hidden rounded-panel bg-panel text-panel-foreground shadow-panel"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{formatPowerValue(result.total, powerUnit)} <span className="text-lg font-medium text-panel-muted">{powerUnit}</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
-  const amount = value as number
-  const share = result.total > 0 ? (amount / result.total) * 100 : 0
-  return <div key={code as string}>
-    <div className="flex items-baseline justify-between gap-3 text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{power(amount)}</span></div>
-    <div aria-hidden="true" className="mt-1.5 h-1 overflow-hidden rounded-full bg-panel-line"><div className="h-full rounded-full bg-brand-on-panel/80" style={{ width: `${share}%` }} /></div>
-  </div>
-})}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{power(result.total)}</span></div></div></div>
-            <button type="button" className="grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 rounded-card border border-line bg-paper p-5 text-left shadow-card transition-colors hover:border-brand-line hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowSettings(true)}>
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><SlidersHorizontal className="size-4" /></span>
-              <span className="min-w-0 text-sm font-bold">Parámetros de cálculo</span>
-              <span className="col-span-2 text-xs leading-5 text-ink-faint">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span>
-              <span className="col-span-2 flex items-center justify-end gap-1 text-xs font-semibold text-brand">Configurar<ChevronRight className="size-3.5" aria-hidden="true" /></span>
-            </button>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card">
-              <div className="mb-3"><h3 className="text-sm font-bold">Datos de la memoria técnica</h3><p className="mt-1 text-xs leading-5 text-ink-faint">Completa los datos que aparecerán en la cabecera del PDF.</p></div>
-              {(projectInfo.logo || projectInfo.companyName) && <div className="mb-3 flex items-center gap-3 rounded-control border border-line bg-surface-muted/60 p-3">{projectInfo.logo && <span className="flex h-10 max-w-[140px] shrink-0 items-center justify-center rounded-lg border border-line bg-paper p-1.5"><img src={projectInfo.logo} alt={`Logo de ${projectInfo.companyName || 'la empresa'}`} className="max-h-full w-auto max-w-[132px] object-contain" /></span>}<span className="min-w-0"><span className="block truncate text-sm font-semibold">{projectInfo.companyName || 'Sin nombre de empresa'}</span><span className="mt-0.5 block text-xs text-ink-faint">Membrete del PDF</span></span></div>}
-              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold w-full" onClick={() => setShowProjectInfo(true)}><Building2 data-icon="inline-start" /> Editar datos del proyecto</Button>
-            </section>
-            <button type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-control border border-line bg-paper px-4 py-3 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowReferences(true)}>
-              <span>Tablas y referencias</span><span className="flex items-center gap-2 text-brand"><span className="text-xs">Ver tablas</span><Table2 className="size-4" /></span>
-            </button>
-            <Dialog open={showReferences} onOpenChange={setShowReferences}>
-              <DialogContent id="references-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-2xl">
-                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="references-title" className="text-xl font-bold text-ink">Tablas y referencias</DialogTitle><DialogDescription id="references-description" className="mt-1 text-sm text-ink-faint">Criterios de previsión de cargas según ITC-BT-10 e ITC-BT-25.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas y referencias" />}><X /></DialogClose></div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
-                </div>
-                <h3 className="mt-6 font-bold text-ink-soft">Tabla A · Escalones de potencia prevista · ITC-BT-25</h3>
-                <p className="mt-1 text-xs text-ink-faint">Suministros monofásicos a 230 V. El escalón fija el calibre del interruptor general automático (IGA).</p>
-                <div className="mt-2 overflow-hidden rounded-lg border border-line">
-                  <Table className="w-full text-left text-sm">
-                    <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="px-4 py-3 text-center">Electrificación</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Potencia ({powerUnit})</TableHead><TableHead scope="col" className="px-4 py-3 text-center">IGA (A)</TableHead></TableRow></TableHeader>
-                    <TableBody>{HOUSING_POWER_STEPS.map(([grade, watts, iga]) => <TableRow key={`${grade}-${watts}`} className="border-b border-line-soft"><TableCell className="px-4 py-2 text-center">{grade}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmt(Number(watts))}</TableCell><TableCell className="px-4 py-2 text-center tabular-nums">{iga}</TableCell></TableRow>)}</TableBody>
-                  </Table>
-                </div>
-                <h3 className="mt-6 font-bold text-ink-soft">Coeficiente de simultaneidad · ITC-BT-10</h3>
-                <div className="mt-2 max-h-[45vh] overflow-y-auto rounded-lg border border-line">
-                  <Table className="w-full text-left text-sm">
-                    <TableHeader className="sticky top-0 z-10 bg-table-cs-head text-xs uppercase tracking-wide text-table-cs-head-text">
-                      <TableRow className="border-table-cs-head"><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">Coeficiente de simultaneidad</TableHead></TableRow>
-                    </TableHeader>
-                    <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-line-soft text-table-cs-row-text ${index % 2 === 0 ? 'bg-table-cs-row-odd' : 'bg-table-cs-row-even'}`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-line bg-table-cs-row-even text-table-cs-row-text"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
-                  </Table>
-                </div>
-                <p className="mt-4 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-                <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
-              </DialogContent>
-            </Dialog>
-            <Elec3PreviewDialog open={showElec3} onOpenChange={setShowElec3} />
-            <Dialog open={showDownload} onOpenChange={setShowDownload}>
-              <DialogContent id="download-dialog" showCloseButton={false} className="max-h-[85dvh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
-                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
-                <div className="grid gap-2">
-                  <DownloadOption label="PDF" hint="Memoria técnica paginada, lista para firmar" icon={FileText} onClick={downloadReport} />
-                  <DownloadOption label="JSON" hint="Datos crudos del proyecto y los cálculos, para volver a cargarlos con «Cargar proyecto»" icon={FileJson} onClick={downloadJson} />
-                  <DownloadOption label="Markdown" hint="Texto estructurado con tablas, para pegar en un issue o un README" icon={FileCode2} onClick={downloadMarkdown} />
-                  <DownloadOption label="Texto simple" hint="Notas de obra sin formato, se abre en cualquier editor" icon={FileType} onClick={downloadText} />
-                </div>
-              </DialogContent>
-            </Dialog><div className="flex flex-col gap-2 border-t border-line pt-4"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button><Input ref={projectFileInput} type="file" accept="application/json,.json" className="hidden" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; loadProjectFile(file) }} /><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowElec3(true)}><FileJson data-icon="inline-start" /> Ver ELEC-3</Button>{projectLoad && <p role={projectLoad.kind === 'error' ? 'alert' : 'status'} className={`text-xs leading-5 ${projectLoad.kind === 'error' ? 'text-danger' : 'text-ink-faint'}`}>{projectLoad.message}</p>}</div></aside>
-        </div>
+          
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
           <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
@@ -1390,7 +1341,92 @@ export function LoadCalculator() {
               onOpenDerivations={() => changeTab('di')}
             />
           </TabsContent>
-        </Tabs>
+
+            </div>
+<aside className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:self-start xl:overflow-y-auto"><div className="overflow-hidden rounded-panel bg-panel text-panel-foreground shadow-panel"><div className="border-b border-panel-line p-6"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">Resultado del proyecto</p><p className="mt-5 text-4xl font-bold tabular-nums tracking-tight">{formatPowerValue(result.total, powerUnit)} <span className="text-lg font-medium text-panel-muted">{powerUnit}</span></p><p className="mt-1 text-sm text-panel-muted">Potencia total prevista</p>{result.total === 0 && <p className="mt-3 rounded-lg bg-panel-edge/60 p-3 text-xs leading-5 text-panel-muted">Sin cargas todavía. Añade viviendas o pulsa «Cargar ejemplo» para partir del edificio de referencia.</p>}</div><div className="flex flex-col gap-3 p-6">{[['P1', 'Viviendas', result.p1], ['P2', 'Servicios generales', result.p2], ['P3', 'Locales y oficinas', result.p3], ['P4', 'Garajes', result.p4], ['P5', 'IRVE', result.p5]].map(([code, label, value]) => {
+  const amount = value as number
+  const share = result.total > 0 ? (amount / result.total) * 100 : 0
+  return <div key={code as string}>
+    <div className="flex items-baseline justify-between gap-3 text-sm"><span className="text-panel-muted"><b className="mr-2 text-brand-on-panel">{code}</b>{label}</span><span className="font-semibold tabular-nums">{power(amount)}</span></div>
+    <div aria-hidden="true" className="mt-1.5 h-1 overflow-hidden rounded-full bg-panel-line"><div className="h-full rounded-full bg-brand-on-panel/80" style={{ width: `${share}%` }} /></div>
+  </div>
+})}<div className="my-2 h-px bg-panel-line" /><div className="flex items-center justify-between"><span className="font-semibold">Total</span><span className="text-xl font-bold tabular-nums text-brand-on-panel">{power(result.total)}</span></div></div></div>
+                        <RailGroup title="Proyecto">
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button>
+              <Input ref={projectFileInput} type="file" accept="application/json,.json" className="hidden" onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; loadProjectFile(file) }} />
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={reset}><RotateCcw data-icon="inline-start" /> Cargar ejemplo</Button>
+            </RailGroup>
+            <RailGroup title="Configuración">
+<button type="button" className="grid w-full grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 rounded-card border border-line bg-paper p-5 text-left shadow-card transition-colors hover:border-brand-line hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowSettings(true)}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><SlidersHorizontal className="size-4" /></span>
+              <span className="min-w-0 text-sm font-bold">Parámetros de cálculo</span>
+              <span className="col-span-2 text-xs leading-5 text-ink-faint">Ajusta viviendas, garajes, coeficientes y equipos en un solo lugar.</span>
+              <span className="col-span-2 flex items-center justify-end gap-1 text-xs font-semibold text-brand">Configurar<ChevronRight className="size-3.5" aria-hidden="true" /></span>
+            </button>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card">
+              <div className="mb-3"><h3 className="text-sm font-bold">Datos de la memoria técnica</h3><p className="mt-1 text-xs leading-5 text-ink-faint">Completa los datos que aparecerán en la cabecera del PDF.</p></div>
+              {(projectInfo.logo || projectInfo.companyName) && <div className="mb-3 flex items-center gap-3 rounded-control border border-line bg-surface-muted/60 p-3">{projectInfo.logo && <span className="flex h-10 max-w-[140px] shrink-0 items-center justify-center rounded-lg border border-line bg-paper p-1.5"><img src={projectInfo.logo} alt={`Logo de ${projectInfo.companyName || 'la empresa'}`} className="max-h-full w-auto max-w-[132px] object-contain" /></span>}<span className="min-w-0"><span className="block truncate text-sm font-semibold">{projectInfo.companyName || 'Sin nombre de empresa'}</span><span className="mt-0.5 block text-xs text-ink-faint">Membrete del PDF</span></span></div>}
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold w-full" onClick={() => setShowProjectInfo(true)}><Building2 data-icon="inline-start" /> Editar datos del proyecto</Button>
+            </section>
+            </RailGroup>
+
+            
+            <Dialog open={showReferences} onOpenChange={setShowReferences}>
+              <DialogContent id="references-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-2xl">
+                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="references-title" className="text-xl font-bold text-ink">Tablas y referencias</DialogTitle><DialogDescription id="references-description" className="mt-1 text-sm text-ink-faint">Criterios de previsión de cargas según ITC-BT-10 e ITC-BT-25.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas y referencias" />}><X /></DialogClose></div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
+                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
+                  <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
+                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
+                </div>
+                <h3 className="mt-6 font-bold text-ink-soft">Tabla A · Escalones de potencia prevista · ITC-BT-25</h3>
+                <p className="mt-1 text-xs text-ink-faint">Suministros monofásicos a 230 V. El escalón fija el calibre del interruptor general automático (IGA).</p>
+                <div className="mt-2 overflow-hidden rounded-lg border border-line">
+                  <Table className="w-full text-left text-sm">
+                    <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="px-4 py-3 text-center">Electrificación</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Potencia ({powerUnit})</TableHead><TableHead scope="col" className="px-4 py-3 text-center">IGA (A)</TableHead></TableRow></TableHeader>
+                    <TableBody>{HOUSING_POWER_STEPS.map(([grade, watts, iga]) => <TableRow key={`${grade}-${watts}`} className="border-b border-line-soft"><TableCell className="px-4 py-2 text-center">{grade}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmt(Number(watts))}</TableCell><TableCell className="px-4 py-2 text-center tabular-nums">{iga}</TableCell></TableRow>)}</TableBody>
+                  </Table>
+                </div>
+                <h3 className="mt-6 font-bold text-ink-soft">Coeficiente de simultaneidad · ITC-BT-10</h3>
+                <div className="mt-2 max-h-[45vh] overflow-y-auto rounded-lg border border-line">
+                  <Table className="w-full text-left text-sm">
+                    <TableHeader className="sticky top-0 z-10 bg-table-cs-head text-xs uppercase tracking-wide text-table-cs-head-text">
+                      <TableRow className="border-table-cs-head"><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">Coeficiente de simultaneidad</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-line-soft text-table-cs-row-text ${index % 2 === 0 ? 'bg-table-cs-row-odd' : 'bg-table-cs-row-even'}`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-line bg-table-cs-row-even text-table-cs-row-text"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
+                  </Table>
+                </div>
+                <p className="mt-4 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
+                <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
+              </DialogContent>
+            </Dialog>
+            <Elec3PreviewDialog open={showElec3} onOpenChange={setShowElec3} />
+            <Dialog open={showDownload} onOpenChange={setShowDownload}>
+              <DialogContent id="download-dialog" showCloseButton={false} className="max-h-[85dvh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
+                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
+                <div className="grid gap-2">
+                  <DownloadOption label="PDF" hint="Memoria técnica paginada, lista para firmar" icon={FileText} onClick={downloadReport} />
+                  <DownloadOption label="JSON" hint="Datos crudos del proyecto y los cálculos, para volver a cargarlos con «Cargar proyecto»" icon={FileJson} onClick={downloadJson} />
+                  <DownloadOption label="Markdown" hint="Texto estructurado con tablas, para pegar en un issue o un README" icon={FileCode2} onClick={downloadMarkdown} />
+                  <DownloadOption label="Texto simple" hint="Notas de obra sin formato, se abre en cualquier editor" icon={FileType} onClick={downloadText} />
+                </div>
+              </DialogContent>
+            </Dialog>            <RailGroup title="Salida">
+              <Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button>
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowElec3(true)}><FileJson data-icon="inline-start" /> Ver ELEC-3</Button>
+            </RailGroup>
+            <RailGroup title="Referencias">
+<button type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-control border border-line bg-paper px-4 py-3 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowReferences(true)}>
+        <span>Tablas y referencias</span><span className="flex items-center gap-2 text-brand"><span className="text-xs">Ver tablas</span><Table2 className="size-4" /></span>
+      </button>
+            </RailGroup>
+            <div className="flex flex-col gap-2 border-t border-line pt-4">
+              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold text-danger" aria-label="Limpiar datos del proyecto y memoria técnica" onClick={clear}><Trash2 data-icon="inline-start" /> Limpiar</Button>
+              {projectLoad && <p role={projectLoad.kind === 'error' ? 'alert' : 'status'} className={`text-xs leading-5 ${projectLoad.kind === 'error' ? 'text-danger' : 'text-ink-faint'}`}>{projectLoad.message}</p>}
+            </div>
+          </aside>
+          </div>        </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
       </div>
       <SiteFooter />

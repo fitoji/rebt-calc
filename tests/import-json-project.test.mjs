@@ -238,12 +238,18 @@ test('S6: a loaded project retires the mark and reloads instead of the example',
 
 const component = readFileSync(new URL('../components/load-calculator.tsx', import.meta.url), 'utf8')
 
-test('S1: Cargar proyecto sits below Limpiar and opens a JSON-only, single-file picker', () => {
-  const sidebar = component.split('\n').find(line => line.includes('border-t border-line pt-4'))
+test('S1: Cargar proyecto opens a JSON-only, single-file picker from the rail', () => {
+  const rail = component.slice(component.indexOf('<aside className'), component.indexOf('</Tabs>'))
+  const grupoAt = rail.indexOf('<RailGroup title="Proyecto">')
+  const grupo = rail.slice(grupoAt, rail.indexOf('</RailGroup>', grupoAt))
 
-  assert.ok(sidebar, 'sidebar action stack exists')
-  assert.ok(sidebar.indexOf('Cargar proyecto') > sidebar.indexOf('Limpiar'), 'button follows Limpiar')
-  assert.match(sidebar, /projectFileInput\.current\?\.click\(\)/, 'button opens the picker')
+  assert.ok(grupo, 'the load actions sit in the Proyecto group')
+  assert.match(grupo, /projectFileInput\.current\?\.click\(\)/, 'button opens the picker')
+  assert.ok(grupo.includes('Cargar ejemplo'), 'the example seed sits with the load actions')
+  assert.ok(
+    rail.indexOf('Cargar proyecto') < rail.lastIndexOf('Limpiar'),
+    'the destructive action stays last in the rail',
+  )
   const field = component.match(/<Input ref=\{projectFileInput\}[^]*?\/>/)
   assert.ok(field, 'hidden file input bound to the ref')
   assert.match(field[0], /type="file"/)
