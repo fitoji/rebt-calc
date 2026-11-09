@@ -46,6 +46,7 @@ import { LGA_INSULATION, defaultLineState } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
 import { UnifilarPanel } from '@/components/unifilar-panel'
+import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
 
 type ProjectInfo = {
   companyName: string
@@ -1029,11 +1030,22 @@ export function LoadCalculator() {
     return <main className="mode-shell relative isolate min-h-screen bg-surface-page text-ink" aria-busy="true"><ModeBackdrop /><div className="mx-auto max-w-7xl px-5 py-10 text-sm text-ink-faint" role="status">Cargando datos guardados…</div></main>
   }
 
+  // Las pestañas surgen a medida que el proyecto las necesita: con 0 viviendas
+  // solo se ve Previsión; ≥1 vivienda suma DI; >2 viviendas suma LGA (REBT: una
+  // unifamiliar o dos adosadas no la necesitan); al generar las derivaciones suma
+  // Cuadros, y la primera edición de Cuadros suma Esquema.
+  const visibleTabs = computeVisibleTabs({
+    homes: result.homes,
+    hasDerivations: derivations.length > 0,
+    cuadrosStarted: cuadrosHasEdits(derivations),
+  })
+  const effectiveActiveTab = resolveActiveTab(activeTab, visibleTabs) as TabValue
+
   return (
     <main className="mode-shell relative isolate min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
       <ModeBackdrop />
       <SiteHeader titleAs="h1">
-        <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button><Link href="/requisitos" aria-label="Requisitos para proyecto o memoria técnica" title="Requisitos para proyecto o memoria técnica" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><ClipboardCheck aria-hidden="true" className="size-4" /></Link><Link href="/ayuda" aria-label="Cómo usar la app" title="Cómo usar la app" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><HelpCircle aria-hidden="true" className="size-4" /></Link></div>
+        <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[effectiveActiveTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button><Link href="/requisitos" aria-label="Requisitos para proyecto o memoria técnica" title="Requisitos para proyecto o memoria técnica" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><ClipboardCheck aria-hidden="true" className="size-4" /></Link><Link href="/ayuda" aria-label="Cómo usar la app" title="Cómo usar la app" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><HelpCircle aria-hidden="true" className="size-4" /></Link></div>
       </SiteHeader>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <div className="mb-8 max-w-3xl"><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">De la previsión de cargas a cada derivación</h2><p className="mt-3 text-base leading-7 text-ink-subtle">Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda, local, garaje o servicios generales.</p></div>
@@ -1163,14 +1175,22 @@ export function LoadCalculator() {
               <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
           </DialogContent>
         </Dialog>
-        <Tabs value={activeTab} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
-          <TabsList data-active-tab={activeTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
+        <Tabs value={effectiveActiveTab} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
+          <TabsList data-active-tab={effectiveActiveTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
             <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
-            <TabsTrigger value="lga" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
-            <TabsTrigger value="di" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />DI</TabsTrigger>
-            <TabsTrigger value="interiores" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />Cuadros</TabsTrigger>
-            <TabsTrigger value="esquema" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-esquema" />Esquema</TabsTrigger>
+            {visibleTabs.includes('lga') && (
+              <TabsTrigger value="lga" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-lga" />LGA</TabsTrigger>
+            )}
+            {visibleTabs.includes('di') && (
+              <TabsTrigger value="di" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />DI</TabsTrigger>
+            )}
+            {visibleTabs.includes('interiores') && (
+              <TabsTrigger value="interiores" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-di" />Cuadros</TabsTrigger>
+            )}
+            {visibleTabs.includes('esquema') && (
+              <TabsTrigger value="esquema" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-esquema" />Esquema</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
