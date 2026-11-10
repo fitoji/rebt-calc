@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
-import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
+import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
 import { formatPower } from '../lib/power-units.mjs'
@@ -35,6 +35,7 @@ export type InteriorDwelling = {
     hasCooling?: boolean
     hasDryer?: boolean
     pointsOverride?: Record<string, number>
+    circuitPowerOverride?: Record<string, number>
   }
 }
 
@@ -52,6 +53,7 @@ export type InteriorInputsState = {
   hasCooling: boolean
   hasDryer: boolean
   pointsOverride: Record<string, number>
+  circuitPowerOverride: Record<string, number>
 }
 
 function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
@@ -66,6 +68,7 @@ function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState 
     hasCooling: resolved.hasCooling ?? false,
     hasDryer: resolved.hasDryer ?? false,
     pointsOverride: resolved.pointsOverride ?? {},
+    circuitPowerOverride: resolved.circuitPowerOverride ?? {},
   }
 }
 
@@ -73,6 +76,13 @@ function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState 
 function pointCount(raw: string) {
   const parsed = Math.floor(Number(raw))
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0
+}
+
+/** Power typed by the user: a positive number of watts, `null` when the field is empty or not a power. */
+function manualPower(raw: string) {
+  if (raw.trim() === '') return null
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
 function roomLabel(type: string) {
@@ -147,6 +157,15 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
     if (value == null) delete next[circuit]
     else next[circuit] = value
     onChange(dwelling.id, { pointsOverride: next })
+  }
+  // La potencia de los circuitos que la tabla 1 deja sin valor es del proyecto:
+  // borrar el campo devuelve la celda al «—» y nunca toca los circuitos de la tabla.
+  const setCircuitPowerOverride = (circuit: string, raw: string) => {
+    const next = { ...(inputs.circuitPowerOverride ?? {}) }
+    const value = manualPower(raw)
+    if (value == null) delete next[circuit]
+    else next[circuit] = value
+    onChange(dwelling.id, { circuitPowerOverride: next })
   }
   const setRooms = (next: Array<{ id: string; type: string; area: number; length: number }>) => onChange(dwelling.id, { rooms: next })
   const addRoom = () => setRooms([...rooms, { id: `room-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'dormitorio', area: 0, length: 0 }])
@@ -238,7 +257,19 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                       </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.tube == null ? '—' : `${circuit.tube} mm`}</TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.maxPoints == null ? '—' : circuit.maxPoints}</TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">{circuit.powerPerPointW == null ? '—' : `${fmt(circuit.powerPerPointW)} W`}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums">
+                        {circuit.powerPerPointW != null
+                          ? `${fmt(circuit.powerPerPointW)} W`
+                          : (
+                            <Input
+                              aria-label={`Potencia manual · ${circuit.id} · ${circuit.name}`}
+                              type="number" min="0" step="1"
+                              value={circuitPowerW(circuit.id, inputs.circuitPowerOverride) ?? ''}
+                              onChange={event => setCircuitPowerOverride(circuit.id, event.target.value)}
+                              className="w-24"
+                            />
+                          )}
+                      </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.fs == null ? '—' : circuit.fs}</TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.fu == null ? '—' : circuit.fu}</TableCell>
                       <TableCell className="py-2 tabular-nums">
@@ -256,6 +287,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
               </TableBody>
             </Table>
           </div>
+          <p className="mt-2 text-[11px] leading-4 text-ink-faint">Solo los circuitos que la tabla 1 deja sin potencia por toma admiten un valor manual; el máximo permisible de cada uno figura en la nota de cada circuito. Ese valor no cambia la protección ni la sección del circuito.</p>
           {showSourceNotes && <SourceNote label="ITC-BT-25 §3 · tabla 1">ITC-BT-25 §3, tabla 1: características mínimas de los circuitos del grado de electrificación. El número de circuitos instalados se ajusta arriba; esta tabla describe el grado, no lo cambia. La sección de cada circuito se toma de la tabla y además la caída de tensión no puede superar el 3 %, calculada con la intensidad nominal del interruptor automático del circuito y la distancia al punto de utilización más alejado. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
         </div>
 
