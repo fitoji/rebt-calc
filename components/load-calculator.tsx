@@ -12,7 +12,7 @@ import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectEx
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
 import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
-import { limitsForInstallation } from '../lib/installation-config.mjs'
+import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
 import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PLACEMENT_LABELS, evaluateMeterCenter, installationTypeFor, meterCenterFromInstallationType, suggestMeterCount } from '../lib/meter-center.mjs'
 import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } from '../lib/project-documentation.mjs'
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
@@ -407,7 +407,13 @@ export function LoadCalculator() {
     () => ({ ...meterCenter, meters: meterCenter.meters ?? suggestedMeters }),
     [meterCenter, suggestedMeters],
   )
-  const installationType = useMemo(() => installationTypeFor(effectiveMeterCenter), [effectiveMeterCenter])
+  // Una vivienda es una unifamiliar: un solo suministro, sin línea general, y la
+  // ITC-BT-15 le asigna el 1,5 % de caída a la DI. El resto de supuestos se
+  // derivan de la centralización de contadores.
+  const installationType = useMemo(
+    () => (result.homes === 1 ? 'single-user' : installationTypeFor(effectiveMeterCenter)),
+    [effectiveMeterCenter, result.homes],
+  )
   const meterEvaluation = useMemo(
     () => evaluateMeterCenter(effectiveMeterCenter, { powerW: result.total }),
     [effectiveMeterCenter, result.total],
@@ -461,6 +467,24 @@ export function LoadCalculator() {
     setDerivations(current => current.map(derivation => derivation.id === id ? { ...derivation, interiorCircuits: circuits } : derivation))
   }
 
+  // Los límites de caída dependen del supuesto de enlace. Se aplican cuando el
+  // supuesto cambia, no al montar: un proyecto guardado conserva sus valores y,
+  // si difieren del límite, el panel lo advierte.
+  const appliedScenario = useRef<InstallationType | null>(null)
+  useEffect(() => {
+    if (appliedScenario.current === null) {
+      appliedScenario.current = installationType
+      return
+    }
+    if (appliedScenario.current === installationType) return
+    appliedScenario.current = installationType
+    const limits = limitsForInstallation(installationType)
+    setLineTouched(true)
+    if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
+    setDi(current => ({ ...current, maxDropPercent: limits.di }))
+    setDerivations(current => current.map(derivation => ({ ...derivation, maxDropPercent: limits.di })))
+  }, [installationType])
+
   const updateMeterCenter = (patch: Partial<MeterCenterState>) => {
     const next = { ...meterCenter, ...patch }
     // La colocación manda sobre el conjunto: individual solo admite CPM y una
@@ -468,13 +492,9 @@ export function LoadCalculator() {
     if (patch.placement === 'individual') next.assembly = 'cpm'
     else if (patch.placement === 'concentrated' && next.assembly === 'cpm') next.assembly = 'local'
     setMeterCenter(next)
-    const type = installationTypeFor({ ...next, meters: next.meters ?? suggestedMeters })
-    if (type === installationType) return
-    const limits = limitsForInstallation(type)
-    setLineTouched(true)
-    if (limits.lga != null) setLga(current => ({ ...current, maxDropPercent: limits.lga as number }))
-    setDi(current => ({ ...current, maxDropPercent: limits.di }))
-    setDerivations(current => current.map(derivation => ({ ...derivation, maxDropPercent: limits.di })))
+    // Los límites de caída los aplica el efecto que observa el supuesto de
+    // enlace: así hay una sola fuente cuando el supuesto cambia por la
+    // centralización o por quedar el proyecto como unifamiliar.
   }
 
   useEffect(() => {
@@ -512,8 +532,8 @@ export function LoadCalculator() {
   )
 
   const project = useMemo(
-    () => calculateProject({ loadTotal: result.total, lga, lgaPowerMode, derivations }),
-    [result.total, lga, lgaPowerMode, derivations],
+    () => calculateProject({ loadTotal: result.total, lga, lgaPowerMode, derivations, hasLga: installationType !== 'single-user' }),
+    [result.total, lga, lgaPowerMode, derivations, installationType],
   )
   const calculatedDerivations = project.derivations as Array<Derivation & { result: ReturnType<typeof computeLine> }>
 

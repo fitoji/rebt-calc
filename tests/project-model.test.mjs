@@ -214,3 +214,14 @@ test('locales y garajes con potencia siguen generando su DI', () => {
 
   assert.deepEqual(derivations.map(d => d.kind), ['dwelling', 'local', 'garage'], 'priced rows keep their line')
 })
+
+// Una instalación de único usuario no tiene LGA: avisar de su protección sería
+// advertir sobre una línea que no existe.
+test('sin LGA no se advierte sobre su protección', () => {
+  const derivations = buildDerivations(load, loadResult, defaults)
+  const withLga = calculateProject({ loadTotal: loadResult.total, lga: { ...lga, protectionA: 10 }, derivations })
+  const withoutLga = calculateProject({ loadTotal: loadResult.total, lga: { ...lga, protectionA: 10 }, derivations, hasLga: false })
+
+  assert.ok(withLga.summary.warnings.some(warning => warning.includes('LGA')), 'con LGA el aviso se emite')
+  assert.ok(!withoutLga.summary.warnings.some(warning => warning.includes('LGA')), 'sin LGA no hay aviso de LGA')
+})

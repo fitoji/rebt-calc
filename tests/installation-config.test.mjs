@@ -36,10 +36,19 @@ test('a configured limit that drifts from the scenario is flagged', () => {
 })
 
 test('the calculator applies the scenario to both lines', () => {
-  assert.match(calc, /limitsForInstallation\(type\)/, 'the handler reads the scenario limits')
+  assert.match(calc, /limitsForInstallation\(installationType\)/, 'the scenario effect reads the limits')
   assert.match(calc, /setLga\(current => \(\{ \.\.\.current, maxDropPercent: limits\.lga as number \}\)\)/, 'LGA limit follows the scenario')
   assert.match(calc, /setDi\(current => \(\{ \.\.\.current, maxDropPercent: limits\.di \}\)\)/, 'DI limit follows the scenario')
   assert.match(calc, /maxDropPercent: 1,/, 'DI starts at the centralised-meter limit')
+})
+
+test('una vivienda se trata como unifamiliar: sin LGA y con el 1,5 % en la DI', () => {
+  assert.match(
+    calc,
+    /result\.homes === 1 \? 'single-user' : installationTypeFor\(effectiveMeterCenter\)/,
+    'a single dwelling is a unifamiliar whatever the meter card says',
+  )
+  assert.match(calc, /hasLga: installationType !== 'single-user'/, 'the summary is told when there is no LGA')
 })
 
 test('the LGA tab stays open and explains the single-user scenario', () => {
