@@ -42,7 +42,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
-import { buildDerivations, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
+import { buildDerivations, calculateProject, mergeDerivations, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
 import { LGA_INSULATION, defaultLineState } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
@@ -546,9 +546,11 @@ export function LoadCalculator() {
   }, [result.total, lgaPowerMode])
 
   const generateDerivations = () => {
-    const next = buildDerivations({ housing, locals, garages, parking, irveOption }, result, di) as Derivation[]
-    setDerivations(next)
-    setSelectedDerivationId(next[0]?.id ?? null)
+    const built = buildDerivations({ housing, locals, garages, parking, irveOption }, result, di) as Derivation[]
+    // Regenerar agrega y quita derivaciones, pero no borra los cuadros ni las
+    // líneas ya editadas de las que siguen existiendo.
+    setDerivations(current => mergeDerivations(current, built) as Derivation[])
+    setSelectedDerivationId(built[0]?.id ?? null)
   }
 
   const updateDerivation = (id: string, patch: Partial<Derivation>) => {

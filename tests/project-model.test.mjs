@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildDerivations, buildProjectSummary, calculateProject, syncDerivationPowers } from '../lib/project-model.mjs'
+import { buildDerivations, buildProjectSummary, calculateProject, mergeDerivations, syncDerivationPowers } from '../lib/project-model.mjs'
 
 const near = (actual, expected, tolerance, label) =>
   assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: expected ~${expected}, got ${actual}`)
@@ -224,4 +224,31 @@ test('sin LGA no se advierte sobre su protección', () => {
 
   assert.ok(withLga.summary.warnings.some(warning => warning.includes('LGA')), 'con LGA el aviso se emite')
   assert.ok(!withoutLga.summary.warnings.some(warning => warning.includes('LGA')), 'sin LGA no hay aviso de LGA')
+})
+
+// Regenerar las DI desde la previsión no puede borrar el trabajo hecho en los
+// cuadros: la derivación que sigue existiendo conserva lo que el usuario editó.
+test('mergeDerivations conserva el trabajo del usuario en las derivaciones que siguen', () => {
+  const previous = [
+    { id: 'dwelling-0-0', kind: 'dwelling', powerW: 5750, lengthM: 14, interior: { circuits: 5 }, interiorCircuits: [{ id: 'c1' }] },
+    { id: 'dwelling-9-0', kind: 'dwelling', powerW: 5750, interior: { circuits: 9 } },
+  ]
+  const next = [
+    { id: 'dwelling-0-0', kind: 'dwelling', powerW: 9200, lengthM: 20, interior: undefined },
+    { id: 'dwelling-1-0', kind: 'dwelling', powerW: 5750, lengthM: 20 },
+  ]
+  const merged = mergeDerivations(previous, next)
+
+  assert.equal(merged.length, 2, 'las derivaciones nuevas entran y las que ya no existen salen')
+  assert.equal(merged[0].powerW, 9200, 'la potencia sigue a la previsión')
+  assert.equal(merged[0].lengthM, 14, 'la longitud editada se conserva')
+  assert.deepEqual(merged[0].interior, { circuits: 5 }, 'el cuadro editado se conserva')
+  assert.deepEqual(merged[0].interiorCircuits, [{ id: 'c1' }], 'los circuitos del cuadro se conservan')
+  assert.equal(merged[1].id, 'dwelling-1-0', 'la DI nueva aparece')
+  assert.equal(merged[1].lengthM, 20, 'la DI nueva usa los valores por defecto')
+})
+
+test('mergeDerivations sin derivaciones previas devuelve las nuevas tal cual', () => {
+  const next = [{ id: 'dwelling-0-0', kind: 'dwelling', powerW: 5750, lengthM: 20 }]
+  assert.deepEqual(mergeDerivations([], next), next)
 })
