@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
-import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, totalPoints } from '../lib/housing-points.mjs'
+import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
 import { formatPower } from '../lib/power-units.mjs'
 
@@ -34,6 +34,7 @@ export type InteriorDwelling = {
     hasHeating?: boolean
     hasCooling?: boolean
     hasDryer?: boolean
+    pointsOverride?: Record<string, number>
   }
 }
 
@@ -50,6 +51,7 @@ export type InteriorInputsState = {
   hasHeating: boolean
   hasCooling: boolean
   hasDryer: boolean
+  pointsOverride: Record<string, number>
 }
 
 function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
@@ -63,7 +65,14 @@ function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState 
     hasHeating: resolved.hasHeating ?? false,
     hasCooling: resolved.hasCooling ?? false,
     hasDryer: resolved.hasDryer ?? false,
+    pointsOverride: resolved.pointsOverride ?? {},
   }
+}
+
+/** Points typed by the user: a whole, non-negative number, `0` when the field is empty. */
+function pointCount(raw: string) {
+  const parsed = Math.floor(Number(raw))
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0
 }
 
 function roomLabel(type: string) {
@@ -122,12 +131,23 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
   const remainingArea = dwellingArea > 0 ? dwellingArea - roomsArea : null
   const pointFlags = { hasHeating: inputs.hasHeating, hasCooling: inputs.hasCooling, hasDryer: inputs.hasDryer, hasIrve }
   const points = totalPoints(rooms, pointFlags)
+  // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
+  // puntos instala de verdad en cada circuito, y ese número decide los circuitos.
+  const effectivePoints = applyPointOverrides(points, inputs.pointsOverride)
   const interiorExplanation = explainInterior(
     { igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...inputs },
     evaluation,
     { grade },
   )
+  // La explicación guiada desarrolla el mínimo de la tabla 2 a partir de las
+  // estancias; los puntos que el proyecto instala viven en la tabla de arriba.
   const pointsExplanation = explainHousingPoints(rooms, points, pointFlags)
+  const setPointOverride = (circuit: string, value: number | null) => {
+    const next = { ...(inputs.pointsOverride ?? {}) }
+    if (value == null) delete next[circuit]
+    else next[circuit] = value
+    onChange(dwelling.id, { pointsOverride: next })
+  }
   const setRooms = (next: Array<{ id: string; type: string; area: number; length: number }>) => onChange(dwelling.id, { rooms: next })
   const addRoom = () => setRooms([...rooms, { id: `room-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'dormitorio', area: 0, length: 0 }])
   const patchRoom = (id: string, values: Partial<{ type: string; area: number; length: number }>) => setRooms(rooms.map(room => room.id === id ? { ...room, ...values } : room))
@@ -293,29 +313,37 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
               </div>
             )}
 
-          {points.totalPoints > 0 && (
+          {(points.totalPoints > 0 || effectivePoints.totalPoints > 0) && (
             <div className="mt-4 overflow-x-auto">
               <Table aria-label="Puntos mínimos por circuito" className="w-full text-left text-xs">
                 <TableHeader>
                   <TableRow className="border-b border-line uppercase tracking-wide text-ink-faint">
                     <TableHead scope="col" className="py-2 pr-2">Circuito</TableHead>
-                    <TableHead scope="col" className="py-2 pr-2">Puntos mínimos</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Puntos previstos</TableHead>
                     <TableHead scope="col" className="py-2 pr-2">Máx. por circuito (tabla 1)</TableHead>
                     <TableHead scope="col" className="py-2">Circuitos necesarios</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {POINT_CIRCUITS.filter(circuit => points.totals[circuit] > 0).map(circuit => (
+                  {POINT_CIRCUITS.filter(circuit => points.totals[circuit] > 0 || effectivePoints.totals[circuit] > 0).map(circuit => (
                     <TableRow key={circuit} className="border-b border-line-soft">
                       <TableCell className="py-2 pr-2 font-semibold">{circuit} · {POINT_CIRCUIT_LABELS[circuit]}</TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">{points.totals[circuit]}</TableCell>
+                      <TableCell className="py-2 pr-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <Input aria-label={`Puntos · ${circuit} · ${POINT_CIRCUIT_LABELS[circuit]}`} type="number" min="0" step="1" value={effectivePoints.totals[circuit]} onChange={event => setPointOverride(circuit, pointCount(event.target.value))} className="w-20" />
+                          {effectivePoints.overridden.includes(circuit) && (
+                            <Button type="button" variant="ghost" size="sm" className="h-auto gap-1 px-1.5 py-0.5 text-[11px] font-normal text-ink-faint" aria-label={`Volver al mínimo calculado · ${circuit}`} onClick={() => setPointOverride(circuit, null)}>mínimo calculado · {points.totals[circuit]}</Button>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{MAX_POINTS[circuit] ?? '—'}</TableCell>
-                      <TableCell className="py-2 tabular-nums">{MAX_POINTS[circuit] == null ? '—' : points.requiredCircuits[circuit]}</TableCell>
+                      <TableCell className="py-2 tabular-nums">{MAX_POINTS[circuit] == null ? '—' : effectivePoints.requiredCircuits[circuit]}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              <p className="mt-2 text-[11px] leading-4 text-ink-faint">C8 y C9 no tienen máximo de puntos en la tabla 1: se limitan por potencia (5.750 W por circuito). C13 se rige por la ITC-BT-52.</p>
+              <p className="mt-2 text-[11px] leading-4 text-ink-faint">Cada circuito arranca con el mínimo que sale de las estancias (tabla 2); escribí los puntos que vas a instalar y la columna «Circuitos necesarios» se recalcula. El máximo de la tabla 1 no se edita: es el tope reglamentario de cada circuito.</p>
+              <p className="mt-1 text-[11px] leading-4 text-ink-faint">C8 y C9 no tienen máximo de puntos en la tabla 1: se limitan por potencia (5.750 W por circuito). C13 se rige por la ITC-BT-52.</p>
             </div>
           )}
         </div>

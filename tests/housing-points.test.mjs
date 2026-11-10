@@ -96,6 +96,6 @@ test('the dwelling card shows the rooms and the point summary', () => {
   const calc = read('components/load-calculator.tsx')
   assert.match(calc, /title: '11\. Circuitos de vivienda · ITC-BT-25'/, 'the report carries the dwelling circuits')
   assert.match(calc, /title: '12\. Estancias de vivienda · ITC-BT-25 §4'/, 'the report carries the rooms')
-  assert.match(calc, /title: '13\. Puntos mínimos por vivienda · ITC-BT-25 §4'/, 'the report carries the points')
-  assert.match(calc, /'14\. Puntos mínimos por vivienda · ITC-BT-25 §4'/, 'the PDF carries the points page')
+  assert.match(calc, /title: '13\. Puntos por vivienda · mínimos y declarados · ITC-BT-25 §4'/, 'the report carries the points')
+  assert.match(calc, /'14\. Puntos por vivienda · mínimos y declarados · ITC-BT-25 §4'/, 'the PDF carries the points page')
 })

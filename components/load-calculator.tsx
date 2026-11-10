@@ -22,7 +22,7 @@ import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/co
 import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { CIRCUIT_USE_LABELS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
 import { housingCircuitSizing, housingCircuitsFor } from '../lib/housing-circuits.mjs'
-import { POINT_CIRCUITS, ROOM_LABELS, totalPoints } from '../lib/housing-points.mjs'
+import { POINT_CIRCUITS, ROOM_LABELS, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { explainLineCalculation, explainLoadForecast, explainMeterCenter } from '../lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { SiteFooter } from '@/components/site-footer'
@@ -685,12 +685,12 @@ export function LoadCalculator() {
 
   const housingPointReportRows = () => interiorDwellings.map(dwelling => {
     const interior = resolveInterior(dwelling.powerW, dwelling.interior)
-    const points = totalPoints(interior.rooms ?? [], {
+    const points = applyPointOverrides(totalPoints(interior.rooms ?? [], {
       hasHeating: interior.hasHeating,
       hasCooling: interior.hasCooling,
       hasDryer: interior.hasDryer,
       hasIrve: parking > 0,
-    })
+    }), interior.pointsOverride)
     return [dwelling.label, ...POINT_CIRCUITS.map(circuit => String(points.totals[circuit])), String(points.totalPoints)]
   })
 
@@ -866,7 +866,7 @@ export function LoadCalculator() {
         rows: housingRoomReportRows().length === 0 ? [['—', 'Sin estancias cargadas', '', '']] : housingRoomReportRows(),
       },
       {
-        title: '13. Puntos mínimos por vivienda · ITC-BT-25 §4',
+        title: '13. Puntos por vivienda · mínimos y declarados · ITC-BT-25 §4',
         columns: ['Vivienda', ...POINT_CIRCUITS, 'Total'],
         rows: housingPointReportRows().length === 0 ? [['—', ...POINT_CIRCUITS.map(() => ''), '']] : housingPointReportRows(),
       },
@@ -1073,7 +1073,7 @@ export function LoadCalculator() {
     }).concat(circuitSupplies.every(supply => supply.circuits.length === 0) ? [['—', '', '', 'Sin circuitos definidos', '', '', '', '', '', '']] : []))
     addDetailPage('12. Circuitos de vivienda · ITC-BT-25', ['Vivienda', 'Circuito', 'PIA', 'Sección', 'Longitud', 'Caída'], interiorDwellings.length === 0 ? [['—', 'Sin viviendas generadas', '', '', '', '']] : housingCircuitReportRows())
     addDetailPage('13. Estancias de vivienda · ITC-BT-25 §4', ['Vivienda', 'Estancia', 'Superficie', 'Longitud'], housingRoomReportRows().length === 0 ? [['—', 'Sin estancias cargadas', '', '']] : housingRoomReportRows())
-    addDetailPage('14. Puntos mínimos por vivienda · ITC-BT-25 §4', ['Vivienda', ...POINT_CIRCUITS, 'Total'], housingPointReportRows().length === 0 ? [['—', ...POINT_CIRCUITS.map(() => ''), '']] : housingPointReportRows())
+    addDetailPage('14. Puntos por vivienda · mínimos y declarados · ITC-BT-25 §4', ['Vivienda', ...POINT_CIRCUITS, 'Total'], housingPointReportRows().length === 0 ? [['—', ...POINT_CIRCUITS.map(() => ''), '']] : housingPointReportRows())
     for (let page = 1; page <= doc.getNumberOfPages(); page += 1) { doc.setPage(page); addFooter(page) }
     doc.save(`memoria-tecnica-prevision-cargas-${new Date().toISOString().slice(0, 10)}.pdf`)
   }
