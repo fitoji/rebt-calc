@@ -149,8 +149,8 @@ test('without overrides the result is identical to totalPoints', () => {
 
 test('totalPoints keeps its previous numbers when no override is used', () => {
   const result = totalPoints(rooms)
-  assert.deepEqual(result.totals, { C1: 8, C2: 12, C3: 1, C4: 3, C5: 4, C8: 0, C9: 0, C10: 0, C13: 0 })
-  assert.deepEqual(result.requiredCircuits, { C1: 1, C2: 1, C3: 1, C4: 1, C5: 1, C8: 0, C9: 0, C10: 0, C13: 0 })
+  assert.deepEqual(result.totals, { C1: 8, C2: 12, C3: 1, C4: 3, C5: 4, C6: 0, C7: 0, C8: 0, C9: 0, C10: 0, C11: 0, C12: 0, C13: 0 })
+  assert.deepEqual(result.requiredCircuits, { C1: 1, C2: 1, C3: 1, C4: 1, C5: 1, C6: 0, C7: 0, C8: 0, C9: 0, C10: 0, C11: 0, C12: 0, C13: 0 })
   assert.equal(result.totalPoints, 28)
 })
 
@@ -200,11 +200,11 @@ test('the dwelling card lets the user edit the points of each circuit', () => {
   const panel = read('components/interior-panel.tsx')
   assert.match(panel, /const points = totalPoints\(rooms, pointFlags\)/, 'the minimum still comes from the shared rules')
   assert.match(panel, /applyPointOverrides\(points, /, 'the card applies the project overrides on top of the minimum')
-  assert.match(panel, /Puntos previstos/, 'the header says the value is the number to install, not only the minimum')
-  assert.match(panel, /mínimo que sale de las estancias/, 'the card explains where the starting number comes from')
-  assert.match(panel, /aria-label=\{`Puntos · \$\{circuit\} · \$\{POINT_CIRCUIT_LABELS\[circuit\]\}`\}/, 'the input names its circuit and its label')
+  assert.match(panel, />Puntos</, 'the circuits table carries an editable points column')
+  assert.match(panel, /La columna Puntos arranca en el mínimo que sale de las estancias/, 'the card explains where the starting number comes from')
+  assert.match(panel, /aria-label=\{`Puntos · \$\{circuit\.id\} · \$\{circuit\.name\}`\}/, 'the input names its circuit and its label')
   assert.match(panel, /type="number" min="0" step="1"/, 'the points are a non-negative whole number')
-  assert.match(panel, /Volver al mínimo calculado · \$\{circuit\}/, 'the reset affordance is labelled per circuit')
+  assert.match(panel, /Volver al mínimo calculado · \$\{circuit\.id\}/, 'the reset affordance is labelled per circuit')
   assert.match(panel, /mínimo calculado/, 'the reset affordance is visible')
   assert.match(panel, /effectivePoints\.requiredCircuits\[circuit\]/, 'the circuit count reacts to the edited number')
   assert.match(panel, /pointsOverride/, 'the edit travels through the interior patch')
@@ -212,10 +212,10 @@ test('the dwelling card lets the user edit the points of each circuit', () => {
 
 test('the regulatory cap of table 1 stays read-only', () => {
   const panel = read('components/interior-panel.tsx')
-  assert.match(panel, /Máx\. por circuito \(tabla 1\)/, 'the cap is still labelled as the table limit')
-  assert.match(panel, /\{MAX_POINTS\[circuit\] \?\? '—'\}/, 'the cap is printed as text')
-  assert.doesNotMatch(panel, /<Input[^\n]*MAX_POINTS/, 'the cap is never an input')
-  assert.doesNotMatch(panel, /setPointOverride\(circuit, MAX_POINTS/, 'the cap is never the edited value')
+  assert.match(panel, />Máx\. puntos</, 'the cap keeps its own read-only column')
+  assert.match(panel, /\{circuit.maxPoints == null \? '—' : circuit.maxPoints\}/, 'the cap is printed as text')
+  assert.doesNotMatch(panel, /<Input[^\n]*maxPoints/, 'the cap is never an input')
+  assert.doesNotMatch(panel, /setPointOverride\(circuit\.id, circuit\.maxPoints/, 'the cap is never the edited value')
 })
 
 test('the didactic walkthrough keeps explaining the table 2 minimum', () => {

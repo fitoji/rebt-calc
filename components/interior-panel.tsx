@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
+import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
@@ -123,11 +123,14 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
-  const circuitsFromGrade = dwelling.interior?.circuits == null
+  // El número de circuitos lo fija el grado de electrificación, no el proyecto:
+  // la básica tiene cinco y la elevada doce. El interior guardado puede traer un
+  // valor viejo, así que se resuelve acá.
   const evaluation = evaluateInterior({
     igaA: dwelling.housingIgaA ?? null,
     powerW: dwelling.powerW,
     ...inputs,
+    circuits: defaultCircuitsFor(dwelling.powerW),
   })
 
   const setInput = (patch: Partial<typeof inputs>) => onChange(dwelling.id, patch)
@@ -144,6 +147,10 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
   // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
   // puntos instala de verdad en cada circuito, y ese número decide los circuitos.
   const effectivePoints = applyPointOverrides(points, inputs.pointsOverride)
+  // Los totales se indexan por id de circuito: el id de la fila es texto.
+  const pointsFor = (id: string) => effectivePoints.totals[id as keyof typeof effectivePoints.totals] ?? 0
+  const minimumFor = (id: string) => points.totals[id as keyof typeof points.totals] ?? 0
+  const isOverridden = (id: string) => effectivePoints.overridden.includes(id)
   const interiorExplanation = explainInterior(
     { igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...inputs },
     evaluation,
@@ -206,11 +213,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada</Label>
             <Input id="interior-contracted" type="number" min="0" step="1" value={inputs.contractedPowerW || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, Number(event.target.value)) })} className="w-32" />
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="interior-circuits" className="text-xs font-semibold text-ink-muted">Circuitos instalados</Label>
-            <Input id="interior-circuits" type="number" min="0" step="1" value={inputs.circuits || ''} onChange={event => setInput({ circuits: Math.max(0, Math.round(Number(event.target.value))) })} className="w-24" />
-            <span className="text-[11px] text-ink-faint">{circuitsFromGrade ? 'predeterminado del grado de electrificación' : 'valor del proyecto'}</span>
+            {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">La potencia contratada puede ser diferente a la prevista.</span>}
           </div>
           <div className="flex items-end gap-2 pb-1">
             <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true })} />
@@ -234,6 +237,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                   <TableHead scope="col" className="py-2 pr-2">PIA</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Sección</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Tubo</TableHead>
+                  <TableHead scope="col" className="py-2 pr-2">Puntos</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Máx. puntos</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">P/toma</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Fs</TableHead>
@@ -256,6 +260,16 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                         {sizing.section != null && sizing.tableSection != null && sizing.section > sizing.tableSection && <span className="block text-[11px] text-ink-faint">mín. tabla {sizing.tableSection}</span>}
                       </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.tube == null ? '—' : `${circuit.tube} mm`}</TableCell>
+                      <TableCell className="py-2 pr-2">
+                        {POINT_CIRCUITS.includes(circuit.id as (typeof POINT_CIRCUITS)[number]) ? (
+                          <div className="flex items-center gap-1">
+                            <Input aria-label={`Puntos · ${circuit.id} · ${circuit.name}`} type="number" min="0" step="1" value={pointsFor(circuit.id)} onChange={event => setPointOverride(circuit.id, pointCount(event.target.value))} className="w-16" />
+                            {isOverridden(circuit.id) && (
+                              <Button type="button" variant="ghost" size="sm" className="h-auto gap-1 px-1 py-0.5 text-[10px] font-normal text-ink-faint" aria-label={`Volver al mínimo calculado · ${circuit.id}`} onClick={() => setPointOverride(circuit.id, null)}>mín. {minimumFor(circuit.id)}</Button>
+                            )}
+                          </div>
+                        ) : '—'}
+                      </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.maxPoints == null ? '—' : circuit.maxPoints}</TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">
                         {circuit.powerPerPointW != null
@@ -287,6 +301,10 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
               </TableBody>
             </Table>
           </div>
+          {POINT_CIRCUITS.some(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1) && (
+            <p className="mt-2 text-[11px] leading-4 text-ink-faint">Con los puntos declarados: {POINT_CIRCUITS.filter(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1).map(circuit => `${circuit} necesita ${effectivePoints.requiredCircuits[circuit]} circuitos`).join(' · ')}.</p>
+          )}
+          <p className="mt-2 text-[11px] leading-4 text-ink-faint">La columna Puntos arranca en el mínimo que sale de las estancias (tabla 2) y se puede reemplazar por los puntos que vas a instalar; el máximo de la tabla 1 no se edita.</p>
           <p className="mt-2 text-[11px] leading-4 text-ink-faint">Solo los circuitos que la tabla 1 deja sin potencia por toma admiten un valor manual; el máximo permisible de cada uno figura en la nota de cada circuito. Ese valor no cambia la protección ni la sección del circuito.</p>
           {showSourceNotes && <SourceNote label="ITC-BT-25 §3 · tabla 1">ITC-BT-25 §3, tabla 1: características mínimas de los circuitos del grado de electrificación. El número de circuitos instalados se ajusta arriba; esta tabla describe el grado, no lo cambia. La sección de cada circuito se toma de la tabla y además la caída de tensión no puede superar el 3 %, calculada con la intensidad nominal del interruptor automático del circuito y la distancia al punto de utilización más alejado. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
         </div>
@@ -345,42 +363,6 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
               </div>
             )}
 
-          {/* La tabla se muestra siempre, incluso sin estancias: es la superficie
-              donde se declaran los puntos, y un circuito que arranca en cero
-              (C8, C9, C13) debe poder recibirlos a mano. */}
-          {(
-            <div className="mt-4 overflow-x-auto">
-              <Table aria-label="Puntos mínimos por circuito" className="w-full text-left text-xs">
-                <TableHeader>
-                  <TableRow className="border-b border-line uppercase tracking-wide text-ink-faint">
-                    <TableHead scope="col" className="py-2 pr-2">Circuito</TableHead>
-                    <TableHead scope="col" className="py-2 pr-2">Puntos previstos</TableHead>
-                    <TableHead scope="col" className="py-2 pr-2">Máx. por circuito (tabla 1)</TableHead>
-                    <TableHead scope="col" className="py-2">Circuitos necesarios</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {POINT_CIRCUITS.map(circuit => (
-                    <TableRow key={circuit} className="border-b border-line-soft">
-                      <TableCell className="py-2 pr-2 font-semibold">{circuit} · {POINT_CIRCUIT_LABELS[circuit]}</TableCell>
-                      <TableCell className="py-2 pr-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <Input aria-label={`Puntos · ${circuit} · ${POINT_CIRCUIT_LABELS[circuit]}`} type="number" min="0" step="1" value={effectivePoints.totals[circuit]} onChange={event => setPointOverride(circuit, pointCount(event.target.value))} className="w-20" />
-                          {effectivePoints.overridden.includes(circuit) && (
-                            <Button type="button" variant="ghost" size="sm" className="h-auto gap-1 px-1.5 py-0.5 text-[11px] font-normal text-ink-faint" aria-label={`Volver al mínimo calculado · ${circuit}`} onClick={() => setPointOverride(circuit, null)}>mínimo calculado · {points.totals[circuit]}</Button>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">{MAX_POINTS[circuit] ?? '—'}</TableCell>
-                      <TableCell className="py-2 tabular-nums">{MAX_POINTS[circuit] == null ? '—' : effectivePoints.requiredCircuits[circuit]}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <p className="mt-2 text-[11px] leading-4 text-ink-faint">Cada circuito arranca con el mínimo que sale de las estancias (tabla 2); escribí los puntos que vas a instalar y la columna «Circuitos necesarios» se recalcula. El máximo de la tabla 1 no se edita: es el tope reglamentario de cada circuito.</p>
-              <p className="mt-1 text-[11px] leading-4 text-ink-faint">C8 y C9 no tienen máximo de puntos en la tabla 1: se limitan por potencia (5.750 W por circuito). C13 se rige por la ITC-BT-52.</p>
-            </div>
-          )}
         </div>
 
         <Dialog open={showCircuitTable} onOpenChange={setShowCircuitTable}>

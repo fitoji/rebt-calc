@@ -198,7 +198,7 @@ test('the card reuses the note of each circuit instead of repeating the regulato
   const panel = read('components/interior-panel.tsx')
   assert.match(panel, /\{circuit\.note &&/, 'each circuit still prints its own note')
   assert.match(panel, /la nota de cada circuito/, 'the hint points at the note instead of copying it')
-  assert.equal((panel.match(/5\.750 W/g) ?? []).length, 1, 'the 5.750 W cap is written once')
+  assert.equal((panel.match(/5\.750 W/g) ?? []).length, 0, 'the card does not repeat the cap: it lives in each circuit note')
 })
 
 test('the report keeps its columns and the sizing keeps the table values', () => {
