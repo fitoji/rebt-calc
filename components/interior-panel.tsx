@@ -345,7 +345,10 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
               </div>
             )}
 
-          {(points.totalPoints > 0 || effectivePoints.totalPoints > 0) && (
+          {/* La tabla se muestra siempre, incluso sin estancias: es la superficie
+              donde se declaran los puntos, y un circuito que arranca en cero
+              (C8, C9, C13) debe poder recibirlos a mano. */}
+          {(
             <div className="mt-4 overflow-x-auto">
               <Table aria-label="Puntos mínimos por circuito" className="w-full text-left text-xs">
                 <TableHeader>
@@ -357,7 +360,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {POINT_CIRCUITS.filter(circuit => points.totals[circuit] > 0 || effectivePoints.totals[circuit] > 0).map(circuit => (
+                  {POINT_CIRCUITS.map(circuit => (
                     <TableRow key={circuit} className="border-b border-line-soft">
                       <TableCell className="py-2 pr-2 font-semibold">{circuit} · {POINT_CIRCUIT_LABELS[circuit]}</TableCell>
                       <TableCell className="py-2 pr-2">
