@@ -1,6 +1,6 @@
 # Registro normativo único y validación de los datos del proyecto
 
-Estado: T1-T5 implementadas y verificadas; T6 (Zod) postergada. Rama de trabajo sin push (decisión del usuario pendiente).
+Estado: T1-T5 implementadas y verificadas; T6 (Zod) postergada. Push a `origin/main` hecho (2026-11-11, `03df018..40b90d8`).
 
 ## Specs
 
