@@ -231,6 +231,9 @@ export function HelpDoc() {
                 <p>
                   El veredicto se resuelve con los grupos de la ITC-BT-04 §3.1: cuando la instalación cae en más de uno se aplica el criterio más exigente (§3.3) y, cuando no cae en ninguno, queda en el §4, que pide memoria técnica de diseño para lo no incluido en la lista. La página no añade cifras propias: clasifica la previsión ya guardada y muestra cada grupo con su valor frente a su límite. Es el mínimo estatal del REBT, así que conviene comprobar antes la normativa de la comunidad autónoma, que puede añadir requisitos propios de documentación.
                 </p>
+                <p>
+                  La misma página añade el veredicto de <strong>inspección inicial</strong> (ITC-BT-05 §4.1): si la instalación, una vez ejecutada, será objeto de inspección antes de documentarse ante el órgano competente. Se evalúa grupo a grupo —industriales con proyecto y más de 100 kW instalados, pública concurrencia, riesgo de incendio o explosión de clase I, locales mojados con más de 25 kW, piscinas con más de 10 kW, quirófanos, alumbrado exterior con más de 5 kW y estaciones de recarga que exijan proyecto— con los mismos datos de documentación y el veredicto de proyecto ya calculado.
+                </p>
               </Section>
 
               <Section id="p1" title="P1 · Viviendas">
