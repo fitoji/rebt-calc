@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = p => readFileSync(path.join(root, p), 'utf8')
 import {
   DEFAULT_DOCUMENTATION,
   classifyDocumentation,
+  documentKindLabel,
   normalizeDocumentation,
 } from '../lib/project-documentation.mjs'
 import {
@@ -199,13 +205,27 @@ test('grupo i: local de pública concurrencia exige proyecto sin límite de pote
 })
 
 test('grupo j: máquinas de elevación y transporte y afines exigen proyecto sin límite de potencia', () => {
-  const classification = classify({ documentation: { liftingMachines: true } })
-  assert.equal(group(classification, 'j').applies, true)
-  assert.equal(group(classification, 'j').requiresProject, true)
-  assert.equal(group(classification, 'j').limit, 'sin límite de potencia')
-  assert.equal(classification.verdict, 'proyecto')
+  const declared = classify({ documentation: { liftingMachines: true } })
+  assert.equal(group(declared, 'j').applies, true, 'la casilla de líneas con apoyos comunes con AT mantiene el grupo')
+  assert.equal(group(declared, 'j').requiresProject, true)
+  assert.equal(group(declared, 'j').limit, 'sin límite de potencia')
+  assert.equal(declared.verdict, 'proyecto')
 
-  assert.equal(group(classify(), 'j').applies, false)
+  assert.equal(group(classify(), 'j').applies, false, 'sin ascensor, sin motor y sin casilla el grupo no aplica')
+})
+
+test('grupo j: la elevación se deduce de P2 sin preguntarla', () => {
+  const derived = classify({ hasLiftingMachines: true })
+  assert.equal(group(derived, 'j').applies, true, 'un ascensor o un motor en P2 trae el grupo j')
+  assert.equal(group(derived, 'j').requiresProject, true)
+  assert.equal(derived.verdict, 'proyecto', 'aplica con potencia prevista cero')
+  assert.deepEqual(derived.decidingGroups, ['j'])
+
+  const both = classify({ hasLiftingMachines: true, documentation: { liftingMachines: true } })
+  assert.equal(group(both, 'j').applies, true, 'la unión de ambos caminos sigue dando el mismo grupo')
+  assert.deepEqual(both.decidingGroups, ['j'], 'el grupo j decide una sola vez')
+
+  assert.equal(group(classify({ hasLiftingMachines: false }), 'j').applies, false)
 })
 
 test('grupo k: alumbrado exterior por encima de 5 kW', () => {
@@ -482,4 +502,28 @@ test('S8: la documentación no alimenta la previsión ni la potencia total', () 
 
   assert.ok(totalMemo.length > 0, 'the load forecast memo is found')
   assert.doesNotMatch(totalMemo, /documentation/, 'the total never reads the documentation block')
+})
+
+// El REBT distingue dos documentos: el título del PDF se toma del veredicto y
+// nunca se escribe a mano.
+test('el titular del documento sigue al veredicto', () => {
+  assert.equal(documentKindLabel('proyecto'), 'PROYECTO')
+  assert.equal(documentKindLabel('memoria-tecnica'), 'MEMORIA TÉCNICA')
+})
+
+test('el PDF y la descarga usan el titular derivado, no un texto fijo', () => {
+  const calc = read('components/load-calculator.tsx')
+  assert.match(calc, /doc\.text\(`\$\{DOCUMENT_KIND\} · PREVISIÓN DE CARGAS`/, 'the PDF heading follows the verdict')
+  assert.doesNotMatch(calc, /doc\.text\('MEMORIA TÉCNICA/, 'the heading is not written by hand')
+  assert.match(calc, /const DOCUMENT_KIND = documentKindLabel\(documentKind\)/, 'the label comes from the classifier')
+  assert.match(calc, /classifyDocumentation\(\{/, 'the verdict is the one /requisitos shows')
+})
+
+// El componente tiene un return temprano («Cargando datos guardados…»): un hook
+// después de ese return cambia el número de hooks entre renders y rompe la app
+// (React #310). El veredicto se calcula sin hook, a propósito.
+test('el veredicto no se envuelve en useMemo después del return de carga', () => {
+  const calc = read('components/load-calculator.tsx')
+  assert.match(calc, /const documentKind = classifyDocumentation\(\{/, 'el veredicto se calcula directo')
+  assert.doesNotMatch(calc, /const documentKind = useMemo/, 'nada de hooks después del return temprano')
 })

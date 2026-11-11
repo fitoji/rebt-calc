@@ -35,7 +35,7 @@ export function UnifilarPanel({
       <section className="rounded-card border border-line bg-paper p-5 shadow-card">
         <h3 className="font-bold">Esquema unifilar del edificio</h3>
         <p className="mt-1 text-sm leading-6 text-ink-faint">
-          El esquema se dibuja con las derivaciones del proyecto. Todavía no hay ninguna: se generan desde la
+          El esquema se dibuja con las derivaciones de la instalación. Todavía no hay ninguna: se generan desde la
           previsión de cargas, una por vivienda, local, garaje o servicio general.
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">

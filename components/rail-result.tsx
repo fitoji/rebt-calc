@@ -157,7 +157,7 @@ function CargasRailCard({ unit, loadTotal, loadRows }: RailResultProps) {
   const power = (watts: number) => formatPower(watts, unit)
   return (
     <RailCard
-      heading="Resultado del proyecto"
+      heading="Resultado de la previsión"
       figure={formatPowerValue(loadTotal, unit)}
       unit={unit}
       caption="Potencia total prevista"
@@ -222,7 +222,7 @@ function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivatio
       heading="Resultado de las derivaciones"
       figure={fmt(derivationCount)}
       unit={derivationCount === 1 ? 'derivación' : 'derivaciones'}
-      caption="Derivaciones individuales del proyecto"
+      caption="Derivaciones individuales de la instalación"
       note={derivationCount === 0 ? 'Todavía no hay derivaciones. Genéralas desde la previsión de cargas en la pestaña DI.' : undefined}
     >
       <RailRow label="Potencia total derivada" value={formatPower(derivationPowerW, unit)} />
@@ -293,8 +293,8 @@ function EsquemaRailCard({ unit, loadTotal, installationType, lga, derivationCou
       heading="Resultado del esquema"
       figure={formatPowerValue(loadTotal, unit)}
       unit={unit}
-      caption="Potencia total del proyecto"
-      note={derivationCount === 0 ? 'El esquema se dibuja con las derivaciones del proyecto: todavía no hay ninguna.' : undefined}
+      caption="Potencia total prevista"
+      note={derivationCount === 0 ? 'El esquema se dibuja con las derivaciones de la instalación: todavía no hay ninguna.' : undefined}
     >
       <RailRow label="LGA" value={noLga ? 'Sin LGA · único usuario' : sectionLabel(lga.finalSection)} />
       <RailRow label="Derivaciones individuales" value={fmt(derivationCount)} />

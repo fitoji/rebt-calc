@@ -83,7 +83,7 @@ test('hay un componente de resultado por pestaña', () => {
 // Cada tarjeta se nombra con su propio encabezado, sin encabezados cruzados.
 test('cada tarjeta se nombra con su propio encabezado', () => {
   const headings = {
-    CargasRailCard: 'Resultado del proyecto',
+    CargasRailCard: 'Resultado de la previsión',
     LgaRailCard: 'Resultado de la LGA',
     DiRailCard: 'Resultado de las derivaciones',
     CuadrosRailCard: 'Resultado del cuadro',
@@ -229,4 +229,15 @@ test('la tarjeta no introduce colores nuevos', () => {
   assert.doesNotMatch(source, /#[0-9a-fA-F]{3,8}\b/, 'no hex colours')
   assert.doesNotMatch(source, /rgba?\(/, 'no rgb() colours')
   assert.doesNotMatch(source, /bg-\[\S+\]/, 'no arbitrary colour utilities')
+})
+
+// «Proyecto» y «memoria técnica de diseño» son documentos distintos en el REBT:
+// la tarjeta no puede llamar «proyecto» a la previsión, porque el veredicto de
+// /requisitos puede decir que solo hace falta una MTD.
+test('la tarjeta de la previsión no llama «proyecto» a lo que muestra', () => {
+  const rail = read('components/rail-result.tsx')
+  assert.doesNotMatch(rail, /Resultado del proyecto/, 'the forecast card is not the project document')
+  assert.match(rail, /Resultado de la previsión/, 'it names the forecast it carries')
+  assert.doesNotMatch(rail, /derivaciones del proyecto/i, 'the installation is not a document')
+  assert.doesNotMatch(rail, /Potencia total del proyecto/, 'the total is the forecast total')
 })

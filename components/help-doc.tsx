@@ -442,7 +442,7 @@ export function HelpDoc() {
 
               <Section id="di" title="Derivaciones individuales">
                 <p>
-                  La app genera una derivación por cada suministro del proyecto: una por vivienda, una por local, una por garaje y una para los servicios generales. La lista de la izquierda es la del edificio; al elegir una, el panel de la derecha muestra sus campos y su resultado.
+                  La app genera una derivación por cada suministro de la instalación: una por vivienda, una por local, una por garaje y una para los servicios generales. La lista de la izquierda es la del edificio; al elegir una, el panel de la derecha muestra sus campos y su resultado.
                 </p>
                 <Bullets items={[
                   <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,
@@ -459,7 +459,7 @@ export function HelpDoc() {
                 <Shot
                   id="di"
                   alt="Pestaña de derivaciones individuales con la lista de suministros del edificio a la izquierda y el panel de la derivación seleccionada a la derecha con su resultado"
-                  caption="DI de una vivienda del ejemplo: la lista de suministros sale del proyecto y cada uno tiene su propia línea."
+                  caption="DI de una vivienda del ejemplo: la lista de suministros sale de la instalación y cada uno tiene su propia línea."
                 />
               </Section>
 
@@ -584,7 +584,7 @@ export function HelpDoc() {
                 <DataTable
                   head={['Formato', 'Para qué sirve']}
                   rows={[
-                    ['PDF', 'Memoria técnica paginada: previsión P1 a P5, parámetros y desarrollo de las líneas. Incluye el membrete si rellenaste los datos del proyecto.'],
+                    ['PDF', 'Documento paginado —proyecto o memoria técnica de diseño, según el veredicto de requisitos—: previsión P1 a P5, parámetros y desarrollo de las líneas. Incluye el membrete si rellenaste los datos del proyecto.'],
                     ['JSON', 'Datos crudos del proyecto y de los cálculos. Es el único formato que se puede volver a cargar en la app.'],
                     ['Markdown', 'Texto estructurado con tablas, para pegar en un issue, un README o el repositorio del proyecto.'],
                     ['Texto simple', 'Notas de obra sin formato, para abrir en cualquier editor.'],

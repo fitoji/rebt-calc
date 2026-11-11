@@ -14,6 +14,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = p => readFileSync(path.join(root, p), 'utf8')
 
 const page = read('app/requisitos/page.tsx')
+/** El almacenamiento de la calculadora: la instantánea se lee y se escribe ahí. */
+const snapshotSource = read('lib/calculator-storage.mjs')
 
 /** Los módulos que la página importa, tal cual los declara. */
 const imports = [...page.matchAll(/from\s+['"]([^'"]+)['"]/g)].map(match => match[1])
@@ -60,6 +62,7 @@ const snapshot = {
   garages: [{ name: 'Garaje 1', ventilation: 'Forzada', plazas: 12 }],
   irvePowerW: 3680,
   cgpCount: 2,
+  hasLiftingMachines: true,
 }
 
 test('S1: la página responde proyecto o memoria técnica de diseño', () => {
@@ -96,6 +99,11 @@ test('S1: la página nunca recalcula la previsión', () => {
     )
   }
   assert.doesNotMatch(page, /previewLocalPower|sumLocalPowers|previewGaragePower|getSimultaneityCoefficient|calculateProject/, 'la página no llama al motor de la previsión')
+})
+
+test('S1: la elevación viaja en la instantánea y llega al clasificador', () => {
+  assert.match(page, /\.\.\.state\.snapshot/, 'la instantánea viaja entera al clasificador')
+  assert.match(snapshotSource, /hasLiftingMachines/, 'el dato derivado se guarda con la instantánea')
 })
 
 test('S1: sin previsión la página explica qué falta y vuelve a la calculadora', () => {
@@ -145,6 +153,18 @@ test('una previsión vacía no deja instantánea: /requisitos puede pedir los da
   })
 
   assert.equal(loadDocumentationSnapshot(storage), null, 'sin cargas no hay veredicto que dar')
+})
+
+test('una instantánea anterior sin el dato de elevación sigue leyéndose', () => {
+  const storage = createMemoryStorage({
+    [DOCUMENTATION_SNAPSHOT_STORAGE_KEY]: JSON.stringify({
+      version: 1, totalW: 6690, homes: 1, localPowers: [], localTypes: [], garages: [], irvePowerW: 0, cgpCount: 1,
+    }),
+  })
+
+  const loaded = loadDocumentationSnapshot(storage)
+  assert.ok(loaded, 'una instantánea de antes del cambio sigue valiendo')
+  assert.equal(loaded.hasLiftingMachines, false, 'sin el dato, la previsión no declara elevación')
 })
 
 test('la instantánea descarta lo que no puede leer entero', () => {

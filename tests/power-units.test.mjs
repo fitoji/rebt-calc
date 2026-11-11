@@ -61,7 +61,7 @@ test('no power of the interface keeps a hardcoded W', () => {
 })
 
 test('the line panels and the didactic steps receive the unit', () => {
-  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 5, 'the line panels, the two Cuadros panels and the documentation block')
+  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 6, 'the line panels, the two Cuadros panels and the two documentation groups that declare a power')
   assert.match(modules, /powerUnit\?: 'W' \| 'kW'/, 'the panels accept the unit')
   assert.match(explanations, /formatPower\(state\.powerW, powerUnit\)/, 'the didactic data follows the unit')
   assert.match(explanations, /const unit = settings\.powerUnit \?\? 'W'/, 'the load forecast follows it too')
