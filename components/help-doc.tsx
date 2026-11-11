@@ -7,6 +7,7 @@ import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { HELP_GROUPS } from '@/lib/help-sections.mjs'
 import { HELP_SHOTS } from '@/lib/help-shots.mjs'
+import { commercialLoadHelp, dwellingSimultaneityHelp, garageLoadHelp, housingPowerHelp, industryConcentrationLoadHelp, interiorVoltageDropHelp, motorLoadCriteriaHelp } from '@/lib/normative-help.mjs'
 
 /** Prose styles shared by every section, so the text keeps one rhythm. */
 const PROSE = 'mt-4 space-y-4 text-[15px] leading-7 text-ink-subtle [&_code]:rounded-md [&_code]:bg-surface-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:text-ink [&_strong]:font-semibold [&_strong]:text-ink'
@@ -187,7 +188,7 @@ export function HelpDoc() {
               <Section id="empezar" title="Empezar en cinco pasos">
                 <p>El recorrido completo, de la pantalla en blanco a la memoria descargada:</p>
                 <Steps items={[
-                  { title: 'Revisa los parámetros', body: <>El botón <code>Parámetros de cálculo</code> fija la potencia de una vivienda básica y elevada, las densidades de locales y garajes, el alumbrado común y las leyendas de normativa. Si no tocas nada, se usan los valores del REBT.</> },
+                  { title: 'Revisa los parámetros', body: <>El botón <code>Parámetros de cálculo</code> fija potencias de vivienda, densidades de locales y garajes, criterios para servicios generales, alumbrado común y leyendas de normativa. Los mínimos que sí fija el REBT se indican con su ITC; los demás son criterios editables del proyecto.</> },
                   { title: 'Rellena la previsión', body: <>En la pestaña de previsión, añade viviendas, servicios generales, locales, garajes y plazas de recarga. El total del edificio se recalcula con cada cambio.</> },
                   { title: 'Elige el supuesto de enlace', body: <>Centralizado, parcial o de único usuario. Ese ajuste fija la caída máxima admisible de la LGA y de la DI.</> },
                   { title: 'Dimensiona las líneas', body: <>Las pestañas <code>LGA</code> y <code>DI</code> proponen la sección normalizada y la protección de cada línea. Puedes fijar la protección a mano si el proyecto ya la tiene decidida.</> },
@@ -211,14 +212,14 @@ export function HelpDoc() {
                   head={['Bloque', 'Qué incluye', 'Simultaneidad']}
                   rows={[
                     ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación y la superficie por vivienda (informativa)', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
-                    ['P2 · Servicios generales', 'Ascensores, motores, otras cargas y alumbrado de zonas comunes', '1, más el 25 % del motor más grande'],
+                    ['P2 · Servicios generales', 'Ascensores, motores, otras cargas y alumbrado de zonas comunes', 'Suma nominal más los criterios de proyecto configurados'],
                     ['P3 · Locales, oficinas e industrias', 'Superficie, previsión real declarada o mínimo por abonado', '1'],
                     ['P4 · Garajes', 'Superficie, tipo de ventilación y plazas (informativas)', '1'],
                     ['P5 · Recarga de vehículos', 'Plazas de aparcamiento y escenario de previsión', '1 sin SPL, 0,3 con SPL'],
                   ]}
                 />
                 <p>
-                  El coeficiente de simultaneidad de las viviendas sale de la tabla de la ITC-BT-10: 1 vivienda vale 1, 5 viviendas valen 3,8, 11 viviendas valen 9,2 y 21 viviendas valen 15,3. A partir de ahí crece 0,5 por vivienda adicional. La app lo muestra junto a la potencia media y lo aplica de golpe: <strong>P1 = potencia media × coeficiente</strong>.
+                  El coeficiente de simultaneidad de las viviendas sale de la tabla: {dwellingSimultaneityHelp()} La app lo muestra junto a la potencia media y lo aplica de golpe: <strong>P1 = potencia media × coeficiente</strong>.
                 </p>
                 <SubHeading>Los datos de documentación</SubHeading>
                 <p>
@@ -237,7 +238,7 @@ export function HelpDoc() {
                   La tabla de viviendas es la base de todo el edificio. Cada fila tiene cinco campos: la descripción, el grado de electrificación, la potencia, la superficie de cada vivienda y el número de viviendas de ese tipo.
                 </p>
                 <Bullets items={[
-                  <><strong>Grado de electrificación y potencia.</strong> La potencia se elige de la tabla A de la ITC-BT-25: <code>Básica</code> admite 5.750 W (25 A) o 7.360 W (32 A), y <code>Elevada</code> 9.200 W (40 A), 11.500 W (50 A) o 14.490 W (63 A).</>,
+                  <><strong>Grado de electrificación y potencia.</strong> La tabla A prevé estos escalones: {housingPowerHelp()}</>,
                   <><strong>Superficie (m²/viv.).</strong> Los metros cuadrados de una vivienda de ese tipo. Es un dato informativo: no entra en P1, y la tarjeta de superficie construida multiplica por el número de viviendas.</>,
                   <><strong>Viviendas (uds.).</strong> Cuántas viviendas son de ese tipo. El subtotal de la fila es potencia × unidades.</>,
                   <><strong>Coeficiente de simultaneidad.</strong> Se calcula solo, a partir del total de viviendas, y tiene su propia tabla en el botón de la derecha.</>,
@@ -251,13 +252,13 @@ export function HelpDoc() {
 
               <Section id="p2" title="P2 · Servicios generales">
                 <p>
-                  Los servicios generales son la parte del edificio que no es de nadie y es de todos: ascensores, motores, otras cargas y el alumbrado de portal y escalera.
+                  Los servicios generales son la parte del edificio que no es de nadie y es de todos: ascensores, motores, otras cargas y el alumbrado de portal y escalera. {motorLoadCriteriaHelp()}
                 </p>
                 <DataTable
                   head={['Concepto', 'Cómo se calcula']}
                   rows={[
                     ['Ascensores', '1,3 × la potencia nominal del motor del ascensor (ITC-BT-10)'],
-                    ['Motores', 'Potencia nominal, y al mayor de todos se le suma un 25 % de su propia potencia (ITC-BT-47)'],
+                    ['Motores', <>Potencia nominal; incremento del motor mayor según el criterio editable del proyecto. {motorLoadCriteriaHelp()}</>],
                     ['Otras cargas', 'Potencia declarada, sin reducción'],
                     ['Alumbrado de zonas comunes', 'Superficie × densidad en W/m² según portal o escalera y tipo de lámpara; las lámparas de descarga llevan además un factor de 1,8'],
                   ]}
@@ -276,13 +277,7 @@ export function HelpDoc() {
                 <p>
                   Cada local es una fila con su tipo, su superficie y, si la tienes, la previsión real que ha declarado el futuro titular. La app se queda con el mayor de los tres valores: la previsión real, lo que sale de la superficie o el mínimo por abonado.
                 </p>
-                <DataTable
-                  head={['Tipo', 'Densidad', 'Mínimo por abonado']}
-                  rows={[
-                    ['Comercial/oficina', '100 W/m²', '3.450 W'],
-                    ['Industria', '125 W/m²', '10.350 W'],
-                  ]}
-                />
+                <p>{commercialLoadHelp()} {industryConcentrationLoadHelp()} La previsión de concentración industrial se recoge como referencia normativa; el valor que la app aplica a una fila «Industria» es un criterio inicial editable, no una regla automáticamente aplicable a cualquier industria.</p>
                 <Shot
                   id="locales"
                   alt="Bloque de locales, oficinas e industrias con la descripción, el tipo, la superficie, la previsión real y la potencia prevista de cada local"
@@ -297,13 +292,7 @@ export function HelpDoc() {
                 <p>
                   Cada garaje lleva además el número de plazas. Es un dato informativo: no cambia la potencia de P4, que sale de la superficie, y sirve para el recuento de plazas construidas que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de recarga.
                 </p>
-                <DataTable
-                  head={['Ventilación', 'Densidad', 'Mínimo']}
-                  rows={[
-                    ['Forzada', '20 W/m²', '3.450 W'],
-                    ['Natural', '10 W/m²', '3.450 W'],
-                  ]}
-                />
+                <p>{garageLoadHelp()}</p>
                 <Shot
                   id="garajes"
                   alt="Bloque de garajes con la descripción, el tipo de ventilación, el número de plazas, la superficie y la potencia prevista de cada garaje"
@@ -465,7 +454,7 @@ export function HelpDoc() {
 
               <Section id="interiores" title="Cuadros e instalación interior">
                 <p>
-                  La pestaña <code>Cuadros</code> tiene dos bloques. El primero muestra el cuadro de mando y protección (DGMP) de cada vivienda: el IGA que fija su escalón de potencia, el ICP que depende de la potencia contratada y los diferenciales que exige la ITC-BT-25. El segundo resuelve el cuadro interior de un local o de los servicios generales, que no tienen lista fija de circuitos: se cargan las cargas reales y cada una se dimensiona con la ITC-BT-19 (3 % en alumbrado, 5 % en los demás usos; 4,5 % y 6,5 % en industria alimentada en alta tensión con transformador propio), con la protección de la ITC-BT-22 y el diferencial de 30 mA de la ITC-BT-24. Arriba se muestran la potencia prevista del suministro y el IGA que le corresponde, y abajo el interruptor general que pide el conjunto de circuitos.
+                  La pestaña <code>Cuadros</code> tiene dos bloques. El primero muestra el cuadro de mando y protección (DGMP) de cada vivienda: el IGA que fija su escalón de potencia, el ICP que depende de la potencia contratada y los diferenciales que exige la ITC-BT-25. El segundo resuelve el cuadro interior de un local o de los servicios generales, que no tienen lista fija de circuitos: se cargan las cargas reales y cada una se dimensiona con la ITC-BT-19 ({interiorVoltageDropHelp()}), con la protección de la ITC-BT-22 y el diferencial de 30 mA de la ITC-BT-24. Arriba se muestran la potencia prevista del suministro y el IGA que le corresponde, y abajo el interruptor general que pide el conjunto de circuitos.
                 </p>
                 <DataTable
                   head={['Elemento', 'Criterio']}
