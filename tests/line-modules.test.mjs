@@ -103,13 +103,11 @@ test('each conductor carries its identification colour as a rule under its name'
   assert.doesNotMatch(modules, /Colores de identificación · ITC-BT-19/, 'the detached legend is gone')
 })
 
-test('the LGA result leads with its currents and lets the section be fixed', () => {
-  assert.ok(modules.includes('Intensidad de cálculo'), 'the line current leads the card')
-  assert.ok(modules.includes('Intensidad admisible corregida'), 'the admissible current sits beside it')
-  assert.ok(modules.includes('(Ib)') && modules.includes('(Iz)'), 'both rows name their symbol')
-  assert.ok(modules.includes('fmtTrim('), 'the headline currents drop the trailing zeros')
-  assert.equal([...modules.matchAll(/Intensidad de línea \(Ib\)/g)].length, 0, 'one name for Ib in the whole app')
-  assert.ok(modules.includes('Conductores y caída de tensión'), 'the drop criterion lives with the conductors')
+// El vocabulario del resultado —Ib, Iz, la caída con sus unidades y los
+// conductores— se fija en components/rail-result.tsx, que es donde se pinta
+// desde la consolidación (tests/rail-result.test.mjs). Acá queda el control que
+// sigue viviendo en el panel.
+test('the panel lets the phase section be fixed', () => {
   assert.ok(modules.includes('htmlFor="lga-section"'), 'the section control has an associated label')
   assert.ok(modules.includes("onChange({ sectionOverride: section })"), 'the panel persists the fixed section')
   assert.match(read('lib/line-sizing.mjs'), /sectionOverride/, 'the engine owns the override instead of the card')

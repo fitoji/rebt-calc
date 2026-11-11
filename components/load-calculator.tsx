@@ -41,14 +41,14 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsIndicator, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { computeLine, DiPanel, LgaPanel, LineTablesDialog, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
+import { computeLine, DiPanel, LgaPanel, LineTablesDialog, diResultElements, lgaResultElements, type ExplanationMode, type LineState, type TableKey } from '@/components/line-modules'
 import { buildDerivations, calculateProject, mergeDerivations, syncDerivationPowers } from '../lib/project-model.mjs'
 import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.mjs'
 import { LGA_INSULATION, defaultLineState } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
 import { UnifilarPanel } from '@/components/unifilar-panel'
-import { RailResult, type RailDwellingSummary, type RailLineSummary } from '@/components/rail-result'
+import { RailResult, type RailDwellingSummary, type RailLineSummary, type RailSelectedDerivation } from '@/components/rail-result'
 import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
 
 type ProjectInfo = {
@@ -566,21 +566,6 @@ export function LoadCalculator() {
     else updateDi(patch)
   }
 
-  // El rail repite las cifras que ya existen: cada pestaña resume su propio
-  // resultado, así que acá sólo se leen los que ya produjeron la previsión, el
-  // dimensionado de líneas y el cuadro interior. Ninguna línea se recalcula.
-  const railLga: RailLineSummary = { section: project.lga.result.finalSection, dropPercent: project.lga.result.dropPercent, protection: project.lga.result.protection }
-  const railSelectedDerivation = useMemo(() => {
-    if (!selectedDerivation) return null
-    const calculated = calculatedDerivations.find(derivation => derivation.id === selectedDerivation.id)
-    return {
-      label: selectedDerivation.label,
-      powerW: selectedDerivation.powerW,
-      section: calculated?.result.finalSection ?? null,
-      dropPercent: calculated?.result.dropPercent ?? null,
-      protection: calculated?.result.protection ?? null,
-    }
-  }, [selectedDerivation, calculatedDerivations])
   const railDerivationPowerW = useMemo(
     () => calculatedDerivations.reduce((sum, derivation) => sum + Math.max(0, derivation.powerW), 0),
     [calculatedDerivations],
@@ -681,6 +666,28 @@ export function LoadCalculator() {
 
   const lgaResult = useMemo(() => computeLine(lga, 'three-phase', 'lga'), [lga])
   const diResult = useMemo(() => computeLine(di, 'single-phase', 'di'), [di])
+
+  // El rail repite las cifras que ya existen: cada pestaña resume su propio
+  // resultado, así que acá sólo se leen los que ya produjeron la previsión, el
+  // dimensionado de líneas y el cuadro interior. Ninguna línea se recalcula: la
+  // tarjeta recibe el resultado del motor y los conductores que ya armó el panel.
+  const railLga: RailLineSummary = {
+    ...lgaResult,
+    maxDropPercent: lga.maxDropPercent,
+    elements: lgaResultElements(lga, lgaResult),
+  }
+  const railSelectedDerivation = useMemo<RailSelectedDerivation | null>(() => {
+    if (!selectedDerivation) return null
+    const calculated = calculatedDerivations.find(derivation => derivation.id === selectedDerivation.id)
+    if (!calculated) return null
+    return {
+      ...calculated.result,
+      label: selectedDerivation.label,
+      powerW: selectedDerivation.powerW,
+      maxDropPercent: selectedDerivation.maxDropPercent,
+      elements: diResultElements(calculated, calculated.result, selectedDerivation.system),
+    }
+  }, [selectedDerivation, calculatedDerivations])
   // ITC-BT-14 tabla 1 and ITC-BT-18 tabla 2 derive these from the phase
   // section, so the report can never print a neutral thinner than the norm.
   const lgaNeutral = lgaNeutralSection(lgaResult.finalSection) ?? lga.neutralSection

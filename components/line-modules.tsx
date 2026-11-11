@@ -4,7 +4,6 @@ import { useMemo, type ReactNode } from 'react'
 import { Info, Table2, TriangleAlert, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -63,7 +62,8 @@ const CONDUCTOR_COLORS = {
 
 type ConductorColor = (typeof CONDUCTOR_COLORS)[keyof typeof CONDUCTOR_COLORS]
 
-type ResultElement = { element: string; detail: string; colors?: readonly ConductorColor[] }
+/** Un conductor o canalización de la línea, con el color físico que lo identifica. */
+export type ResultElement = { element: string; detail: string; colors?: readonly ConductorColor[] }
 
 const PHASES = [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.black, CONDUCTOR_COLORS.grey]
 
@@ -108,15 +108,6 @@ export type TableKey =
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
-
-/**
- * Same format, without the padding: a current of 202 A is not "202,0 A". The
- * trailing zero claims a precision the number does not have and clashes with
- * Ib, which is genuinely fractional. Documents keep the fixed decimals because
- * they align in columns; what a person reads on the card does not.
- */
-const fmtTrim = (value: number, digits = 0) =>
-  new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits }).format(value)
 
 const METHOD_LABEL: Record<InstallationMethod, string> = {
   A1: 'A1 · tubo empotrado en pared aislante (conductores sueltos)',
@@ -225,25 +216,11 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
   )
 }
 
-function ResultRow({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4">
-      <span className="text-panel-muted">{label}</span>
-      <strong className={strong ? 'tabular-nums text-brand-on-panel' : 'tabular-nums'}>{value}</strong>
-    </div>
-  )
-}
-
-function ResultCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <aside className="min-w-0 rounded-panel bg-panel p-6 text-panel-foreground shadow-panel">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-on-panel">{title}</p>
-      {children}
-    </aside>
-  )
-}
-
-function ConductorList({ elements }: { elements: ResultElement[] }) {
+/**
+ * Conductores de la línea con el color físico que los identifica. La pinta la
+ * tarjeta del rail: los colores se declaran una sola vez, junto a la línea.
+ */
+export function ConductorList({ elements }: { elements: readonly ResultElement[] }) {
   return (
     <>
       <ul className="divide-y divide-panel-line">
@@ -269,78 +246,43 @@ function ConductorList({ elements }: { elements: ResultElement[] }) {
   )
 }
 
-function ResultProblems({ problems }: { problems: string[] }) {
-  if (problems.length === 0) return null
-
-  return (
-    <div role="status" aria-live="polite" className="mt-5 rounded-control bg-warning-mark/10 p-3 text-xs leading-5 text-warning-on-panel">
-      <p className="mb-1 flex items-center gap-1.5 font-semibold"><TriangleAlert className="size-4" aria-hidden="true" /> Revisá estos puntos</p>
-      <ul className="list-disc space-y-1 pl-4">
-        {problems.map(problem => <li key={problem}>{problem}</li>)}
-      </ul>
-    </div>
-  )
+/**
+ * Elementos de la instalación de la LGA, ya descritos para el panel y la tarjeta
+ * del rail. El color físico de cada conductor se declara acá una sola vez.
+ */
+export function lgaResultElements(state: LineState, result: ReturnType<typeof sizeLine>): ResultElement[] {
+  return [
+    { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: PHASES },
+    { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.blue] },
+    { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.greenYellow] },
+    { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior${result.minimumTube == null ? ' mínimo' : ` · tabla 1 pide ${fmt(result.minimumTube)} mm`}` },
+  ]
 }
 
-function LineResult({ title, result, phaseLabel, powerUnit, elements }: {
-  title: string
-  result: ReturnType<typeof sizeLine>
-  phaseLabel: string
-  powerUnit: 'W' | 'kW'
-  elements?: ResultElement[]
-}) {
-  return (
-    <ResultCard title={title}>
-      <p className="mt-5 text-4xl font-bold tabular-nums">
-        {result.finalSection == null ? '—' : fmt(result.finalSection)}
-        <span className="ml-1 text-lg font-medium text-panel-muted">mm²</span>
-      </p>
-      <p className="mt-1 text-sm text-panel-muted">{phaseLabel}</p>
-      <div className="my-5 h-px bg-panel-line" />
-      <div className="flex flex-col gap-3 text-sm">
-        <ResultRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(result.ratedCurrent, 2)} A`} />
-        <ResultRow label="Sección por caída" value={`${fmt(result.sectionByDrop, 2)} mm²`} />
-        <ResultRow label="Momento eléctrico (M)" value={`${fmt(result.momentKwM, 2)} kW·m`} />
-        <ResultRow label="Conductividad (γ)" value={`${fmt(result.gamma)} m/(Ω·mm²)`} />
-        <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
-        <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
-        <ResultRow label="Iz corregida" value={result.correctedCurrent == null ? '—' : `${fmtTrim(result.correctedCurrent, 1)} A`} />
-        <ResultRow label="Caída con Ib" value={result.dropPercent == null ? '—' : `${fmt(result.dropPercent, 2)} %`} />
-        {result.dropPercentIn != null && (
-          <ResultRow label={`Caída con In (${fmt(result.protection ?? 0)} A)`} value={`${fmt(result.dropPercentIn, 2)} %`} />
-        )}
-        <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
-        {result.housingIga != null && (
-          <ResultRow label="IGA (tabla A) · potencia máxima" value={`${fmt(result.housingIga)} A · ${formatPower(result.maxAdmissiblePowerW ?? 0, powerUnit)}`} />
-        )}
-      </div>
-      {result.housingIga != null && (
-        <p className="mt-3 text-[11px] leading-4 text-panel-muted">El IGA no es el ICP ni la protección In: fija la potencia máxima admisible de la vivienda y va en el cuadro (DGMP). In es el dispositivo que protege la línea, con Ib ≤ In ≤ Iz.</p>
-      )}
-      {elements && elements.length > 0 && (
-        <div className="mt-5 border-t border-panel-line pt-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Elementos de la instalación</p>
-          <ConductorList elements={elements} />
-        </div>
-      )}
-      <ResultProblems problems={result.problems} />
-    </ResultCard>
-  )
+/** Elementos de la derivación individual: la fase y el neutro siguen al sistema cargado. */
+export function diResultElements(state: LineState, result: ReturnType<typeof sizeLine>, system: 'three-phase' | 'single-phase'): ResultElement[] {
+  const phase = result.finalSection
+  const pe = phase == null ? state.peSection : protectiveSection(phase)
+  return [
+    { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
+    { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
+    { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
+    { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },
+  ]
 }
 
 /**
- * LGA result card.
+ * Sección de fase de la LGA.
  *
- * The line current leads because it is the question the section answers: Ib and the
- * corrected Iz sit together, and the section itself is a control, so a larger cable
- * can be adopted without leaving the card. The drop criterion moves next to the
- * conductors it sizes, instead of sharing the generic row list with the current one.
+ * Es el control que sobrevive a la consolidación: las cifras de la línea se leen
+ * en la tarjeta del rail, pero la sección se puede fijar a mano sin salir del
+ * panel. Una sección fijada antes de que cambiara la carga puede quedar por
+ * debajo de la automática: se mantiene en la lista para que el control nunca
+ * oculte el valor que está mostrando.
  */
-function LgaResult({ state, result, elements, onChange }: {
-  state: LineState
+function LgaSectionField({ result, onChange }: {
   result: ReturnType<typeof sizeLine>
-  elements: ResultElement[]
-  onChange: (section: number) => void
+  onChange: (patch: Partial<LineState>) => void
 }) {
   const selectable = result.candidates
     .filter(candidate => result.autoSection == null
@@ -348,122 +290,38 @@ function LgaResult({ state, result, elements, onChange }: {
       : candidate.section > result.autoSection)
     .map(candidate => candidate.section)
   const selected = result.sectionOverride
-  // A section fixed before the load changed can sit below the new automatic one.
-  // Keep it in the list so the control never hides the value it is showing.
   const options = selected != null && !selectable.includes(selected)
     ? [selected, ...selectable].sort((a, b) => a - b)
     : selectable
   const automaticLabel = result.autoSection == null
     ? 'Automática · sin sección'
     : `Automática · ${fmt(result.autoSection)} mm²`
-  const izBelow = result.correctedCurrent != null && result.correctedCurrent < result.ratedCurrent
-  const dropOver = result.dropPercent != null && result.dropPercent > state.maxDropPercent
-  const dropInOver = result.dropPercentIn != null && result.dropPercentIn > state.maxDropPercent
 
   return (
-    <ResultCard title="Resultado LGA">
-      <dl className="mt-5 divide-y divide-panel-line">
-        <div className="flex items-center justify-between gap-4 pb-2.5">
-          <dt className="text-xs leading-tight text-panel-muted">Intensidad de cálculo <span className="whitespace-nowrap">(Ib)</span></dt>
-          <dd className="text-3xl font-bold tabular-nums">
-            {fmtTrim(result.ratedCurrent, 2)}
-            <span className="ml-1 text-base font-medium text-panel-muted">A</span>
-          </dd>
-        </div>
-        <div className="flex items-center justify-between gap-4 pt-2.5">
-          <dt className="text-xs leading-tight text-panel-muted">Intensidad admisible corregida <span className="whitespace-nowrap">(Iz)</span></dt>
-          <dd className={izBelow ? 'text-3xl font-bold tabular-nums text-warning-on-panel' : 'text-3xl font-bold tabular-nums'}>
-            {result.correctedCurrent == null
-              ? '—'
-              : <>{fmtTrim(result.correctedCurrent, 1)}<span className="ml-1 text-base font-medium text-panel-muted">A</span></>}
-          </dd>
-        </div>
-      </dl>
-
-      <div className="mt-5">
-        <label htmlFor="lga-section" className="text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Sección de fase</label>
-        <div className="mt-2 [&_button:hover]:bg-panel-edge/70! [&_button]:bg-panel-edge/50! [&_button]:shadow-none [&_button_svg]:text-panel-muted!">
-          <Select
-            value={selected == null ? 'auto' : String(selected)}
-            onValueChange={next => { if (next != null) onChange(next === 'auto' ? 0 : Number(next)) }}
-          >
-            <SelectTrigger
-              id="lga-section"
-              aria-describedby="lga-section-hint"
-              disabled={options.length === 0}
-              className="h-9 w-full px-3 text-sm font-semibold text-panel-foreground"
-            >
-              <SelectValue>
-                {(value: string | null) => value == null || value === 'auto' ? automaticLabel : `${fmt(Number(value))} mm²`}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} className="max-h-64">
-              <SelectGroup>
-                <SelectItem value="auto">{automaticLabel}</SelectItem>
-                {options.map(section => <SelectItem key={section} value={String(section)}>{fmt(section)} mm²</SelectItem>)}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </div>
-        <p id="lga-section-hint" className="mt-1.5 text-[11px] leading-4 text-panel-muted">
+    <aside className="min-w-0 self-start rounded-card border border-line bg-paper p-5 shadow-card">
+      <h4 className="text-sm font-semibold">Sección de fase</h4>
+      <p className="mt-1 text-xs leading-5 text-ink-faint">La sección se puede fijar a mano: el cálculo la respeta y avisa si no cumple.</p>
+      <div className="mt-3">
+        <label htmlFor="lga-section" className="label mb-1 block">Sección adoptada (0 = automática)</label>
+        <select
+          id="lga-section"
+          className="h-8 w-full rounded-control border border-line bg-transparent px-2.5 text-sm text-ink-strong"
+          value={selected == null ? 'auto' : String(selected)}
+          onChange={event => {
+            const section = event.target.value === 'auto' ? 0 : Number(event.target.value)
+            onChange({ sectionOverride: section })
+          }}
+        >
+          <option value="auto">{automaticLabel}</option>
+          {options.map(section => <option key={section} value={String(section)}>{fmt(section)} mm²</option>)}
+        </select>
+        <p id="lga-section-hint" className="mt-1.5 text-xs leading-5 text-ink-faint">
           {selected == null
             ? `Mínimo ${fmt(result.minimumSection)} mm² · ITC-BT-14 §3`
             : `Automática: ${result.autoSection == null ? 'sin sección' : `${fmt(result.autoSection)} mm²`} · mínimo ${fmt(result.minimumSection)} mm²`}
         </p>
       </div>
-
-      <div className="mt-5 border-t border-panel-line pt-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.15em] text-panel-muted">Conductores y caída de tensión</p>
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 rounded-control border border-panel-line px-3 py-2.5">
-          <div>
-            <dt className="text-[11px] leading-4 text-panel-muted">Sección por caída</dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {fmt(result.sectionByDrop, 2)}
-              <span className="ml-1 font-normal text-panel-muted">mm²</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[11px] leading-4 text-panel-muted">Caída con Ib</dt>
-            <dd className={dropOver ? 'mt-0.5 text-sm font-semibold tabular-nums text-warning-on-panel' : 'mt-0.5 text-sm font-semibold tabular-nums'}>
-              {result.dropPercent == null
-                ? '—'
-                : <>{fmt(result.dropPercent, 2)}<span className="ml-1 font-normal text-panel-muted">% de {formatLimit(state.maxDropPercent)}</span></>}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[11px] leading-4 text-panel-muted">Momento eléctrico (M)</dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {fmt(result.momentKwM, 2)}
-              <span className="ml-1 font-normal text-panel-muted">kW·m</span>
-            </dd>
-          </div>
-          <div>
-            <dt className="text-[11px] leading-4 text-panel-muted">Conductividad (γ)</dt>
-            <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-              {fmt(result.gamma)}
-              <span className="ml-1 font-normal text-panel-muted">m/(Ω·mm²)</span>
-            </dd>
-          </div>
-        </dl>
-        {result.dropPercentIn != null && (
-          <p className={dropInOver ? 'mt-2 text-[11px] leading-4 text-warning-on-panel' : 'mt-2 text-[11px] leading-4 text-panel-muted'}>
-            Caída con In ({fmt(result.protection ?? 0)} A): <strong className="tabular-nums">{fmt(result.dropPercentIn, 2)} %</strong>
-            {result.protection != null && state.protectionA > 0 ? ' · criterio de la sección' : ' · informativa, la sección se elige con Ib'}
-          </p>
-        )}
-        <div className="mt-3">
-          <ConductorList elements={elements} />
-        </div>
-      </div>
-
-      <div className="my-5 h-px bg-panel-line" />
-      <div className="flex flex-col gap-3 text-sm">
-        <ResultRow label="Iz de tabla" value={result.tableCurrent == null ? '—' : `${fmt(result.tableCurrent)} A`} />
-        <ResultRow label="Factor de agrupamiento" value={fmt(result.groupingFactor, 2)} />
-        <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
-      </div>
-      <ResultProblems problems={result.problems} />
-    </ResultCard>
+    </aside>
   )
 }
 
@@ -632,12 +490,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LgaResult state={state} result={result} onChange={section => onChange({ sectionOverride: section })} elements={[
-        { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: PHASES },
-        { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.blue] },
-        { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.greenYellow] },
-        { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior${result.minimumTube == null ? ' mínimo' : ` · tabla 1 pide ${fmt(result.minimumTube)} mm`}` },
-      ]} />
+      <LgaSectionField result={result} onChange={onChange} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>
@@ -664,7 +517,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
 
   return (
     <>
-    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
+    <div className="grid min-w-0 gap-6">
       <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -694,12 +547,6 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" powerUnit={powerUnit} elements={[
-        { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
-        { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
-        { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
-        { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },
-      ]} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>
