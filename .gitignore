@@ -26,3 +26,4 @@ skills-lock.json
 
 # Reference material kept on disk only (excluded from tsconfig)
 conversion-de-planilla-a-web/
+data/
