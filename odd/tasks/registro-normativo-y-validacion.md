@@ -1,6 +1,6 @@
 # Registro normativo único y validación de los datos del proyecto
 
-Estado: futura, no implementada. Prioridad acordada: por encima de Zod, que queda postergado.
+Estado: T1-T5 implementadas y verificadas; T6 (Zod) postergada. Rama de trabajo sin push (decisión del usuario pendiente).
 
 ## Specs
 
@@ -41,12 +41,12 @@ Tres consumidores, todos derivados de la misma entrada:
 
 ## Tasks
 
-T1 · Registro de las tablas de circuitos y puntos, con sus citas, y migración de los dos módulos actuales
-T2 · Registro de las tablas de potencia, simultaneidad, caídas y diferenciales
-T3 · Registro de los umbrales de la ITC-BT-04 y de su clasificación
-T4 · Generar desde el registro los textos de interfaz y ayuda (elimina las copias en prosa)
-T5 · Validación del proyecto y del JSON de importación contra el registro, con error por campo; subir la versión del snapshot y descartar las anteriores
-T6 · (Postergado) Esquema Zod generado desde el registro
+T1 · ✅ Registro de las tablas de circuitos y puntos, con sus citas, y migración de los dos módulos actuales — commit `9dca57c`
+T2 · ✅ Registro de las tablas de potencia, simultaneidad, caídas y diferenciales — commit `9dca57c`, tests `tests/normative-registry-t2.test.mjs`
+T3 · ✅ Registro de los umbrales de la ITC-BT-04 y de su clasificación — commit `9dca57c`
+T4 · ✅ Generar desde el registro los textos de interfaz y ayuda (elimina las copias en prosa) — commit `c755881`
+T5 · ✅ Validación del proyecto y del JSON de importación contra el registro, con error por campo; subir la versión del snapshot y descartar las anteriores — commit `f6f03da`
+T6 · ⏸️ (Postergado) Esquema Zod generado desde el registro
 
 ## Log
 
@@ -55,3 +55,7 @@ L1 — pedido del usuario, verbatim: «ahora hay un tema con los inputs, como ve
 L2 — respuesta del usuario, verbatim: «no me interesan conservar proyectos anteriores, estamos en version alfa, quiero darle robustes a los datos, me interesa lo de una sola fuente de verdad, ya que todo va segun el reglamento»
 
 L3 — alcance acordado: «Postergar Zod». El registro normativo y la validación por campo tienen prioridad.
+
+L4 — T5 implementada: snapshots v5 únicamente; proyectos persistidos y JSON importado rechazan datos inválidos con el primer campo y motivo. La potencia de vivienda se valida contra `HOUSING_POWER_STEPS` del registro normativo. Tests de persistencia anteriores actualizados a la política alfa sin migraciones. Zod (T6) sigue postergado.
+
+L5 — Verificación 2026-11-11: suite completa 507/507. Cada commit verificado aislado (stash de lo pendiente + suite): A `9dca57c` 500/500, B `c755881` 503/503, C `f6f03da` 507/507. Corrección de slice: el test de versión 5 de `tests/project-documentation.test.mjs` pertenece a T5 y se movió de A a C. `data/` (507 MB de PDFs de referencia REBT) ignorada en `.gitignore` (`d80960a`), material solo en disco.
