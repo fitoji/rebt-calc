@@ -4,9 +4,16 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MAX_POINTS, ROOM_TYPES, roomPoints, totalPoints } from '../lib/housing-points.mjs'
+import { HOUSING_POINT_RULES, HOUSING_POINTS_SOURCE } from '../lib/normative-tables.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
+
+test('the cited table 2 registry is the source of room types and minimum rules', () => {
+  assert.match(HOUSING_POINTS_SOURCE, /ITC-BT-25 §4, tabla 2/)
+  assert.deepEqual(ROOM_TYPES, Object.keys(HOUSING_POINT_RULES))
+  assert.deepEqual(HOUSING_POINT_RULES.salon.C2, { perM2: 6, minimum: 3 })
+})
 
 test('the room list covers the table 2 uses', () => {
   assert.deepEqual(ROOM_TYPES, ['acceso', 'vestibulo', 'salon', 'dormitorio', 'bano', 'pasillo', 'cocina', 'terraza', 'garaje'])

@@ -6,7 +6,7 @@ import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
 import { Check, ChevronRight, Download, FolderOpen, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, ClipboardCheck, Moon, Sun } from 'lucide-react'
 import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
-import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
+import { HOUSING_POWER_STEPS, NORMATIVE_REGISTRY } from '../lib/normative-tables.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
 import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectExport, saveCalculatorInputs, saveDocumentationSnapshot, setClearedProjectMark } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
@@ -123,14 +123,14 @@ type CalculationSettings = {
 const defaultSettings: CalculationSettings = {
   basicHousingPower: 5750,
   elevatedHousingPower: 9200,
-  localPowerPerM2: 100,
-  industrialPowerPerM2: 125,
-  minimumSupplyPower: 3450,
-  industrialMinimumSupplyPower: 10350,
-  forcedGaragePowerPerM2: 20,
-  naturalGaragePowerPerM2: 10,
+  localPowerPerM2: NORMATIVE_REGISTRY['loads.commercial'].values.powerPerM2W,
+  industrialPowerPerM2: NORMATIVE_REGISTRY['loads.industry-specific-default'].values.powerPerM2W,
+  minimumSupplyPower: NORMATIVE_REGISTRY['loads.commercial'].values.minimumSupplyPowerW,
+  industrialMinimumSupplyPower: NORMATIVE_REGISTRY['loads.industry-specific-default'].values.minimumSupplyPowerW,
+  forcedGaragePowerPerM2: NORMATIVE_REGISTRY['loads.garage'].values.forcedPowerPerM2W,
+  naturalGaragePowerPerM2: NORMATIVE_REGISTRY['loads.garage'].values.naturalPowerPerM2W,
   elevatorCoefficient: 1.3,
-  motorCoefficient: 1.25,
+  motorCoefficient: NORMATIVE_REGISTRY['service-load.project-defaults'].values.motorCoefficient,
   evChargerPower: 3680,
   cvToWatts: 735.5,
   portalLightPowerPerM2: 15,

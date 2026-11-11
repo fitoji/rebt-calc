@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { explainLoadForecast } from '../lib/calculation-explanations.mjs'
+import { explainHousingPoints, explainLoadForecast } from '../lib/calculation-explanations.mjs'
 import { getSimultaneityCoefficient } from '../lib/simultaneity.mjs'
 
 const settings = {
@@ -101,7 +101,8 @@ test('the services step explains elevators, motors and the largest-motor increme
 
   assert.match(p2.formula, /P_motor_mayor/)
   assert.match(p2.substitution, /Incremento motor mayor/)
-  assert.match(p2.note, /ITC-BT-47/)
+  assert.match(p2.note, /criterio editable del proyecto/)
+  assert.match(p2.note, /ITC-BT-47 §3.2.*dimensionar conductores/)
 })
 
 test('the locals and garages steps list each row and sum the engine values', () => {
@@ -118,12 +119,21 @@ test('the locals and garages steps list each row and sum the engine values', () 
 
   const p3 = explanation.steps.find(step => step.id === 'p3')
   assert.equal(p3.result, '3450 W')
+  assert.match(p3.note, /100 W\/m² y 3450 W/)
+  assert.match(p3.note, /Concentración de industrias: 125 W\/m² y 10350 W.*Project default/)
 
   const garages = explanation.steps.find(step => step.id === 'garages-rows')
   assert.equal(garages.rows[0].value, '2000 W')
 
   const p4 = explanation.steps.find(step => step.id === 'p4')
   assert.equal(p4.result, '2000 W')
+  assert.match(p4.note, /10 W\/m².*20 W\/m².*3450 W/)
+})
+
+test('housing-point explanation uses registered C8/C9 maximum power limits', () => {
+  const explanation = explainHousingPoints([], { totals: {}, requiredCircuits: {}, totalPoints: 0 })
+  const rules = explanation.steps.find(step => step.id === 'points-rules')
+  assert.match(rules.items.at(-1), /5750 W y 5750 W por circuito/)
 })
 
 test('the IRVE step follows the chosen simultaneity option', () => {

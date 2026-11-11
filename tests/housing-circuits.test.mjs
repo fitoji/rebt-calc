@@ -12,9 +12,17 @@ import {
   housingGradeFor,
   sectionForDrop,
 } from '../lib/housing-circuits.mjs'
+import { HOUSING_CIRCUITS, HOUSING_CIRCUIT_SOURCE, HOUSING_DERIVED_CIRCUITS } from '../lib/normative-tables.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
+
+test('the cited table 1 registry distinguishes published and derived circuits', () => {
+  assert.match(HOUSING_CIRCUIT_SOURCE, /ITC-BT-25 §3, tabla 1/)
+  assert.deepEqual(Object.keys(HOUSING_CIRCUITS), ['C1', 'C2', 'C3', 'C4', 'C5', 'C8', 'C9', 'C10', 'C11', 'C13'])
+  assert.deepEqual(HOUSING_DERIVED_CIRCUITS.C6, { base: 'C1', name: 'Adicional de iluminación (C1)' })
+  assert.equal(HOUSING_CIRCUITS.C4.section, 4)
+})
 
 test('the grade follows the power step of the dwelling', () => {
   assert.equal(housingGradeFor(5750), 'basic')
