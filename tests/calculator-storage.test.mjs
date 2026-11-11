@@ -5,6 +5,7 @@ import {
   NEW_PROJECT_STORAGE_KEY,
   clearProjectData,
   loadCalculatorInputs,
+  validatePersistedCalculatorInputs,
   marksClearedProject,
   opensWithExample,
   readProjectExport,
@@ -76,69 +77,78 @@ test('persists calculator inputs using a versioned snapshot', () => {
   saveCalculatorInputs(storage, sampleInputs)
 
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 3)
+  assert.equal(snapshot.version, 5)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
 })
 
-test('a dwelling saved before the surface column loads with zero surface', () => {
+test('reports a field-specific diagnostic for invalid persisted project data', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 2,
+      version: 5,
+      ...sampleInputs,
+      housing: [{ ...sampleInputs.housing[0], power: 6000 }],
+    }),
+  })
+  assert.deepEqual(validatePersistedCalculatorInputs(storage), {
+    field: 'inputs.housing[0].power',
+    reason: 'must match a registered housing power step (5750 W, 7360 W, 9200 W, 11500 W, 14490 W)',
+  })
+  assert.equal(loadCalculatorInputs(storage), null)
+})
+
+test('rejects old snapshots that omit dwelling surface', () => {
+  const storage = createMemoryStorage({
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+      version: 5,
       ...sampleInputs,
       housing: [{ level: 'Básica', power: 5750, homes: 2 }],
     }),
   })
 
   const loaded = loadCalculatorInputs(storage)
-  assert.notEqual(loaded, null, 'the project survives the missing field')
-  assert.deepEqual(loaded.housing, [{ level: 'Básica', power: 5750, homes: 2, area: 0 }], 'the surface defaults to zero')
-  assert.deepEqual(loaded.garages, sampleInputs.garages, 'the rest of the project is untouched')
+  assert.equal(loaded, null, 'the earlier snapshot version is rejected')
 })
 
-test('a malformed dwelling surface becomes zero instead of discarding the project', () => {
+test('a malformed dwelling surface rejects the snapshot', () => {
   for (const area of ['wide', -20, null]) {
     const storage = createMemoryStorage({
       [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-        version: 2,
+        version: 5,
         ...sampleInputs,
         housing: [{ level: 'Básica', power: 5750, homes: 1, area }],
       }),
     })
 
     const loaded = loadCalculatorInputs(storage)
-    assert.notEqual(loaded, null, `dwelling with area ${JSON.stringify(area)} keeps the project`)
-    assert.equal(loaded.housing[0].area, 0, `dwelling with area ${JSON.stringify(area)} falls back to zero`)
+    assert.equal(loaded, null, `invalid dwelling area ${JSON.stringify(area)} rejects the snapshot`)
   }
 })
 
-test('a garage saved before the parking-space column loads with zero spaces', () => {
+test('a garage missing parking spaces rejects the snapshot', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 2,
+      version: 5,
       ...sampleInputs,
       garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120 }],
     }),
   })
 
   const loaded = loadCalculatorInputs(storage)
-  assert.notEqual(loaded, null, 'the project survives the missing field')
-  assert.deepEqual(loaded.garages, [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas: 0 }], 'the parking count defaults to zero')
-  assert.deepEqual(loaded.housing, sampleInputs.housing, 'the rest of the project is untouched')
+  assert.equal(loaded, null, 'the earlier snapshot version is rejected')
 })
 
-test('a malformed parking count becomes zero instead of discarding the project', () => {
+test('a malformed parking count rejects the snapshot', () => {
   for (const plazas of ['many', -3, null]) {
     const storage = createMemoryStorage({
       [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-        version: 2,
+        version: 5,
         ...sampleInputs,
         garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas }],
       }),
     })
 
     const loaded = loadCalculatorInputs(storage)
-    assert.notEqual(loaded, null, `garage with plazas ${JSON.stringify(plazas)} keeps the project`)
-    assert.equal(loaded.garages[0].plazas, 0, `garage with plazas ${JSON.stringify(plazas)} falls back to zero`)
+    assert.equal(loaded, null, `invalid garage plazas ${JSON.stringify(plazas)} rejects the snapshot`)
   }
 })
 
@@ -153,10 +163,10 @@ test('does not retain an empty calculator snapshot', () => {
   assert.equal(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY), null)
 })
 
-test('loads older snapshots without lighting data', () => {
+test('loads current snapshots without optional lighting data', () => {
   const { lighting, ...legacyInputs } = sampleInputs
   const storage = createMemoryStorage({
-    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 1, ...legacyInputs }),
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 5, ...legacyInputs }),
   })
 
   const loaded = loadCalculatorInputs(storage)
@@ -203,7 +213,7 @@ test('ignores unsupported or malformed calculator snapshots', () => {
   assert.equal(loadCalculatorInputs(storage), null)
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 1,
+    version: 5,
     ...sampleInputs,
     garages: [{ name: 'Garaje', ventilation: 'Invalid', area: 20 }],
   }))
@@ -218,21 +228,20 @@ test('persists and restores the enlace scenario', () => {
 
   saveCalculatorInputs(storage, { ...sampleInputs, installationType: 'invented' })
   const loaded = loadCalculatorInputs(storage)
-  assert.notEqual(loaded, null, 'an unknown scenario does not discard the project')
-  assert.equal(loaded.installationType, undefined, 'it falls back to the calculator default')
+  assert.equal(loaded, null, 'an unknown scenario rejects the snapshot')
 })
 
-test('persists the derivation list in a v3 snapshot', () => {
+test('persists the derivation list in a v5 snapshot', () => {
   const storage = createMemoryStorage()
 
   saveCalculatorInputs(storage, { ...sampleInputs, derivations: [sampleDerivation] })
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 3)
+  assert.equal(snapshot.version, 5)
   assert.deepEqual(snapshot.derivations, [sampleDerivation])
   assert.deepEqual(loadCalculatorInputs(storage).derivations, [sampleDerivation])
 })
 
-test('persists the meter centre and drops a malformed one without losing the project', () => {
+test('persists the meter centre and rejects a malformed snapshot', () => {
   const meterCenter = {
     placement: 'concentrated',
     meters: null,
@@ -252,13 +261,12 @@ test('persists the meter centre and drops a malformed one without losing the pro
   assert.deepEqual(loadCalculatorInputs(storage).meterCenter, meterCenter, 'the centre survives a reload')
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 3,
+    version: 5,
     ...sampleInputs,
     meterCenter: { ...meterCenter, assembly: 'garaje' },
   }))
   const loaded = loadCalculatorInputs(storage)
-  assert.notEqual(loaded, null, 'a malformed centre never discards the project')
-  assert.equal(loaded.meterCenter, undefined, 'the block falls back to the default centre')
+  assert.equal(loaded, null, 'a malformed registered block rejects the full snapshot')
 })
 
 test('a default meter centre is not written, so clearing the project still clears storage', () => {
@@ -288,7 +296,7 @@ test('a default meter centre is not written, so clearing the project still clear
   assert.equal(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY), null, 'an empty project with the default centre leaves no snapshot')
 })
 
-test('persists the interior circuits of a supply and drops a malformed block', () => {
+test('persists the interior circuits of a supply and rejects a malformed snapshot', () => {
   const circuits = [{ id: 'c1', description: 'Alumbrado', use: 'alumbrado', powerW: 500, lengthM: 12 }]
   const storage = createMemoryStorage()
 
@@ -296,13 +304,12 @@ test('persists the interior circuits of a supply and drops a malformed block', (
   assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interiorCircuits, circuits, 'the board survives a reload')
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 3,
+    version: 5,
     ...sampleInputs,
     derivations: [{ ...sampleDerivation, interiorCircuits: [{ ...circuits[0], use: 'otro' }] }],
   }))
   const loaded = loadCalculatorInputs(storage)
-  assert.notEqual(loaded, null, 'a malformed board never discards the project')
-  assert.equal(loaded.derivations, undefined, 'the derivation block falls back instead of loading half of it')
+  assert.equal(loaded, null, 'a malformed board rejects the snapshot atomically')
 })
 
 test('persists the circuit lengths of a dwelling', () => {
@@ -331,32 +338,27 @@ test('persists the dwelling rooms and their systems', () => {
   assert.equal(loadCalculatorInputs(storage).derivations[0].housingAreaM2, 90, 'the dwelling surface survives a reload')
 })
 
-test('migrates a v1 single DI into a derivation seed', () => {
+test('does not migrate a prior-alpha single DI snapshot', () => {
   const { id, kind, label, sourceKey, system, ...di } = sampleDerivation
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 1, ...sampleInputs, di }),
   })
 
   const loaded = loadCalculatorInputs(storage)
-  assert.equal(loaded.di.powerW, 5750, 'the legacy single DI still loads')
-  assert.equal(loaded.derivations.length, 1, 'the legacy DI becomes a derivation seed')
-  assert.equal(loaded.derivations[0].id, 'legacy-di')
-  assert.equal(loaded.derivations[0].kind, 'custom')
-  assert.equal(loaded.derivations[0].system, 'single-phase')
+  assert.equal(loaded, null)
 })
 
-test('ignores invalid derivations instead of discarding the project', () => {
+test('rejects invalid derivations instead of discarding invalid project data', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 2,
+      version: 5,
       ...sampleInputs,
       derivations: [{ ...sampleDerivation, system: 'invented' }],
     }),
   })
 
   const loaded = loadCalculatorInputs(storage)
-  assert.equal(loaded.derivations, undefined, 'invalid derivations are ignored')
-  assert.deepEqual(loaded.housing, sampleInputs.housing, 'the rest of the project survives')
+  assert.equal(loaded, null, 'invalid derivations reject the snapshot')
 })
 
 test('persists the LGA power mode', () => {
@@ -504,7 +506,7 @@ test('an empty file is rejected instead of clearing the project', () => {
 })
 
 test('a raw storage snapshot is not accepted as a project file', () => {
-  const parsed = readProjectExport(JSON.stringify({ version: 2, ...sampleInputs }))
+  const parsed = readProjectExport(JSON.stringify({ version: 5, ...sampleInputs }))
 
   assert.equal(parsed.ok, false, 'the import reads the export, not the internal snapshot')
   assert.match(parsed.error, /proyecto/i)
@@ -517,7 +519,7 @@ test('one malformed row rejects the whole file and applies nothing', () => {
   })))
 
   assert.equal(parsed.ok, false)
-  assert.match(parsed.error, /proyecto/i)
+  assert.match(parsed.error, /Campo inputs\.housing\[0\]\.level/)
   assert.equal(parsed.project, undefined, 'the valid rows are not applied on their own')
 })
 
@@ -564,7 +566,7 @@ test('a centre saved with the old enclosure field keeps its cabinet choice', () 
     enclosure: 'armario',
   }
   const storage = createMemoryStorage({
-    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 3, ...sampleInputs, meterCenter: legacy }),
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 5, ...sampleInputs, meterCenter: legacy }),
   })
 
   const migrated = loadCalculatorInputs(storage)

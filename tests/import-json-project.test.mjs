@@ -102,6 +102,33 @@ test('S3: a malformed optional block rejects the file instead of dropping it', (
   }
 })
 
+test('reports the exact imported field and reason for invalid core data', () => {
+  const invalid = { ...inputs, housing: [{ ...inputs.housing[0], homes: -1 }] }
+  const parsed = readProjectExport(wrap(invalid))
+  assert.equal(parsed.ok, false)
+  assert.match(parsed.error, /inputs\.housing\[0\]\.homes/)
+  assert.match(parsed.error, /non-negative integer/)
+})
+
+test('rejects persisted snapshots from prior alpha versions', () => {
+  for (const version of [1, 2, 3, 4]) {
+    const storage = createMemoryStorage({
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...inputs, version }),
+    })
+    assert.equal(loadCalculatorInputs(storage), null, `version ${version} is retired`)
+  }
+})
+
+test('JSON import validates housing power against the normative registry', () => {
+  const parsed = readProjectExport(wrap({
+    ...inputs,
+    housing: [{ ...inputs.housing[0], power: 6000 }],
+  }))
+  assert.equal(parsed.ok, false)
+  assert.match(parsed.error, /inputs\.housing\[0\]\.power/)
+  assert.match(parsed.error, /registered housing power step/)
+})
+
 test('S3: an empty derivation list and absent optional blocks still load', () => {
   assert.equal(readProjectExport(wrap({ ...inputs, derivations: [] })).ok, true, 'an empty schedule is a valid schedule')
 
@@ -162,7 +189,7 @@ test('S3: empty, invalid JSON, no project data and invalid data have their own r
   assert.equal(readProjectExport('   ').error, 'El archivo está vacío.')
   assert.equal(readProjectExport('{').error, 'El archivo no es un JSON válido.')
   assert.match(readProjectExport('{}').error, /no contiene los datos de un proyecto/i)
-  assert.match(readProjectExport(wrap({ ...inputs, parking: -1 })).error, /no son válidos.*No se cargó nada/i)
+  assert.match(readProjectExport(wrap({ ...inputs, parking: -1 })).error, /inputs\.parking.*non-negative.*No se cargó nada/i)
 })
 
 test('S4: the required core is read the same way by the file and by localStorage', () => {
@@ -185,7 +212,7 @@ test('S4: the required core is read the same way by the file and by localStorage
   for (const variant of variants) {
     const file = readProjectExport(wrap(variant))
     const snapshot = loadCalculatorInputs(createMemoryStorage({
-      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 2 }),
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 5 }),
     }))
 
     assert.equal(file.ok, snapshot !== null, `file and snapshot disagree on: ${JSON.stringify(variant).slice(0, 80)}`)
@@ -205,11 +232,11 @@ test('S4: an unreadable optional block is dropped by the snapshot and rejects th
   for (const variant of variants) {
     const file = readProjectExport(wrap(variant))
     const snapshot = loadCalculatorInputs(createMemoryStorage({
-      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 2 }),
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 5 }),
     }))
 
     assert.equal(file.ok, false, `the import rejects the file: ${JSON.stringify(variant).slice(0, 80)}`)
-    assert.notEqual(snapshot, null, 'a saved project survives one unreadable block')
+    assert.equal(snapshot, null, 'the persisted project rejects the same invalid block')
   }
 })
 

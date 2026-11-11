@@ -457,7 +457,7 @@ test('la documentación ausente se completa con los valores por defecto', () => 
     'an older export opens with the default documentation',
   )
 
-  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({ version: 1, ...forecastInputs }))
+  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({ version: 5, ...forecastInputs }))
   assert.deepEqual(
     normalizeDocumentation(loadCalculatorInputs(storage).documentation),
     DEFAULT_DOCUMENTATION,
