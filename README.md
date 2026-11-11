@@ -90,6 +90,8 @@ La previsión lleva además los **datos de documentación** que la app no puede 
 
 Con ellos, la página **Requisitos del proyecto** (`/requisitos`) responde una sola pregunta: si el edificio exige **proyecto** o basta una **memoria técnica de diseño**, según la ITC-BT-04. Se aplican los grupos del §3.1; si la instalación cae en más de uno gana el criterio más exigente (§3.3) y, si no cae en ninguno, el §4 pide memoria técnica de diseño. Es el mínimo estatal del REBT: cada comunidad autónoma puede añadir requisitos propios de documentación.
 
+La misma página añade el veredicto de **inspección inicial** (ITC-BT-05 §4.1): la lista de instalaciones que se inspeccionan una vez ejecutadas —industriales con proyecto y más de 100 kW instalados, pública concurrencia, riesgo de incendio o explosión de clase I, locales mojados con más de 25 kW, piscinas con más de 10 kW, quirófanos, alumbrado exterior con más de 5 kW y estaciones de recarga que exijan proyecto— evaluada grupo a grupo contra la previsión guardada.
+
 Y para las líneas, cada módulo devuelve:
 
 | Salida | LGA (ITC-BT-14) | DI (ITC-BT-15) |
@@ -371,6 +373,7 @@ Sin framework: `node:test` + `node:assert/strict`, sin dependencias.
 | `project-documentation.test.mjs` | Clasificación por grupo de la ITC-BT-04 §3.1, §3.3 y §4, y persistencia del bloque de documentación |
 | `documentation-inputs.test.mjs` | Card de documentación en la previsión: dos potencias, nueve criterios, autoguardado e importación/exportación |
 | `requisitos-page.test.mjs` | Página `/requisitos`: veredicto, tabla de grupos y lectura de la instantánea |
+| `inspection.test.mjs` | Clasificación de la inspección inicial de la ITC-BT-05 §4.1, grupo a grupo |
 | `design-tokens.test.mjs` | Ningún color de paleta cruda ni token sin declarar |
 | `contrast.test.mjs` | Contraste AA de los pares texto/fondo y 3:1 de bordes y foco, más el nombre accesible de cada control de tabla |
 | `dialog-a11y-regression.test.mjs` | Diálogos accesibles y botones de acción |

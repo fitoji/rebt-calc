@@ -114,7 +114,7 @@ test('S1: sin previsión la página explica qué falta y vuelve a la calculadora
 
 test('S5: la página cita la instrucción, la tabla de grupos y el margen autonómico', () => {
   assert.ok(
-    page.includes('ITC-BT-04 §3 y §4 · RD 842/2002 (BOE-A-2002-18099)'),
+    page.includes('ITC-BT-04 §3 y §4 · ITC-BT-05 §4.1 · RD 842/2002 (BOE-A-2002-18099)'),
     'la línea de cita transcribe la referencia completa',
   )
   assert.match(page, /comunidad aut[óo]noma/i, 'la página avisa de que la comunidad autónoma puede añadir requisitos')
@@ -180,4 +180,13 @@ test('la instantánea descarta lo que no puede leer entero', () => {
 
 test('S7: lib/requirements.mjs se eliminó con el checklist', () => {
   assert.equal(existsSync(path.join(root, 'lib/requirements.mjs')), false, 'nadie más importaba el checklist')
+})
+
+test('la página clasifica la inspección inicial de la ITC-BT-05 §4.1 con la previsión ya guardada', () => {
+  assert.ok(imports.includes('@/lib/inspection.mjs'), 'la inspección sale del clasificador, no del texto de la página')
+  assert.ok(page.includes('classifyInspection'), 'la página llama al clasificador de inspección')
+  assert.ok(page.includes('ITC-BT-05 §4.1'), 'la sección nombra la instrucción que la escribe')
+  assert.ok(page.includes('Será objeto de inspección inicial'), 'el veredicto de inspección usa las palabras de la instrucción')
+  const registrySource = read('lib/normative-tables.mjs')
+  assert.ok(registrySource.includes("'inspection.initial'"), 'la lista se declara en el registro normativo, una sola vez')
 })

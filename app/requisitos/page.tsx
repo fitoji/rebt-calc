@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { ArrowLeft, Info, TriangleAlert } from 'lucide-react'
 import { loadCalculatorInputs, loadDocumentationSnapshot } from '@/lib/calculator-storage.mjs'
 import { classifyDocumentation } from '@/lib/project-documentation.mjs'
+import { classifyInspection } from '@/lib/inspection.mjs'
+import { NORMATIVE_REGISTRY } from '@/lib/normative-tables.mjs'
 import { formatPower, isPowerUnit } from '@/lib/power-units.mjs'
 import { BOE_REBT } from '@/components/source-note'
 import { SiteFooter } from '@/components/site-footer'
@@ -17,6 +19,8 @@ type Documentation = NonNullable<ReturnType<typeof loadCalculatorInputs>>['docum
 /** Una fila del veredicto: la que emite el clasificador, sin reinterpretarla. */
 type Group = ReturnType<typeof classifyDocumentation>['groups'][number]
 type Verdict = ReturnType<typeof classifyDocumentation>['verdict']
+/** Una fila de la lista de inspección inicial de la ITC-BT-05 §4.1. */
+type InspectionGroup = ReturnType<typeof classifyInspection>['groups'][number]
 
 /** La única respuesta de la página, con las palabras de la instrucción. */
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -88,6 +92,12 @@ function comparisonText(group: Group, powerUnit: 'W' | 'kW') {
   return isThreshold ? `${value} ≤ ${limit}` : `${value} · ${limit}`
 }
 
+/** El valor de una fila de inspección: una potencia en vatios o su criterio. */
+function inspectionValueText(group: InspectionGroup, powerUnit: 'W' | 'kW') {
+  if (typeof group.value !== 'number') return group.value
+  return formatPower(group.value, powerUnit)
+}
+
 export default function RequisitosPage() {
   const [state, setState] = useState<PageState>({ snapshot: null, documentation: undefined, powerUnit: 'W' })
 
@@ -122,6 +132,25 @@ export default function RequisitosPage() {
     ? classification.groups.filter(group => classification.decidingGroups.includes(group.id))
     : []
   const requiresProject = classification?.verdict === 'proyecto'
+  // La inspección inicial se clasifica con la misma previsión y el veredicto
+  // de proyecto ya calculado: los grupos a y h dependen de él.
+  const inspection = useMemo(
+    () => state.snapshot
+      ? classifyInspection({
+        totalW: state.snapshot.totalW,
+        localTypes: state.snapshot.localTypes,
+        irvePowerW: state.snapshot.irvePowerW,
+        documentation: state.documentation,
+        requiresProject,
+      })
+      : null,
+    [state, requiresProject],
+  )
+  const inspectionQuote = NORMATIVE_REGISTRY['inspection.initial'].values.quote
+  const inspected = inspection?.verdict === 'inspeccion'
+  const inspectionDeciding = inspection
+    ? inspection.groups.filter(group => inspection.decidingGroups.includes(group.id))
+    : []
 
   return (
     <>
@@ -203,6 +232,70 @@ export default function RequisitosPage() {
                 )}
               </section>
 
+              <section aria-labelledby="inspeccion-title" className="mt-12 max-w-3xl">
+                <h2 id="inspeccion-title" className="text-xl font-bold tracking-tight">Inspección inicial</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-subtle">
+                  Independiente del veredicto de proyecto: la lista de la ITC-BT-05 §4.1 marca qué instalaciones ejecutadas se inspeccionan antes de documentarse ante el órgano competente. «{inspectionQuote}»
+                </p>
+                <section
+                  aria-labelledby="inspeccion-veredicto-title"
+                  className={`mt-4 rounded-card border p-6 shadow-card sm:p-8 ${inspected ? 'border-brand-line bg-brand-soft' : 'border-line bg-paper'}`}
+                >
+                  <h3 id="inspeccion-veredicto-title" className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Veredicto de inspección</h3>
+                  <p className={`mt-3 text-2xl font-bold tracking-tight sm:text-3xl ${inspected ? 'text-brand-ink' : 'text-ink'}`}>
+                    {inspected ? 'Será objeto de inspección inicial' : 'No entra en la lista de inspección inicial'}
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-ink-subtle">
+                    {inspected
+                      ? `La previsión entra en ${inspectionDeciding.length === 1 ? 'un grupo' : 'varios grupos'} de la ITC-BT-05 §4.1. Con la instalación ejecutada, la inspección es previa a la documentación ante el órgano competente.`
+                      : 'Ningún grupo de la ITC-BT-05 §4.1 alcanza esta previsión; la lista no la marca para inspección inicial.'}
+                  </p>
+                </section>
+                {inspected && (
+                  <ul className="mt-4 space-y-3">
+                    {inspectionDeciding.map(group => (
+                      <li key={group.id} className="rounded-card border border-line bg-paper p-4 shadow-card">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-tab border border-brand-line bg-brand-soft px-1.5 py-0.5 font-mono text-[11px] leading-none tracking-[0.08em] text-brand-ink">§4.1 {group.id}</span>
+                          <p className="font-semibold text-ink">{group.title}</p>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-ink-subtle">
+                          <strong className="tabular-nums text-ink">{inspectionValueText(group, state.powerUnit)} · {group.limit}</strong>
+                        </p>
+                        <p className="mt-1 text-xs text-ink-faint">Fuente: {group.source}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-4 overflow-x-auto rounded-card border border-line bg-paper shadow-card">
+                  <table className="w-full min-w-[48rem] text-left text-sm">
+                    <caption className="sr-only">Grupos de la ITC-BT-05 §4.1 evaluados sobre la previsión de cargas guardada</caption>
+                    <thead className="border-b border-line bg-surface-muted text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                      <tr>
+                        <th scope="col" className="px-4 py-3">Grupo</th>
+                        <th scope="col" className="px-4 py-3">Instalación</th>
+                        <th scope="col" className="px-4 py-3">¿Aplica?</th>
+                        <th scope="col" className="px-4 py-3">Valor</th>
+                        <th scope="col" className="px-4 py-3">Límite</th>
+                        <th scope="col" className="px-4 py-3">Inspección</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inspection?.groups.map(group => (
+                        <tr key={group.id} className="border-b border-line last:border-0">
+                          <th scope="row" className="px-4 py-3 font-mono text-xs font-semibold text-ink">§4.1 {group.id}</th>
+                          <td className="px-4 py-3 text-ink-subtle">{group.title}</td>
+                          <td className="px-4 py-3 text-ink-subtle">{group.applies ? 'Sí' : 'No'}</td>
+                          <td className="px-4 py-3 tabular-nums text-ink">{inspectionValueText(group, state.powerUnit)}</td>
+                          <td className="px-4 py-3 text-ink-subtle">{group.limit}</td>
+                          <td className={`px-4 py-3 font-semibold ${group.requiresInspection ? 'text-brand' : 'text-ink-faint'}`}>{group.requiresInspection ? 'Sí' : 'No'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
               <section aria-labelledby="tabla-title" className="mt-12">
                 <h2 id="tabla-title" className="text-xl font-bold tracking-tight">Tabla completa de grupos</h2>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-subtle">
@@ -241,7 +334,7 @@ export default function RequisitosPage() {
 
           <section aria-labelledby="fuente-title" className="mt-12 max-w-3xl rounded-card border border-line bg-note-sand p-5 text-sm leading-6 text-note-sand-ink">
             <h2 id="fuente-title" className="text-xs font-bold uppercase tracking-[0.22em]">Fuente</h2>
-            <p className="mt-2 font-semibold">ITC-BT-04 §3 y §4 · RD 842/2002 (BOE-A-2002-18099)</p>
+            <p className="mt-2 font-semibold">ITC-BT-04 §3 y §4 · ITC-BT-05 §4.1 · RD 842/2002 (BOE-A-2002-18099)</p>
             <p className="mt-2">
               El veredicto se calcula con la previsión de cargas del proyecto —potencia total prevista, viviendas, locales, garajes y P5 de recarga— y con los datos de documentación que se editan en esa misma previsión. La página no añade cifras propias ni repite el cálculo de P1 a P5.
             </p>
