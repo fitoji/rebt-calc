@@ -179,7 +179,7 @@ test('an imported manual power that is negative or not a number is rejected', ()
 
 test('the dwelling card lets the user type the power of the circuits the table leaves open', () => {
   const panel = read('components/interior-panel.tsx')
-  assert.match(panel, /\{circuit\.powerPerPointW != null\s*\n?\s*\?\s*`\$\{fmt\(circuit\.powerPerPointW\)\} W`/, 'a circuit with table power prints the plain number')
+  assert.match(panel, /\{circuit\.powerPerPointW != null\s*\n?\s*\?\s*formatPowerValue\(circuit\.powerPerPointW, powerUnit\)/, 'a circuit with table power prints the plain number in the chosen unit')
   assert.match(panel, /Potencia manual · \$\{circuit\.id\} · \$\{circuit\.name\}/, 'the input names its circuit for screen readers')
   assert.match(panel, /aria-label=\{`Potencia manual[\s\S]{0,200}type="number" min="0"/, 'the manual power is a non-negative number input')
   assert.match(panel, /circuitPowerW\(circuit\.id, inputs\.circuitPowerOverride\)/, 'the cell shows the declared power, manual when present')
@@ -189,7 +189,7 @@ test('the dwelling card lets the user type the power of the circuits the table l
 
 test('the circuits with a table power keep their plain value', () => {
   const panel = read('components/interior-panel.tsx')
-  assert.match(panel, /fmt\(circuit\.powerPerPointW\)/, 'the table power is printed as text')
+  assert.match(panel, /formatPowerValue\(circuit\.powerPerPointW, powerUnit\)/, 'the table power is printed as text in the chosen unit')
   assert.doesNotMatch(panel, /<Input[^\n]*powerPerPointW/, 'the table power is never an input')
   assert.doesNotMatch(panel, /HOUSING_CIRCUIT_TABLE[\s\S]{0,200}<Input/, 'the published table stays read-only')
 })

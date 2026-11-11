@@ -17,7 +17,7 @@ import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/in
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
-import { formatPower } from '../lib/power-units.mjs'
+import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
 
 export type InteriorDwelling = {
   id: string
@@ -79,19 +79,19 @@ function pointCount(raw: string) {
 }
 
 /** Power typed by the user: a positive number of watts, `null` when the field is empty or not a power. */
-function manualPower(raw: string) {
+function manualPower(raw: string, unit: 'W' | 'kW') {
   if (raw.trim() === '') return null
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  const watts = storePower(Number(raw), unit)
+  return Number.isFinite(watts) && watts > 0 ? watts : null
 }
 
 function roomLabel(type: string) {
   return ROOM_LABELS[type as keyof typeof ROOM_LABELS] ?? type
 }
 
-function stepLabel(powerW: number) {
+function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
   const step = HOUSING_POWER_STEPS.find(([, watts]) => Number(watts) === powerW)
-  return step ? `${step[0]} · ${formatPower(Number(step[1]), 'W')}` : `${formatPower(powerW, 'W')} · fuera de tabla`
+  return step ? `${step[0]} · ${formatPower(Number(step[1]), powerUnit)}` : `${formatPower(powerW, powerUnit)} · fuera de tabla`
 }
 
 /**
@@ -101,11 +101,13 @@ function stepLabel(powerW: number) {
  * number of circuits are the only two project-specific data points, and both
  * feed the checks and the differential count.
  */
-export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
+export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
   dwellings: InteriorDwelling[]
   selectedId: string | null
   onSelect: (id: string) => void
   onChange: (id: string, patch: Partial<InteriorInputsState>) => void
+  /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
+  powerUnit: 'W' | 'kW'
   hasIrve?: boolean
   explanationMode?: 'calculation' | 'didactic'
   showSourceNotes?: boolean
@@ -169,7 +171,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
   // borrar el campo devuelve la celda al «—» y nunca toca los circuitos de la tabla.
   const setCircuitPowerOverride = (circuit: string, raw: string) => {
     const next = { ...(inputs.circuitPowerOverride ?? {}) }
-    const value = manualPower(raw)
+    const value = manualPower(raw, powerUnit)
     if (value == null) delete next[circuit]
     else next[circuit] = value
     onChange(dwelling.id, { circuitPowerOverride: next })
@@ -205,14 +207,14 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW)}</span></div>
+          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">IGA (tabla A)</span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, 'W')}</span></div>
+          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span>{evaluation.differentials} × {evaluation.sensitivityMa} mA</span></div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada</Label>
-            <Input id="interior-contracted" type="number" min="0" step="1" value={inputs.contractedPowerW || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, Number(event.target.value)) })} className="w-32" />
+            <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada ({powerUnit})</Label>
+            <Input id="interior-contracted" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(inputs.contractedPowerW, powerUnit) || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, storePower(Number(event.target.value), powerUnit)) })} className="w-32" />
             {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">La potencia contratada puede ser diferente a la prevista.</span>}
           </div>
           <div className="flex items-end gap-2 pb-1">
@@ -239,7 +241,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                   <TableHead scope="col" className="py-2 pr-2">Tubo</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Puntos</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Máx. puntos</TableHead>
-                  <TableHead scope="col" className="py-2 pr-2">P/toma</TableHead>
+                  <TableHead scope="col" className="py-2 pr-2">P/toma ({powerUnit})</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Fs</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Fu</TableHead>
                   <TableHead scope="col" className="py-2">Caída</TableHead>
@@ -249,6 +251,9 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                 {circuits.map(circuit => {
                   const lengthM = inputs.lengths?.[circuit.id] ?? 0
                   const sizing = housingCircuitSizing(circuit, lengthM)
+                  // La potencia escrita por el proyecto entra en la unidad elegida y
+                  // se guarda en vatios: el motor nunca ve kilovatios.
+                  const manualW = circuitPowerW(circuit.id, inputs.circuitPowerOverride)
                   return (
                     <TableRow key={circuit.id} className="border-b border-line-soft">
                       <TableCell className="py-2 pr-2 font-semibold">{circuit.id}</TableCell>
@@ -273,12 +278,12 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.maxPoints == null ? '—' : circuit.maxPoints}</TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">
                         {circuit.powerPerPointW != null
-                          ? `${fmt(circuit.powerPerPointW)} W`
+                          ? formatPowerValue(circuit.powerPerPointW, powerUnit)
                           : (
                             <Input
                               aria-label={`Potencia manual · ${circuit.id} · ${circuit.name}`}
-                              type="number" min="0" step="1"
-                              value={circuitPowerW(circuit.id, inputs.circuitPowerOverride) ?? ''}
+                              type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'}
+                              value={manualW == null ? '' : powerFieldValue(manualW, powerUnit)}
                               onChange={event => setCircuitPowerOverride(circuit.id, event.target.value)}
                               className="w-24"
                             />
@@ -380,7 +385,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                   <TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
                     <TableHead scope="col" className="py-2 pr-3">Circuito</TableHead>
                     <TableHead scope="col" className="py-2 pr-3">Nombre</TableHead>
-                    <TableHead scope="col" className="py-2 pr-3">P/toma</TableHead>
+                    <TableHead scope="col" className="py-2 pr-3">P/toma ({powerUnit})</TableHead>
                     <TableHead scope="col" className="py-2 pr-3">Fs</TableHead>
                     <TableHead scope="col" className="py-2 pr-3">Fu</TableHead>
                     <TableHead scope="col" className="py-2 pr-3">Tipo de toma</TableHead>
@@ -395,7 +400,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, hasIr
                     <TableRow key={circuit.id} className="border-b border-line-soft">
                       <TableCell className="py-2 pr-3 font-semibold">{circuit.id}</TableCell>
                       <TableCell className="py-2 pr-3">{circuit.name}</TableCell>
-                      <TableCell className="py-2 pr-3 tabular-nums">{circuit.powerPerPointW == null ? '—' : `${fmt(circuit.powerPerPointW)} W`}</TableCell>
+                      <TableCell className="py-2 pr-3 tabular-nums">{circuit.powerPerPointW == null ? '—' : formatPowerValue(circuit.powerPerPointW, powerUnit)}</TableCell>
                       <TableCell className="py-2 pr-3 tabular-nums">{circuit.fs == null ? '—' : circuit.fs}</TableCell>
                       <TableCell className="py-2 pr-3 tabular-nums">{circuit.fu == null ? '—' : circuit.fu}</TableCell>
                       <TableCell className="py-2 pr-3">{circuit.socket}</TableCell>

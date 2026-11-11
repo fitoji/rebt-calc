@@ -61,10 +61,64 @@ test('no power of the interface keeps a hardcoded W', () => {
 })
 
 test('the line panels and the didactic steps receive the unit', () => {
-  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 2, 'both line panels')
+  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 5, 'the line panels, the two Cuadros panels and the documentation block')
   assert.match(modules, /powerUnit\?: 'W' \| 'kW'/, 'the panels accept the unit')
   assert.match(explanations, /formatPower\(state\.powerW, powerUnit\)/, 'the didactic data follows the unit')
   assert.match(explanations, /const unit = settings\.powerUnit \?\? 'W'/, 'the load forecast follows it too')
+})
+
+/** Components that show or ask for a power, and therefore own the unit switch. */
+const UI_POWER_FILES = [
+  'components/documentation-panel.tsx',
+  'components/interior-panel.tsx',
+  'components/interior-circuits-panel.tsx',
+  'components/line-modules.tsx',
+  'components/rail-result.tsx',
+  'components/load-calculator.tsx',
+]
+
+/**
+ * The only hardcoded watt left in those files: the selector has to name the unit
+ * it offers. Anything else reads it from `powerUnit`.
+ */
+const WATT_EXCEPTIONS = [
+  {
+    file: 'components/load-calculator.tsx',
+    literal: "'Vatios (W)'",
+    reason: 'el selector de unidades nombra la unidad que aplica',
+  },
+]
+
+/**
+ * Unreadout or an input that fixes the unit instead of following the selector.
+ *
+ * Los vatios que la instrucción publica se quedan como están y no coinciden con
+ * ninguno de estos patrones porque no van detrás de un placeholder ni de un
+ * encabezado: los mínimos del ITC-BT-10 (3.450 W por abonado, 10.350 W de
+ * industria), los escalones de la tabla A de la ITC-BT-25 que cita la nota de
+ * P1, las densidades `W/m²`, la conversión `W/CV`, la resistividad `K·m/W` y el
+ * umbral de 150 kW del interruptor general de maniobra. Tampoco se vigila el kW
+ * suelto: el momento eléctrico va en kW·m y la tabla ITA en kW por prescripción.
+ */
+const HARDCODED_WATT = [
+  { label: "formatPower(…, 'W') fija la unidad", pattern: /formatPower\([^\n]*'W'\)/ },
+  { label: 'un template literal pega una W fija', pattern: /`[^`\n]*\} W`/ },
+  { label: 'un placeholder va seguido de una W fija', pattern: /\} W(?=[`\s.,<])/ },
+  { label: 'una W fija decora el campo', pattern: />W</ },
+  { label: 'un encabezado fija la unidad', pattern: /\(W\)/ },
+]
+
+test('ningún componente de la interfaz fija el vatio fuera del selector', () => {
+  const leaks = []
+  for (const file of UI_POWER_FILES) {
+    const source = WATT_EXCEPTIONS.filter(entry => entry.file === file)
+      .reduce((text, entry) => text.replaceAll(entry.literal, ''), readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'))
+    for (const { label, pattern } of HARDCODED_WATT) {
+      const leak = source.match(pattern)
+      if (leak) leaks.push(`${file}: ${label} → ${leak[0]}`)
+    }
+  }
+  assert.deepEqual(leaks, [], 'toda potencia leída o escrita sigue a powerUnit')
 })
 
 test('the export keeps the watt as the unit of record', () => {

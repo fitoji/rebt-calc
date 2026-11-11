@@ -6,6 +6,7 @@ import { Info } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { powerFieldValue, storePower } from '../lib/power-units.mjs'
 import type { Documentation } from '../lib/project-documentation.mjs'
 
 /** Cambio parcial del bloque: el panel no conoce el almacenamiento ni el cálculo. */
@@ -81,7 +82,7 @@ const TOGGLES: ReadonlyArray<{ key: Exclude<keyof Documentation, 'outdoorLightin
  * calcula y no toca P1–P5 ni la potencia total: estos datos solo alimentan el
  * veredicto de ITC-BT-04 §3 que se resuelve en `/requisitos`.
  */
-export function DocumentationPanel({ documentation, onChange }: { documentation: Documentation; onChange: (patch: DocumentationPatch) => void }) {
+export function DocumentationPanel({ documentation, onChange, powerUnit }: { documentation: Documentation; onChange: (patch: DocumentationPatch) => void; powerUnit: 'W' | 'kW' }) {
   return (
     <section className="rounded-card border border-line bg-paper p-5 shadow-card" aria-labelledby="documentacion-title">
       <div className="mb-5">
@@ -97,18 +98,18 @@ export function DocumentationPanel({ documentation, onChange }: { documentation:
       <div className="grid gap-3 sm:grid-cols-2">
         {POWER_FIELDS.map(field => (
           <label key={field.key}>
-            <span className="label">{field.label}</span>
+            <span className="label">{field.label} ({powerUnit})</span>
             <span className="relative block">
               <Input
-                aria-label={field.label}
+                aria-label={`${field.label} (${powerUnit})`}
                 className="w-full pr-10"
                 type="number"
                 min="0"
-                step="1"
-                value={documentation[field.key] || ''}
-                onChange={event => onChange({ [field.key]: Math.max(0, Number(event.target.value)) })}
+                step={powerUnit === 'kW' ? '0.01' : '1'}
+                value={powerFieldValue(documentation[field.key], powerUnit) || ''}
+                onChange={event => onChange({ [field.key]: Math.max(0, storePower(Number(event.target.value), powerUnit)) })}
               />
-              <span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-faint">W</span>
+              <span className="pointer-events-none absolute right-3 top-2.5 text-xs text-ink-faint">{powerUnit}</span>
             </span>
             <span className="mt-1 block text-xs leading-5 text-ink-faint">{field.hint}</span>
           </label>

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Info, TriangleAlert } from 'lucide-react'
 import { loadCalculatorInputs, loadDocumentationSnapshot } from '@/lib/calculator-storage.mjs'
 import { classifyDocumentation } from '@/lib/project-documentation.mjs'
-import { formatPower } from '@/lib/power-units.mjs'
+import { formatPower, isPowerUnit } from '@/lib/power-units.mjs'
 import { BOE_REBT } from '@/components/source-note'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
@@ -34,27 +34,43 @@ const COUNT_LABEL: Record<string, string> = { h: 'plazas' }
 type PageState = {
   snapshot: Snapshot | null
   documentation: Documentation
+  /** La unidad con la que la previsión se lee en la calculadora; el guardado sigue en vatios. */
+  powerUnit: 'W' | 'kW'
+}
+
+/** Parámetros de cálculo: la única fuente de la preferencia de unidades. */
+const SETTINGS_STORAGE_KEY = 'electrocalc-settings'
+
+/** La unidad elegida en los parámetros, con el vatío como valor por defecto. */
+function readPowerUnit(storage: Storage): 'W' | 'kW' {
+  try {
+    const parsed = JSON.parse(storage.getItem(SETTINGS_STORAGE_KEY) ?? 'null')
+    return isPowerUnit(parsed?.powerUnit) ? parsed.powerUnit : 'W'
+  } catch {
+    return 'W'
+  }
 }
 
 function readState(): PageState {
-  if (typeof window === 'undefined') return { snapshot: null, documentation: undefined }
+  if (typeof window === 'undefined') return { snapshot: null, documentation: undefined, powerUnit: 'W' }
   try {
     return {
       snapshot: loadDocumentationSnapshot(window.localStorage),
       documentation: loadCalculatorInputs(window.localStorage)?.documentation,
+      powerUnit: readPowerUnit(window.localStorage),
     }
   } catch {
-    return { snapshot: null, documentation: undefined }
+    return { snapshot: null, documentation: undefined, powerUnit: 'W' }
   }
 }
 
 /** El valor de un grupo como se lee: una potencia, un recuento o su criterio. */
-function valueText(group: Group) {
+function valueText(group: Group, powerUnit: 'W' | 'kW') {
   if (!group.applies) return '—'
   if (typeof group.value === 'string') return group.value
   const count = COUNT_LABEL[group.id]
   if (count != null) return `${new Intl.NumberFormat('es-ES').format(group.value)} ${count}`
-  return formatPower(group.value, 'W')
+  return formatPower(group.value, powerUnit)
 }
 
 /** El límite tal como lo escribe la instrucción: en kW, o en palabras. */
@@ -64,16 +80,16 @@ function limitText(group: Group) {
 }
 
 /** «6.690 W ≤ 50 kW» para un umbral, o «pública concurrencia · sin límite». */
-function comparisonText(group: Group) {
+function comparisonText(group: Group, powerUnit: 'W' | 'kW') {
   if (!group.applies) return 'no aplica'
-  const value = valueText(group)
+  const value = valueText(group, powerUnit)
   const limit = limitText(group)
   const isThreshold = typeof group.limit === 'number' && typeof group.value === 'number' && COUNT_LABEL[group.id] == null
   return isThreshold ? `${value} ≤ ${limit}` : `${value} · ${limit}`
 }
 
 export default function RequisitosPage() {
-  const [state, setState] = useState<PageState>({ snapshot: null, documentation: undefined })
+  const [state, setState] = useState<PageState>({ snapshot: null, documentation: undefined, powerUnit: 'W' })
 
   useEffect(() => {
     let current = ''
@@ -168,7 +184,7 @@ export default function RequisitosPage() {
                           <p className="font-semibold text-ink">{group.title}</p>
                         </div>
                         <p className="mt-2 text-sm leading-6 text-ink-subtle">
-                          <strong className="tabular-nums text-ink">{comparisonText(group)}</strong>
+                          <strong className="tabular-nums text-ink">{comparisonText(group, state.powerUnit)}</strong>
                         </p>
                         <p className="mt-1 text-xs text-ink-faint">Fuente: {group.source}</p>
                       </li>
@@ -211,7 +227,7 @@ export default function RequisitosPage() {
                           <th scope="row" className="px-4 py-3 font-mono text-xs font-semibold text-ink">§3.1 {group.id}</th>
                           <td className="px-4 py-3 text-ink-subtle">{group.title}</td>
                           <td className="px-4 py-3 text-ink-subtle">{group.applies ? 'Sí' : 'No'}</td>
-                          <td className="px-4 py-3 tabular-nums text-ink">{valueText(group)}</td>
+                          <td className="px-4 py-3 tabular-nums text-ink">{valueText(group, state.powerUnit)}</td>
                           <td className="px-4 py-3 text-ink-subtle">{limitText(group)}</td>
                           <td className={`px-4 py-3 font-semibold ${group.requiresProject ? 'text-brand' : 'text-ink-faint'}`}>{group.requiresProject ? 'Sí' : 'No'}</td>
                         </tr>

@@ -9,6 +9,9 @@ const read = p => readFileSync(path.join(root, p), 'utf8')
 
 const globals = read('app/globals.css')
 const calc = read('components/load-calculator.tsx')
+// La cifra grande del rail vive en su propia tarjeta desde que el resultado
+// sigue a la pestaña activa: su tipografía se audita donde se escribe.
+const railResultCard = read('components/rail-result.tsx')
 const modules = read('components/line-modules.tsx')
 const tabs = read('components/ui/tabs.tsx')
 
@@ -59,7 +62,7 @@ test('shared controls use scoped transition properties', () => {
 
 test('numeric readouts use tabular figures while form fields stay out of scope', () => {
   assert.ok(calc.includes('mt-1 font-bold tabular-nums'), 'Metric values use tabular figures')
-  assert.ok(calc.includes('text-4xl font-bold tabular-nums'), 'results total uses tabular figures')
+  assert.ok(railResultCard.includes('text-4xl font-bold tabular-nums'), 'results total uses tabular figures')
   assert.ok(calc.includes('font-semibold tabular-nums'), 'result rows use tabular figures')
   assert.ok(calc.includes('px-4 py-3 text-right tabular-nums'), 'ITA desktop cells use tabular figures')
   assert.doesNotMatch(globals, /\.field\s*\{[^}]*tabular-nums/, 'form fields deliberately out of scope')

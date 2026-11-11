@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CIRCUIT_USES, CIRCUIT_USE_LABELS, INTERIOR_DROP_LIMITS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
-import { formatPower } from '../lib/power-units.mjs'
+import { formatPower, powerFieldValue, storePower } from '../lib/power-units.mjs'
 import { explainInteriorCircuits } from '../lib/calculation-explanations.mjs'
 
 export type CircuitRow = { id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }
@@ -65,11 +65,13 @@ function DropCell({ result, limit }: { result: ReturnType<typeof sizeInteriorCir
  * proposes the general switch from the design current and reminds the
  * differential of ITC-BT-24.
  */
-export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange, explanationMode = 'calculation', showSourceNotes = true }: {
+export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange, powerUnit, explanationMode = 'calculation', showSourceNotes = true }: {
   supplies: CircuitSupply[]
   selectedId: string | null
   onSelect: (id: string) => void
   onChange: (id: string, circuits: CircuitRow[]) => void
+  /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
+  powerUnit: 'W' | 'kW'
   explanationMode?: 'calculation' | 'didactic'
   showSourceNotes?: boolean
 }) {
@@ -117,9 +119,9 @@ export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange
       </div>
 
       <dl className="mb-4 grid gap-3 rounded-control bg-surface-muted p-3 text-xs sm:grid-cols-4">
-        <div><dt className="font-semibold text-ink-muted">Potencia prevista del suministro</dt><dd className="tabular-nums">{formatPower(supply.powerW, 'W')}</dd></div>
+        <div><dt className="font-semibold text-ink-muted">Potencia prevista del suministro</dt><dd className="tabular-nums">{formatPower(supply.powerW, powerUnit)}</dd></div>
         <div><dt className="font-semibold text-ink-muted">IGA del suministro</dt><dd className="tabular-nums">{board.supplySwitchA == null ? '—' : `${board.supplySwitchA} A`}</dd></div>
-        <div><dt className="font-semibold text-ink-muted">Potencia máxima con ese IGA</dt><dd className="tabular-nums">{board.supplyMaxPowerW == null ? '—' : formatPower(board.supplyMaxPowerW, 'W')}</dd></div>
+        <div><dt className="font-semibold text-ink-muted">Potencia máxima con ese IGA</dt><dd className="tabular-nums">{board.supplyMaxPowerW == null ? '—' : formatPower(board.supplyMaxPowerW, powerUnit)}</dd></div>
         <div><dt className="font-semibold text-ink-muted">Intensidad del suministro</dt><dd className="tabular-nums">{fmt(board.supplyIb, 1)} A</dd></div>
       </dl>
 
@@ -129,7 +131,7 @@ export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange
             <TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint">
               <TableHead scope="col" className="py-2 pr-2">Circuito</TableHead>
               <TableHead scope="col" className="py-2 pr-2">Uso</TableHead>
-              <TableHead scope="col" className="py-2 pr-2">Potencia (W)</TableHead>
+              <TableHead scope="col" className="py-2 pr-2">Potencia ({powerUnit})</TableHead>
               <TableHead scope="col" className="py-2 pr-2">Longitud (m)</TableHead>
               <TableHead scope="col" className="py-2 pr-2">Sección</TableHead>
               <TableHead scope="col" className="py-2 pr-2">Protección</TableHead>
@@ -149,7 +151,7 @@ export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange
                       <SelectContent alignItemWithTrigger={false} className="w-max"><SelectGroup>{CIRCUIT_USES.map(use => <SelectItem key={use} value={use}>{CIRCUIT_USE_LABELS[use]}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                   </TableCell>
-                  <TableCell className="py-2 pr-2"><Input aria-label={`Potencia · ${circuit.description || 'circuito'}`} type="number" min="0" value={circuit.powerW || ''} onChange={event => patch(circuit.id, { powerW: Math.max(0, Number(event.target.value)) })} className="w-24" /></TableCell>
+                  <TableCell className="py-2 pr-2"><Input aria-label={`Potencia (${powerUnit}) · ${circuit.description || 'circuito'}`} type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(circuit.powerW, powerUnit) || ''} onChange={event => patch(circuit.id, { powerW: Math.max(0, storePower(Number(event.target.value), powerUnit)) })} className="w-24" /></TableCell>
                   <TableCell className="py-2 pr-2"><Input aria-label={`Longitud · ${circuit.description || 'circuito'}`} type="number" min="0" step="0.1" value={circuit.lengthM || ''} onChange={event => patch(circuit.id, { lengthM: Math.max(0, Number(event.target.value)) })} className="w-20" /></TableCell>
                   <TableCell className="py-2 pr-2 tabular-nums text-xs">{result.finalSection == null ? '—' : `${fmt(result.finalSection, 1)} mm²`}</TableCell>
                   <TableCell className="py-2 pr-2 tabular-nums text-xs">{result.protection == null ? '—' : `${fmt(result.protection)} A`}</TableCell>
@@ -165,7 +167,7 @@ export function InteriorCircuitsPanel({ supplies, selectedId, onSelect, onChange
       <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
         <Button type="button" variant="outline" size="sm" className="h-auto gap-2 px-3 py-2" onClick={() => update([...supply.circuits, { id: newCircuitId(), description: `Circuito ${supply.circuits.length + 1}`, use: 'otros', powerW: 0, lengthM: 0 }])}><Plus data-icon="inline-start" /> Añadir circuito</Button>
         <div className="flex flex-wrap gap-4 text-xs">
-          <span className="text-ink-muted">Total circuitos <strong className="tabular-nums text-ink">{formatPower(board.totalPowerW, 'W')}</strong></span>
+          <span className="text-ink-muted">Total circuitos <strong className="tabular-nums text-ink">{formatPower(board.totalPowerW, powerUnit)}</strong></span>
           <span className="text-ink-muted">Intensidad de cálculo <strong className="tabular-nums text-ink">{fmt(board.ib, 1)} A</strong></span>
           <span className="text-ink-muted">Interruptor general <strong className="tabular-nums text-ink">{board.switchA == null ? '—' : `${board.switchA} A`}</strong></span>
           <span className="text-ink-muted">Diferencial <strong className="text-ink">1 × {board.sensitivityMa} mA</strong></span>

@@ -282,10 +282,11 @@ function ResultProblems({ problems }: { problems: string[] }) {
   )
 }
 
-function LineResult({ title, result, phaseLabel, elements }: {
+function LineResult({ title, result, phaseLabel, powerUnit, elements }: {
   title: string
   result: ReturnType<typeof sizeLine>
   phaseLabel: string
+  powerUnit: 'W' | 'kW'
   elements?: ResultElement[]
 }) {
   return (
@@ -310,7 +311,7 @@ function LineResult({ title, result, phaseLabel, elements }: {
         )}
         <ResultRow label="Protección (In)" value={result.protection == null ? '—' : `${fmt(result.protection)} A`} strong />
         {result.housingIga != null && (
-          <ResultRow label="IGA (tabla A) · potencia máxima" value={`${fmt(result.housingIga)} A · ${fmt(result.maxAdmissiblePowerW ?? 0)} W`} />
+          <ResultRow label="IGA (tabla A) · potencia máxima" value={`${fmt(result.housingIga)} A · ${formatPower(result.maxAdmissiblePowerW ?? 0, powerUnit)}`} />
         )}
       </div>
       {result.housingIga != null && (
@@ -693,7 +694,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" elements={[
+      <LineResult title="Resultado DI" result={result} phaseLabel="Sección de fase normalizada" powerUnit={powerUnit} elements={[
         { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
         { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
         { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
