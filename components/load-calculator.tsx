@@ -17,7 +17,8 @@ import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PL
 import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } from '../lib/project-documentation.mjs'
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
 import { DocumentationPanel, DocumentationToggles } from '@/components/documentation-panel'
-import { InteriorPanel, type InteriorDwelling } from '@/components/interior-panel'
+import { InteriorPanel, EMPTY_INTERIOR_ADMINISTRATIVE, type InteriorAdministrative, type InteriorDwelling } from '@/components/interior-panel'
+import { AdministrativePanel, InstallerFields, ProjectDataFields } from '@/components/administrative-panel'
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { CIRCUIT_USE_LABELS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
@@ -56,25 +57,45 @@ import { classifyDocumentation, documentKindLabel } from '../lib/project-documen
 
 type ProjectInfo = {
   companyName: string
+  /** NIF de la empresa instaladora: es una sola para todo el proyecto (S7). */
+  companyNif: string
   companyAddress: string
   workAddress: string
   phone: string
   email: string
+  /** Número de instalador autorizado o carné, tal como lo imprime la hoja 2. */
+  installerNumber: string
   logo: string
-  // Hoja 2 del ELEC-3: los datos administrativos que la hoja imprime. La capa de
-  // almacenamiento los devuelve siempre como texto, aunque las dos cifras
-  // (`groundResistanceOhm`, `localAreaM2`) se impriman como números.
+  // Hoja 2 del ELEC-3: los datos administrativos del edificio que la hoja imprime.
+  // Número, piso, puerta, superficie del local y resistencia de tierra no están
+  // aquí: son de cada instalación y viajan en su derivación.
   titularName?: string
   uso?: string
-  addressNumber?: string
-  addressFloor?: string
-  addressDoor?: string
   addressCity?: string
   addressPostalCode?: string
   installType?: string
   distributorName?: string
-  groundResistanceOhm?: string
-  localAreaM2?: string
+}
+
+/**
+ * El proyecto sin datos: la forma inicial del membrete y la que deja «Limpiar».
+ * Los campos de la hoja 2 nacen vacíos y sin declarar, nunca con un valor puesto.
+ */
+const emptyProjectInfo: ProjectInfo = {
+  companyName: '',
+  companyNif: '',
+  companyAddress: '',
+  workAddress: '',
+  phone: '',
+  email: '',
+  installerNumber: '',
+  logo: '',
+  titularName: '',
+  uso: '',
+  addressCity: '',
+  addressPostalCode: '',
+  installType: '',
+  distributorName: '',
 }
 
 type HousingRow = { level: 'Básica' | 'Elevada'; power: number; homes: number; area: number }
@@ -98,7 +119,7 @@ type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
 type LightingRow = { id: LightingId; area: number; lamp: 'Incandescencia' | 'Fluorescencia/LED'; power: number }
 type DerivationKind = 'dwelling' | 'local' | 'common-services' | 'garage' | 'irve' | 'custom'
-type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase'; housingAreaM2?: number; interior?: { contractedPowerW: number; circuits: number; hasSurge: boolean }; interiorCircuits?: Array<{ id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }> }
+type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase'; housingAreaM2?: number; administrative?: InteriorAdministrative; interior?: { contractedPowerW: number; circuits: number; hasSurge: boolean }; interiorCircuits?: Array<{ id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }> }
 const DERIVATION_LABELS: Record<DerivationKind, string> = { dwelling: 'Vivienda', local: 'Local', 'common-services': 'Servicios generales', garage: 'Garaje', irve: 'IRVE', custom: 'Manual' }
 type PdfExplanationStep = {
   id: string
@@ -199,7 +220,7 @@ const housingPowerItems = (level: HousingRow['level'], current: number, unit: 'W
   const items: ChoiceItem[] = steps.map(watts => ({ value: String(watts), label: formatPower(watts, unit) }))
   return steps.includes(current) ? items : [...items, { value: String(current), label: formatPower(current, unit) }]
 }
-const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di' | 'interiores' | 'esquema', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15', interiores: 'ITC-BT-25 / 19', esquema: 'ITC-BT-14 / 15 / 25' }
+const NORM_BY_TAB: Record<'cargas' | 'lga' | 'di' | 'interiores' | 'esquema' | 'administrativos', string> = { cargas: 'ITC-BT-10', lga: 'ITC-BT-14', di: 'ITC-BT-15', interiores: 'ITC-BT-25 / 19', esquema: 'ITC-BT-14 / 15 / 25', administrativos: 'ITC-BT-03' }
 const roomLabel = (type: string) => ROOM_LABELS[type as keyof typeof ROOM_LABELS] ?? type
 const INSTALLATION_LABELS: Record<string, string> = {
   centralized: 'Contadores totalmente centralizados',
@@ -207,7 +228,8 @@ const INSTALLATION_LABELS: Record<string, string> = {
   'single-user': 'Único usuario sin LGA',
 }
 // Orden de los módulos: decide hacia dónde entra el panel al cambiar de pestaña.
-const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores', 'esquema'] as const
+// Datos administrativos cierra la barra: son datos del proyecto, no de un cálculo.
+const TAB_ORDER = ['cargas', 'lga', 'di', 'interiores', 'esquema', 'administrativos'] as const
 type TabValue = (typeof TAB_ORDER)[number]
 const IRVE_OPTION_LABELS = ['Todas las plazas · sin SPL', 'Todas las plazas · con SPL', 'Mínimo 10 % de plazas']
 
@@ -280,7 +302,7 @@ export function LoadCalculator() {
   const [showItaTable, setShowItaTable] = useState(false)
   const [showSimultaneityTable, setShowSimultaneityTable] = useState(false)
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
+  const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ ...emptyProjectInfo })
   const [storageLoaded, setStorageLoaded] = useState(false)
   const powerUnit = settings.powerUnit
   const power = (watts: number) => formatPower(watts, powerUnit)
@@ -348,7 +370,7 @@ export function LoadCalculator() {
     try {
       const savedProject = window.localStorage.getItem('electrocalc-project-info')
       if (savedProject) {
-        try { setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '', ...JSON.parse(savedProject) }) } catch { window.localStorage.removeItem('electrocalc-project-info') }
+        try { setProjectInfo({ ...emptyProjectInfo, ...JSON.parse(savedProject) }) } catch { window.localStorage.removeItem('electrocalc-project-info') }
       }
     } catch { /* Keep project information empty when storage is unavailable. */ }
 
@@ -452,6 +474,7 @@ export function LoadCalculator() {
       powerW: derivation.powerW,
       housingIgaA: derivation.housingIgaA,
       housingAreaM2: derivation.housingAreaM2,
+      administrative: derivation.administrative,
       interior: derivation.interior,
     })),
     [dwellingDerivations],
@@ -460,6 +483,16 @@ export function LoadCalculator() {
     setLineTouched(true)
     setDerivations(current => current.map(derivation => derivation.id === id
       ? { ...derivation, interior: { ...resolveInterior(derivation.powerW, derivation.interior), ...patch } }
+      : derivation))
+  }
+
+  // Los datos administrativos son de cada instalación y viajan en su derivación,
+  // que ya se guarda en el snapshot v6: la card sólo devuelve el texto escrito y
+  // `lib/administrative.mjs` resuelve la herencia al imprimir la hoja 2.
+  const updateDerivationAdministrative = (id: string, patch: Partial<InteriorAdministrative>) => {
+    setLineTouched(true)
+    setDerivations(current => current.map(derivation => derivation.id === id
+      ? { ...derivation, administrative: { ...EMPTY_INTERIOR_ADMINISTRATIVE, ...derivation.administrative, ...patch } }
       : derivation))
   }
 
@@ -651,7 +684,7 @@ export function LoadCalculator() {
     setDi(defaultLineState('di'))
     setLineTouched(false)
     setLgaPowerMode('auto')
-    setProjectInfo({ companyName: '', companyAddress: '', workAddress: '', phone: '', email: '', logo: '' })
+    setProjectInfo({ ...emptyProjectInfo })
   }
 
   /**
@@ -1191,13 +1224,18 @@ export function LoadCalculator() {
     hasDerivations: derivations.length > 0,
     cuadrosStarted: cuadrosHasEdits(derivations),
   })
-  const effectiveActiveTab = resolveActiveTab(activeTab, visibleTabs) as TabValue
+  // Valor de la barra: incluye Datos administrativos, que no calcula nada.
+  const activeTabValue = resolveActiveTab(activeTab, visibleTabs) as TabValue
+  // El rail no tiene tarjeta administrativa (components/rail-result.tsx no es
+  // superficie de este corte): mientras se editan los datos del proyecto, su
+  // tarjeta sigue resumiendo la previsión de cargas.
+  const effectiveActiveTab: Exclude<TabValue, 'administrativos'> = activeTabValue === 'administrativos' ? 'cargas' : activeTabValue
 
   return (
     <main className="mode-shell relative isolate min-h-screen bg-surface-page text-ink" data-explanation-mode={explanationMode}>
       <ModeBackdrop />
       <SiteHeader titleAs="h1">
-        <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[effectiveActiveTab]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button><Link href="/requisitos" aria-label="Requisitos para proyecto o memoria técnica" title="Requisitos para proyecto o memoria técnica" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><ClipboardCheck aria-hidden="true" className="size-4" /></Link><Link href="/ayuda" aria-label="Cómo usar la app" title="Cómo usar la app" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><HelpCircle aria-hidden="true" className="size-4" /></Link></div>
+        <div className="flex items-center gap-2"><div className="hidden items-center gap-3 text-right sm:flex"><div><p className="text-xs text-ink-faint">Referencia normativa</p><p className="text-sm font-semibold">{NORM_BY_TAB[activeTabValue]} · REBT</p></div></div><div className="flex items-center gap-2"><label htmlFor="explanation-mode" className="min-w-[4.5rem] text-right text-xs font-semibold text-ink-faint">{explanationModeLabel(explanationMode)}</label><Switch id="explanation-mode" checked={explanationMode === 'didactic'} onCheckedChange={checked => changeExplanationMode(checked ? 'didactic' : 'calculation')} aria-label="Activar modo didáctico" /></div><Button type="button" variant="ghost" size="icon" aria-label={toggleLabel(theme)} title={toggleLabel(theme)} onClick={toggleTheme}>{theme === 'dark' ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}</Button><Link href="/requisitos" aria-label="Requisitos para proyecto o memoria técnica" title="Requisitos para proyecto o memoria técnica" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><ClipboardCheck aria-hidden="true" className="size-4" /></Link><Link href="/ayuda" aria-label="Cómo usar la app" title="Cómo usar la app" className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring"><HelpCircle aria-hidden="true" className="size-4" /></Link></div>
       </SiteHeader>
       <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <div className="mb-8 max-w-3xl"><h2 className="text-3xl font-bold tracking-tight sm:text-4xl">De la previsión de cargas a cada derivación</h2><p className="mt-3 text-base leading-7 text-ink-subtle">Calcula la previsión del edificio, dimensiona la LGA y genera una DI por vivienda, local, garaje o servicios generales.</p></div>
@@ -1259,14 +1297,15 @@ export function LoadCalculator() {
         </Dialog>
         <Dialog open={showProjectInfo} onOpenChange={setShowProjectInfo}>
           <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-2xl">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="project-info-title" className="text-xl font-bold text-ink">Datos de la memoria técnica</DialogTitle><DialogDescription className="mt-1 text-sm text-ink-faint">Estos datos aparecerán en la cabecera del PDF y se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar diálogo" />}><X /></DialogClose></div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="sm:col-span-2"><span className="label">Nombre de empresa</span><Input className="w-full" value={projectInfo.companyName} onChange={event => updateProjectInfo('companyName', event.target.value)} placeholder="Instalaciones Ejemplo S.L." /></label>
-              <label><span className="label">Dirección de empresa</span><Input className="w-full" value={projectInfo.companyAddress} onChange={event => updateProjectInfo('companyAddress', event.target.value)} placeholder="Calle, número, ciudad" /></label>
-              <label><span className="label">Teléfono</span><Input className="w-full" value={projectInfo.phone} onChange={event => updateProjectInfo('phone', event.target.value)} placeholder="+34 900 000 000" /></label>
-              <label><span className="label">Correo electrónico</span><Input className="w-full" type="email" value={projectInfo.email} onChange={event => updateProjectInfo('email', event.target.value)} placeholder="contacto@empresa.es" /></label>
-              <label><span className="label">Dirección de obra</span><Input className="w-full" value={projectInfo.workAddress} onChange={event => updateProjectInfo('workAddress', event.target.value)} placeholder="Emplazamiento del proyecto" /></label>
-              <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-line object-contain p-1" /><Button type="button" variant="link" className="gap-2 px-0 text-sm font-semibold text-danger" onClick={() => updateProjectInfo('logo', '')}><Trash2 data-icon="inline-start" /> Quitar logo</Button></div>}</label>
+            <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="project-info-title" className="text-xl font-bold text-ink">Datos de la memoria técnica</DialogTitle><DialogDescription className="mt-1 text-sm text-ink-faint">Estos datos aparecerán en la cabecera del PDF y en la hoja 2 del ELEC-3, y se guardan en este navegador.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar diálogo" />}><X /></DialogClose></div>
+            {/* Mismo editor que el tab «Datos administrativos»: los campos se declaran
+                una sola vez en components/administrative-panel.tsx. */}
+            <div className="flex flex-col gap-4">
+              <InstallerFields info={projectInfo} onChange={updateProjectInfo} />
+              <ProjectDataFields info={projectInfo} onChange={updateProjectInfo} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="sm:col-span-2"><span className="label">Logo de empresa</span><Input className="w-full" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => handleLogo(event.target.files?.[0])} />{projectInfo.logo && <div className="mt-3 flex items-center gap-3"><img src={projectInfo.logo} alt="Vista previa del logo" className="size-14 rounded-lg border border-line object-contain p-1" /><Button type="button" variant="link" className="gap-2 px-0 text-sm font-semibold text-danger" onClick={() => updateProjectInfo('logo', '')}><Trash2 data-icon="inline-start" /> Quitar logo</Button></div>}</label>
+              </div>
             </div>
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}><Check data-icon="inline-start" /> Guardar datos</Button></div>
           </DialogContent>
@@ -1327,8 +1366,8 @@ export function LoadCalculator() {
               <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
           </DialogContent>
         </Dialog>
-        <Tabs value={effectiveActiveTab} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
-          <TabsList data-active-tab={effectiveActiveTab} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
+        <Tabs value={activeTabValue} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
+          <TabsList data-active-tab={activeTabValue} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
             <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
             {visibleTabs.includes('lga') && (
@@ -1342,6 +1381,11 @@ export function LoadCalculator() {
             )}
             {visibleTabs.includes('esquema') && (
               <TabsTrigger value="esquema" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-tab-esquema" />Esquema</TabsTrigger>
+            )}
+            {/* Datos administrativos es del proyecto, no de un cálculo:
+                computeVisibleTabs la deja visible desde el primer momento. */}
+            {visibleTabs.includes('administrativos') && (
+              <TabsTrigger value="administrativos" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Administrativos</TabsTrigger>
             )}
           </TabsList>
           <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -1468,7 +1512,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onAdministrativeChange={updateDerivationAdministrative} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
@@ -1481,9 +1525,13 @@ export function LoadCalculator() {
               onOpenDerivations={() => changeTab('di')}
             />
           </TabsContent>
+          <TabsContent value="administrativos" data-dir={tabDirection} className="tab-panel">
+            <AdministrativePanel info={projectInfo} onChange={updateProjectInfo} />
+          </TabsContent>
 
             </div>
 <aside className="flex min-w-0 flex-col gap-4 [&>*]:shrink-0 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:self-start xl:overflow-y-auto"><RailResult
+            // Datos administrativos no calcula nada: la tarjeta sigue la previsión.
             tab={effectiveActiveTab}
             unit={powerUnit}
             loadTotal={result.total}

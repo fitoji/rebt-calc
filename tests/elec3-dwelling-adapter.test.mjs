@@ -5,7 +5,10 @@ import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument, PENDING_CELLS } from '../lib/elec3.mjs'
 import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
 
-/** La DI de una vivienda de 9 200 W tal como la deja el motor de líneas. */
+/**
+ * La DI de una vivienda de 9 200 W tal como la deja el motor de líneas, con los
+ * datos que son de esa instalación en su bloque `administrative` (S5).
+ */
 const derivation = {
   id: 'dwelling-0-0',
   kind: 'dwelling',
@@ -17,6 +20,13 @@ const derivation = {
   tubeDiameter: 40,
   housingIgaA: 40,
   housingAreaM2: 90,
+  administrative: {
+    numero: '12',
+    piso: '3º',
+    puerta: 'B',
+    resistenciaTierraOhm: '12.5',
+    superficieLocalM2: '84.6',
+  },
   result: {
     finalSection: 16,
     ratedCurrent: 40,
@@ -36,7 +46,11 @@ const lga = {
   result: { finalSection: 150, protection: 315, neutralSection: 70, protectiveSection: 95, dropPercent: 0.461 },
 }
 
-/** Los datos administrativos de la hoja 2, tal como los guarda `ProjectInfo`. */
+/**
+ * Los datos administrativos del edificio, tal como los guarda `ProjectInfo`. El
+ * número, el piso, la puerta, la superficie del local y la resistencia de tierra
+ * no están acá: son de cada instalación y viajan en su derivación.
+ */
 const projectInfo = {
   companyName: 'Estudio',
   companyAddress: '',
@@ -46,15 +60,10 @@ const projectInfo = {
   logo: '',
   titularName: 'Ana Pérez Ruiz',
   uso: 'Vivienda habitual',
-  addressNumber: '12',
-  addressFloor: '3º',
-  addressDoor: 'B',
   addressCity: 'Girona',
   addressPostalCode: '17001',
   installType: 'reforma',
   distributorName: 'e-Distribución',
-  groundResistanceOhm: '12.5',
-  localAreaM2: '84.6',
 }
 
 const circuits = housingCircuitsFor(9200, { hasIrve: false }).slice(0, 3)
@@ -136,11 +145,11 @@ test('sin puntos declarados la potencia del circuito queda pendiente, no se supo
   assert.equal(withoutPoints.intensitat, 10, 'y el PIA también')
 })
 
-test('la hoja 2 lleva lo declarado y lo que la app ya deriva de la vivienda', () => {
+test('la hoja 2 lleva lo declarado en la instalación y lo que la app ya deriva de la vivienda', () => {
   const { administrative } = documentFor()
 
-  assert.equal(administrative.titular, 'Ana Pérez Ruiz')
-  assert.equal(administrative.uso, 'Vivienda habitual')
+  assert.equal(administrative.titular, 'Ana Pérez Ruiz', 'el titular no es de la instalación: se hereda del proyecto')
+  assert.equal(administrative.uso, 'Vivienda habitual', 'el uso declarado por el proyecto gana')
   assert.deepEqual(administrative.emplazamiento, {
     calle: 'Carrer Major 12, Girona',
     numero: '12',
@@ -148,7 +157,7 @@ test('la hoja 2 lleva lo declarado y lo que la app ya deriva de la vivienda', ()
     puerta: 'B',
     localidad: 'Girona',
     codigoPostal: '17001',
-  })
+  }, 'la calle, la localidad y el CP vienen del proyecto; número, piso y puerta de la instalación')
   assert.equal(administrative.instalacion, 'Reforma', 'el token se imprime con la etiqueta del impreso')
   assert.equal(administrative.distribuidora, 'e-Distribución')
   assert.equal(administrative.resistenciaTierraOhm, 12.5, 'el texto declarado se convierte')
@@ -214,12 +223,122 @@ test('una vivienda sin resultado ni datos opcionales deja nulls y no rompe', () 
 
 test('un número declarado ilegible queda pendiente en lugar de romper', () => {
   const document = buildDwellingDocument(dwellingDocumentInput({
-    projectInfo: { ...projectInfo, groundResistanceOhm: 'sin dato', localAreaM2: '' },
+    derivation: { ...derivation, administrative: { ...derivation.administrative, resistenciaTierraOhm: 'sin dato', superficieLocalM2: '' } },
+    circuits,
+    projectInfo,
   }))
 
   assert.equal(document.administrative.resistenciaTierraOhm, null)
   assert.equal(document.administrative.superficieLocalM2, null)
   assert.equal(document.administrative.titular, 'Ana Pérez Ruiz', 'el resto de la hoja sigue en pie')
+})
+
+test('S5: la instalación gana cuando el mismo dato está declarado en los dos niveles', () => {
+  const { administrative } = documentFor({
+    projectInfo: {
+      ...projectInfo,
+      titularName: 'Ana Pérez Ruiz',
+      // Claves que `ProjectInfo` ya no declara; si alguna sobrevive en un store
+      // viejo, la instalación sigue ganando.
+      addressNumber: '99',
+      addressFloor: 'ático',
+      addressDoor: 'Z',
+      groundResistanceOhm: '80',
+      localAreaM2: '120',
+    },
+  })
+
+  assert.equal(administrative.titular, 'Ana Pérez Ruiz', 'la instalación no declara titular propio: hereda el del proyecto')
+  assert.equal(administrative.emplazamiento.numero, '12', 'el número de la instalación no se hereda ni se pisa')
+  assert.equal(administrative.emplazamiento.piso, '3º')
+  assert.equal(administrative.emplazamiento.puerta, 'B')
+  assert.equal(administrative.resistenciaTierraOhm, 12.5, 'la tierra es de la instalación, no del proyecto')
+  assert.equal(administrative.superficieLocalM2, 84.6, 'la superficie es de la instalación, no del proyecto')
+})
+
+test('S5: un titular declarado por la instalación gana sobre el del proyecto', () => {
+  const { administrative } = documentFor({
+    derivation: { ...derivation, administrative: { ...derivation.administrative, titularName: 'Luis Gómez' } },
+  })
+
+  assert.equal(administrative.titular, 'Luis Gómez')
+})
+
+test('S5: la instalación hereda calle, localidad y código postal del proyecto', () => {
+  const { administrative } = documentFor()
+
+  assert.equal(administrative.emplazamiento.calle, 'Carrer Major 12, Girona', 'la calle es del edificio')
+  assert.equal(administrative.emplazamiento.localidad, 'Girona', 'la localidad es del edificio')
+  assert.equal(administrative.emplazamiento.codigoPostal, '17001', 'el código postal es del edificio')
+})
+
+test('S5: número, piso y puerta nunca se heredan del proyecto', () => {
+  const withoutOwnNumbers = {
+    ...derivation,
+    administrative: { ...derivation.administrative, numero: '', piso: ' ', puerta: undefined },
+  }
+  const { administrative } = documentFor({
+    derivation: withoutOwnNumbers,
+    projectInfo: { ...projectInfo, addressNumber: '99', addressFloor: 'ático', addressDoor: 'Z' },
+  })
+
+  assert.equal(administrative.emplazamiento.numero, null, 'sin número declarado la celda queda pendiente')
+  assert.equal(administrative.emplazamiento.piso, null, 'sin piso declarado la celda queda pendiente')
+  assert.equal(administrative.emplazamiento.puerta, null, 'sin puerta declarada la celda queda pendiente')
+  assert.equal(administrative.emplazamiento.calle, 'Carrer Major 12, Girona', 'el resto del emplazamiento sigue heredándose')
+})
+
+test('S6: el uso se deriva del tipo de derivación cuando el proyecto no lo declara', () => {
+  const labels = {
+    dwelling: 'Vivienda',
+    local: 'Comercial',
+    garage: 'Garaje',
+    'common-services': 'Servicios generales',
+    irve: 'Recarga de vehículo eléctrico',
+  }
+
+  for (const [kind, label] of Object.entries(labels)) {
+    const { uso } = documentFor({
+      derivation: { ...derivation, kind },
+      projectInfo: { ...projectInfo, uso: '' },
+    }).administrative
+    assert.equal(uso, label, `una derivación de tipo ${kind} se imprime como «${label}»`)
+  }
+
+  for (const kind of ['custom', 'desconocido']) {
+    const { uso } = documentFor({
+      derivation: { ...derivation, kind },
+      projectInfo: { ...projectInfo, uso: '' },
+    }).administrative
+    assert.equal(uso, null, `el tipo ${kind} no se adivina: la celda queda pendiente`)
+  }
+})
+
+test('S6: el uso declarado por el proyecto gana sobre el que sale del tipo', () => {
+  const { uso } = documentFor({
+    derivation: { ...derivation, kind: 'garage' },
+    projectInfo: { ...projectInfo, uso: 'Vivienda habitual' },
+  }).administrative
+
+  assert.equal(uso, 'Vivienda habitual')
+})
+
+test('S5: la coma decimal se acepta en las cifras que se escriben a mano', () => {
+  const withNumbers = administrative => documentFor({
+    derivation: { ...derivation, administrative: { ...derivation.administrative, ...administrative } },
+  }).administrative
+
+  assert.equal(withNumbers({ resistenciaTierraOhm: '12,5' }).resistenciaTierraOhm, 12.5, 'la coma decimal de un usuario español')
+  assert.equal(withNumbers({ resistenciaTierraOhm: '12.5' }).resistenciaTierraOhm, 12.5, 'el punto sigue valiendo')
+  assert.equal(withNumbers({ superficieLocalM2: '84,6' }).superficieLocalM2, 84.6, 'y vale para las dos cifras de la hoja')
+
+  for (const text of ['12,5.5', '1.234,5', '']) {
+    assert.equal(
+      withNumbers({ resistenciaTierraOhm: text }).resistenciaTierraOhm,
+      null,
+      `«${text}» es ambiguo o vacío y queda pendiente`,
+    )
+  }
 })
 
 test('una vivienda sin circuitos documenta su DI y nada más', () => {

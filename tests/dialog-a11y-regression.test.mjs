@@ -9,6 +9,7 @@ const read = p => readFileSync(path.join(root, p), 'utf8')
 const count = (text, re) => text.match(re)?.length ?? 0
 
 const calc = read('components/load-calculator.tsx')
+const administrativePanel = read('components/administrative-panel.tsx')
 const dialog = read('components/ui/dialog.tsx')
 const button = read('components/ui/button.tsx')
 const globals = read('app/globals.css')
@@ -90,8 +91,11 @@ test('S-css: legacy helper classes are gone and nothing still references them', 
     .filter(f => { try { read(f); return true } catch { return false } })
     .map(read).join('\n')
   assert.doesNotMatch(own, /className="field[\s"]|action-primary|action-secondary/, 'no orphaned class references')
-  const legacyLabelUses = count(calc, /className="label"/g)
-  assert.ok(legacyLabelUses >= 13, `.label still used by the migrated markup (${legacyLabelUses} sites)`)
+  // Los campos del membrete salieron del diálogo al panel compartido: el rótulo
+  // `.label` se sigue usando en los dos sitios, así que se cuentan juntos. El panel
+  // declara una sola plantilla de campo, así que sus doce rótulos son dos usos.
+  const legacyLabelUses = count(calc, /className="label"/g) + count(administrativePanel, /className="label"/g)
+  assert.ok(legacyLabelUses >= 11, `.label still used by the migrated markup (${legacyLabelUses} sites)`)
 })
 
 test('S-theme: the OS color scheme never flips the app by itself', () => {
