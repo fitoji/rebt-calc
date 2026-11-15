@@ -439,6 +439,15 @@ const sampleAdministrative = {
   titularName: 'Ana Pérez Ruiz',
 }
 
+/**
+ * La empresa instaladora también es del proyecto (S7): el NIF y el carné viajan
+ * en el mismo bloque que el nombre, la dirección, el teléfono y el correo.
+ */
+const installerCompanyIds = {
+  companyNif: 'B12345678',
+  installerNumber: 'IB-01234',
+}
+
 const sampleProjectInfo = {
   companyName: 'Estudio',
   companyAddress: 'Calle 1',
@@ -447,6 +456,7 @@ const sampleProjectInfo = {
   email: 'obra@example.com',
   logo: 'data:image/png;base64,AAAA',
   ...hojaTwoProjectInfo,
+  ...installerCompanyIds,
 }
 
 const sampleLine = {
@@ -568,7 +578,38 @@ test('project data from the file is sanitised field by field', () => {
     addressPostalCode: '',
     installType: '',
     distributorName: '',
+    companyNif: '',
+    installerNumber: '',
   })
+})
+
+test('S7: el NIF y el número de instalador son datos del proyecto, vacíos por defecto', () => {
+  const missing = readProjectExport(JSON.stringify(exportedProject({ projectInfo: { companyName: 'Estudio' } })))
+  assert.equal(missing.ok, true)
+  for (const key of ['companyNif', 'installerNumber']) {
+    assert.equal(missing.project.projectInfo[key], '', `${key} is empty when the file does not declare it`)
+  }
+
+  const declared = readProjectExport(JSON.stringify(exportedProject()))
+  assert.equal(declared.ok, true)
+  for (const [key, value] of Object.entries(installerCompanyIds)) {
+    assert.equal(declared.project.projectInfo[key], value, `${key} survives the round-trip`)
+  }
+})
+
+test('S7: un NIF o un carné malformado se vacía, nunca se adivina', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    projectInfo: { ...sampleProjectInfo, companyNif: 42, installerNumber: null },
+  })))
+
+  assert.equal(parsed.ok, true, 'a malformed field never discards the project')
+  assert.equal(parsed.project.projectInfo.companyNif, '')
+  assert.equal(parsed.project.projectInfo.installerNumber, '')
+  assert.deepEqual(
+    Object.keys(parsed.project.projectInfo).sort(),
+    [...Object.keys(sampleProjectInfo)].sort(),
+    'las dos claves nuevas entran en el bloque y ninguna otra',
+  )
 })
 
 test('project data with no hoja 2 fields returns them empty, never guessed', () => {
