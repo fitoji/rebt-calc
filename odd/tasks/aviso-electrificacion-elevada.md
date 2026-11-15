@@ -16,6 +16,10 @@ S5. **Superficie estricta.** El umbral es «superior a 160 m²»: 160,0 m² sigu
 
 S6. **Una sola fuente de verdad.** La regla vive en `lib/electrification-grade.mjs` y la consumen tanto la tabla de viviendas como el panel interior; ningún componente reimplementa el umbral ni la lista de condiciones.
 
+S7. **Los disparadores por número de puntos también cuentan.** Texto normativo, ITC-BT-25 §2.3.2: «viviendas con una previsión importante de aparatos electrodomésticos que obligue a instalar más de un circuito de cualquiera de los tipos descritos anteriormente». Criterio de aceptación: cuando los puntos declarados de un circuito C1–C5 superan el máximo de la tabla 1, la instrucción exige electrificación elevada y el aviso lo dice nombrando el circuito, el número declarado y el máximo que se pasó. El caso de cada circuito: C1 con más de 30 puntos de luz, C2 con más de 20 tomas de uso general, y los máximos que la tabla 1 fija para C3, C4 y C5. Los máximos no se reescriben: salen de `MAX_POINTS` (`lib/housing-points.mjs`), que ya los toma de la tabla 1. La cita del aviso es `ITC-BT-25 §2.3.2` para el disparador y `§3, tabla 1` para el máximo.
+
+S8. **El aviso por puntos no bloquea ni repite.** Sigue siendo no bloqueante (S1): el número de puntos se guarda igual. El toast sale cuando el exceso aparece, no en cada tecla ni en cada re-render.
+
 ## Supuestos asumidos (a rever si cambia el modelo de datos o la normativa)
 
 A1. **La secadora eleva el grado, aunque no esté enumerada en el §2.3.2.** El literal del articulado no la menciona: la lista es calefacción, aire acondicionado, automatización y 160 m². La secadora aparece como circuito C10, que la tabla 1 solo define para electrificación elevada, y la Guía BT-25 del Ministerio la enumera explícitamente («si está prevista la instalación de una secadora»). Se implementa como el usuario pidió y se cita la Guía en ese motivo, no el articulado.
@@ -25,6 +29,8 @@ A2. **La automatización no tiene campo en el modelo.** No existe flag de domót
 A3. **Los disparadores por número de puntos no entran en esta entrega.** El §2.3.2 también obliga a elevada cuando hace falta más de un circuito de los tipos C1–C5 (>30 puntos de luz, >20 tomas de uso general, >6 en baño y cocina auxiliares). `applyPointOverrides` ya cuenta esos puntos, pero el usuario no los pidió: se dejan fuera para no inflar la revisión y se reportan como siguiente paso.
 
 A4. **El aviso se dispara al cruzar el umbral, no en cada tecla.** Escribir «180» pasa por 1, 18 y 180; solo el cruce de ≤160 a >160 emite el toast, para no apilar avisos mientras se tipea.
+
+A5. **Los puntos que cuentan son los que el proyecto instala, no el mínimo de la tabla 2.** Se lee `applyPointOverrides(...).totals`, porque el proyecto declara cuántos puntos instala de verdad en cada circuito y ese número es el que decide los circuitos adicionales. Consecuencia asumida: una vivienda con las estancias justas pero con los puntos editados a mano hacia arriba avisa, y una con estancias grandes y puntos editados hacia abajo (por debajo del mínimo de la tabla 2) no avisa por esta vía.
 
 ## Tasks
 
@@ -36,10 +42,17 @@ T5 · ✅ `tests/electrification-grade.test.mjs` (13 casos) y `tests/electrifica
 T6 · ✅ Nota de fuente en la card de viviendas y texto de `/ayuda` — S3 — commit `99a6e4a`
 T7 · ✅ Corrección del bloqueante S6: `housingDeclaredGrade` viaja en la derivación y el panel interior avisa con el grado declarado, no con el que implica el escalón — S6 — commit `99a6e4a`
 T8 · ✅ Retiro de los tokens `--warning-*` inertes en `components/ui/sonner.tsx` — S4 — commit `2750d07`
+T9 · ✅ Disparadores por número de puntos: `pointsByCircuit` en `requiredGradeFor` y su cableado en el panel interior — S7, S8, A5 — commit `0b60fc3`
 
 ## Slice
 
-479 líneas autoradas en 3 commits sobre `feat/aviso-electrificacion-elevada` (los lockfiles no cuentan). El slice se cierra acá: no se agrega código en esta rama sin una decisión de entrega aparte. Push y PR quedan a decisión del usuario.
+Dos slices, cada uno revisable por separado.
+
+**Slice 1** — commits `be425c8`, `99a6e4a`, `2750d07`: 479 líneas autoradas. Abre y cierra el aviso por superficie y previsiones (T1–T8).
+
+**Slice 2** — commit `0b60fc3`: ~300 líneas autoradas. Los disparadores por número de puntos (T9), autorizados por el usuario después de leer el reporte de cierre del slice 1.
+
+Total: 780 líneas autoradas en 5 commits sobre `feat/aviso-electrificacion-elevada` (los lockfiles no cuentan). No se agrega código en esta rama sin una decisión de entrega aparte. Push y PR quedan a decisión del usuario.
 
 ## Log
 
@@ -62,3 +75,13 @@ L8 — evidencia de cierre: `node --test "tests/*.test.mjs"` 626/626 (607 previo
 L9 — fuera de alcance por decisión (A3): los disparadores por número de puntos del §2.3.2 (>30 puntos de luz, >20 tomas de uso general, >6 en baño y cocina auxiliares) siguen sin aviso. La automatización (A2) queda declarada en la regla pero ningún control la dispara porque el modelo no tiene el campo.
 
 L10 — ruido conocido, no incluido en los commits: `next-env.d.ts` lo reescribe `next build` (`.next/dev/types` → `.next/types`) y se restauró para no ensuciar el diff; y `pnpm add sonner` re-resolvió una snapshot de `ajv-formats@3.0.1` sin relación con esta feature, que se dejó como la generó pnpm antes que editar el lockfile a mano.
+
+L11 — pedido del usuario, verbatim: «vamos con el 1.», respondiendo al punto 1 del reporte de cierre: «Falta el disparador más frecuente. El §2.3.2 también obliga a elevada cuando hace falta más de un circuito de los tipos C1–C5: >30 puntos de luz, >20 tomas de uso general, >6 tomas en baño y cocina auxiliares, o un segundo C3/C4.» Se abre T9 y las specs S7 y S8, sin tocar S1–S6 ni las tasks ya cerradas.
+
+L12 — evidencia recogida antes de escribir T9: `lib/housing-points.mjs:44-49` ya expone `MAX_POINTS` derivado de `maxPoints` de la tabla 1 (C1 y C6 comparten 30, C2 y C7 comparten 20, C12 sin máximo); `applyPointOverrides(...)` ya devuelve `requiredCircuits` con `Math.ceil(totals/max)` por circuito, así que el exceso es `requiredCircuits[Cn] > 1` y no hay que recalcular nada nuevo.
+
+L13 — T9 implementado y verificado: `requiredGradeFor` acepta `pointsByCircuit` y agrega un motivo por circuito C1–C5 en exceso, con los máximos leídos de `MAX_POINTS`. Comprobado que no hay ciclo de imports: `housing-points.mjs` y `housing-circuits.mjs` solo dependen de `normative-tables.mjs`, que no importa nada. Máximos usados, de la tabla 1: C1 30, C2 20, C3 2, C4 3, C5 6. Los motivos por puntos se agregan **después** de los cinco declarados y no en el orden literal del artículo, para no mover el orden ya publicado de `reasons`.
+
+L14 — decisión de implementación que conviene revisar: el `useEffect` que emite el toast por puntos necesita estar antes del retorno temprano de «todavía no hay viviendas», así que `InteriorPanel` se partió en un guard (`InteriorPanel`) y un cuerpo (`InteriorPanelBody`), con el tipo de props exportado como `InteriorPanelProps`. La salida renderizada y la API de props no cambian. El efecto depende de `[pointOverflow.length]` a propósito: el `useRef` solo deja pasar la transición de «sin exceso» a «con exceso», pero un lint con `react-hooks/exhaustive-deps` lo marcaría; el repo no corre lint, así que queda anotado.
+
+L15 — evidencia de cierre de T9: `node --test "tests/*.test.mjs"` 638/638 (626 + 12 nuevos), `npx tsc --noEmit` sin diagnósticos. `text-danger` usado en el aviso persistente es un token real (`app/globals.css:122` lo mapea desde `--danger`) y ya se usa en cinco lugares del proyecto.
