@@ -42,12 +42,19 @@ test('el rail agrupa las acciones por propósito', () => {
 // rail, así que se excluyen: acá se mide lo que compite a la vista.
 test('Descargar datos es la única acción primaria del rail', () => {
   const rail = calc.slice(asideAt, tabsEnd)
-  const visible = rail
-    .replace(/<Dialog[\s\S]*?<\/Dialog>/g, '')
-    .replace(/<Elec3PreviewDialog[\s\S]*?\/>/g, '')
+  const visible = rail.replace(/<Dialog[\s\S]*?<\/Dialog>/g, '')
   const primaries = visible.match(/variant="default"/g) ?? []
   assert.equal(primaries.length, 1, 'exactly one primary button among the visible rail actions')
   assert.match(visible, /variant="default"[^>]*onClick=\{\(\) => setShowDownload\(true\)\}/)
+})
+
+// La memoria ELEC-3 dejó de ser una acción del rail: se abre desde la card
+// «Instalaciones interiores», con la vivienda que el usuario elige ahí.
+test('el diálogo ELEC-3 ya no vive en el rail', () => {
+  const rail = calc.slice(asideAt, tabsEnd)
+  assert.doesNotMatch(rail, /Elec3PreviewDialog/, 'the rail no longer mounts the ELEC-3 dialog')
+  assert.doesNotMatch(rail, /Ver ELEC-3/, 'and no longer offers its button')
+  assert.match(calc, /<Elec3PreviewDialog open=\{elec3DwellingId != null\}/, 'the dialog is mounted once, outside the rail')
 })
 
 // Lo destructivo se separa al final, después de las acciones de salida.

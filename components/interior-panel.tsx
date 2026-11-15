@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
@@ -101,11 +101,13 @@ function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
  * number of circuits are the only two project-specific data points, and both
  * feed the checks and the differential count.
  */
-export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
+export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onViewElec3, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
   dwellings: InteriorDwelling[]
   selectedId: string | null
   onSelect: (id: string) => void
   onChange: (id: string, patch: Partial<InteriorInputsState>) => void
+  /** Abre la memoria ELEC-3 de la vivienda elegida; el panel no arma el documento. */
+  onViewElec3?: (dwellingId: string) => void
   /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
   powerUnit: 'W' | 'kW'
   hasIrve?: boolean
@@ -202,6 +204,7 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, power
                 <SelectContent alignItemWithTrigger={false} className="w-max max-w-[22rem]"><SelectGroup>{dwellings.map(entry => <SelectItem key={entry.id} value={entry.id}>{entry.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
               <Button type="button" variant="outline" size="icon" className="size-9 shrink-0" aria-label="Vivienda siguiente" disabled={currentIndex >= dwellings.length - 1} onClick={() => navigate(1)}><ChevronRight aria-hidden="true" /></Button>
+              {onViewElec3 && <Button type="button" variant="outline" className="h-9 shrink-0 gap-2 px-3 text-sm font-semibold" aria-label={`Ver ELEC-3 de ${dwelling.label}`} onClick={() => onViewElec3(dwelling.id)}><FileText data-icon="inline-start" aria-hidden="true" /> Ver ELEC-3</Button>}
             </div>
           </div>
         </div>
