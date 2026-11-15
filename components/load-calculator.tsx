@@ -966,7 +966,7 @@ export function LoadCalculator() {
               evaluation.igaA == null ? '—' : `${evaluation.igaA} A`,
               evaluation.maxPowerW == null ? '—' : power(evaluation.maxPowerW),
               interior.contractedPowerW > 0 ? power(interior.contractedPowerW) : '—',
-              evaluation.icpCurrentA == null ? '—' : `${fmtDec(evaluation.icpCurrentA)} A`,
+              evaluation.icpCurrentA == null ? '—' : evaluation.icpRatingA == null ? `${fmtDec(evaluation.icpCurrentA)} A · fuera de serie` : `${fmtDec(evaluation.icpRatingA)} A`,
               `${evaluation.differentials} × ${evaluation.sensitivityMa} mA`,
               interior.hasSurge ? 'Sí' : 'No',
             ]
@@ -1201,7 +1201,7 @@ export function LoadCalculator() {
     addDetailPage('10. Instalaciones interiores · ITC-BT-25', ['Vivienda', 'IGA', 'P máx.', 'P contratada', 'ICP', 'Diferenciales', 'Sobretensiones'], interiorDwellings.map(dwelling => {
       const interior = resolveInterior(dwelling.powerW, dwelling.interior)
       const evaluation = evaluateInterior({ igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...interior })
-      return [dwelling.label, evaluation.igaA == null ? '—' : `${evaluation.igaA} A`, evaluation.maxPowerW == null ? '—' : power(evaluation.maxPowerW), interior.contractedPowerW > 0 ? power(interior.contractedPowerW) : '—', evaluation.icpCurrentA == null ? '—' : `${fmtDec(evaluation.icpCurrentA)} A`, `${evaluation.differentials} × ${evaluation.sensitivityMa} mA`, interior.hasSurge ? 'Sí' : 'No']
+      return [dwelling.label, evaluation.igaA == null ? '—' : `${evaluation.igaA} A`, evaluation.maxPowerW == null ? '—' : power(evaluation.maxPowerW), interior.contractedPowerW > 0 ? power(interior.contractedPowerW) : '—', evaluation.icpCurrentA == null ? '—' : evaluation.icpRatingA == null ? `${fmtDec(evaluation.icpCurrentA)} A · fuera de serie` : `${fmtDec(evaluation.icpRatingA)} A`, `${evaluation.differentials} × ${evaluation.sensitivityMa} mA`, interior.hasSurge ? 'Sí' : 'No']
     }))
     addDetailPage('11. Cuadros interiores de locales y servicios generales · ITC-BT-19', ['Suministro', 'P suministro', 'IGA', 'Circuito', 'Uso', 'Potencia', 'Longitud', 'Sección', 'Protección', 'Caída'], circuitSupplies.flatMap(supply => {
       const board = evaluateBoard(supply.circuits, supply)

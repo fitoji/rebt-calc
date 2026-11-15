@@ -7,10 +7,14 @@ import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { HELP_GROUPS } from '@/lib/help-sections.mjs'
 import { HELP_SHOTS } from '@/lib/help-shots.mjs'
+import { ICP_RATINGS } from '@/lib/normative-tables.mjs'
 import { commercialLoadHelp, dwellingSimultaneityHelp, garageLoadHelp, housingPowerHelp, industryConcentrationLoadHelp, interiorVoltageDropHelp, motorLoadCriteriaHelp } from '@/lib/normative-help.mjs'
 
 /** Prose styles shared by every section, so the text keeps one rhythm. */
 const PROSE = 'mt-4 space-y-4 text-[15px] leading-7 text-ink-subtle [&_code]:rounded-md [&_code]:bg-surface-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_code]:text-ink [&_strong]:font-semibold [&_strong]:text-ink'
+
+/** La serie del ICP sale del registro normativo: aquí solo se formatea para el texto. */
+const ICP_SERIES_TEXT = `${ICP_RATINGS.map(rating => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(rating)).join(' · ')} A`
 
 const LINK = 'font-medium text-brand underline underline-offset-4'
 
@@ -463,13 +467,13 @@ export function HelpDoc() {
                   head={['Elemento', 'Criterio']}
                   rows={[
                     ['IGA', 'Tabla A de la ITC-BT-25 según el escalón; potencia máxima 230 × IGA'],
-                    ['ICP', 'Envolvente precintable; su calibre lo fija la potencia contratada (ITC-BT-17)'],
+                    ['ICP', `Calibre de la serie normalizada de potencias de contratación por ICP (${ICP_SERIES_TEXT}), en envolvente precintable (ITC-BT-17)`],
                     ['Diferenciales', '30 mA, intensidad asignada ≥ IGA, uno por cada 5 circuitos'],
                     ['Sobretensiones', 'Solo cuando la ITC-BT-23 lo exige'],
                   ]}
                 />
                 <p>
-                  Los únicos datos que se cargan a mano son la potencia contratada, el número de circuitos instalados y si lleva protección contra sobretensiones. El número de circuitos arranca en el valor del grado (5 en básica, 10 en elevada) y se puede cambiar. Debajo, la tabla de circuitos de la ITC-BT-25 muestra el nombre, el PIA, la sección mínima, el tubo, el máximo de puntos y la potencia por toma de cada circuito del grado; C13 aparece si el proyecto prevé recarga de vehículos. Cada fila admite la longitud del circuito: con ella se calcula la caída al 3 % a la intensidad del PIA y, si la sección de tabla no alcanza, se adopta la superior; si no hay sección en la serie, la caída se marca en rojo con el máximo permitido. Más abajo se cargan las estancias de la vivienda (salón, cocina, baños, dormitorios, pasillos, terrazas, garaje) con su superficie y longitud: la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y de tomas por circuito, y los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El IGA y la potencia máxima salen del escalón de la vivienda; el ICP se muestra como la intensidad que implica la potencia contratada, no como un calibre inventado. Marcar calefacción eléctrica, aire acondicionado o secadora en una vivienda de grado básico no cambia el grado declarado, pero emite el aviso de la ITC-BT-25 §2.3.2, que exige electrificación elevada cuando se prevén.
+                  Los únicos datos que se cargan a mano son la potencia contratada, el número de circuitos instalados y si lleva protección contra sobretensiones. El número de circuitos arranca en el valor del grado (5 en básica, 10 en elevada) y se puede cambiar. Debajo, la tabla de circuitos de la ITC-BT-25 muestra el nombre, el PIA, la sección mínima, el tubo, el máximo de puntos y la potencia por toma de cada circuito del grado; C13 aparece si el proyecto prevé recarga de vehículos. Cada fila admite la longitud del circuito: con ella se calcula la caída al 3 % a la intensidad del PIA y, si la sección de tabla no alcanza, se adopta la superior; si no hay sección en la serie, la caída se marca en rojo con el máximo permitido. Más abajo se cargan las estancias de la vivienda (salón, cocina, baños, dormitorios, pasillos, terrazas, garaje) con su superficie y longitud: la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y de tomas por circuito, y los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El IGA y la potencia máxima salen del escalón de la vivienda. El ICP es un calibre de la serie normalizada de potencias de contratación ({ICP_SERIES_TEXT}): la app calcula la intensidad que implica la potencia contratada y la redondea hacia arriba al calibre de la serie, nunca hacia abajo, porque un ICP por debajo no soportaría la potencia contratada. Si la potencia contratada supera el último calibre, la card muestra la intensidad calculada y avisa de que queda fuera de la serie normalizada, sin recortar el valor. Marcar calefacción eléctrica, aire acondicionado o secadora en una vivienda de grado básico no cambia el grado declarado, pero emite el aviso de la ITC-BT-25 §2.3.2, que exige electrificación elevada cuando se prevén.
                 </p>
               </Section>
 
