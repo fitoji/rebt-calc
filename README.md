@@ -9,6 +9,7 @@ Cinco módulos en la misma app:
 - **DI** — Derivación Individual, ITC-BT-15.
 - **Cuadros** — DGMP de la vivienda (ITC-BT-25) y cuadro interior de locales y servicios generales (ITC-BT-19).
 - **Esquema** — unifilar del edificio con los símbolos de la UNE-EN 60617, dibujado con los resultados ya calculados.
+- **Administrativos** — datos del instalador, del titular y del emplazamiento para el ELEC-3 (memòria tècnica). Lo que es de cada vivienda —número, piso, puerta, superficie y resistencia de tierra— se declara en **Cuadros**, junto a su cuadro, y cada vivienda hereda del proyecto sólo lo que no declara.
 
 Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proyecto y obtenés potencias y secciones al instante, sin hojas de cálculo frágiles. Todo corre en el navegador: **ningún dato sale del equipo**.
 
@@ -59,8 +60,8 @@ Pensada para instaladores, ingenieros y proyectistas: cargás los datos del proy
 
 ## Interfaz
 
-- **Cinco pestañas** con identidad de color propia: Previsión de cargas (marca), LGA (verde), DI (violeta), Cuadros (violeta) y Esquema (ámbar). El color se repite en el borde de las cards y en el punto de la pestaña activa.
-- **Cabecera con referencia normativa dinámica**: muestra `ITC-BT-10`, `ITC-BT-14` o `ITC-BT-15` según la pestaña abierta.
+- **Seis pestañas** con identidad de color propia: Previsión de cargas (marca), LGA (verde), DI (violeta), Cuadros (violeta), Esquema (ámbar) y Administrativos (marca). El color se repite en el borde de las cards y en el punto de la pestaña activa.
+- **Cabecera con referencia normativa dinámica**: muestra `ITC-BT-10`, `ITC-BT-14`, `ITC-BT-15`, `ITC-BT-25 / 19`, `ITC-BT-14 / 15 / 25` o `ITC-BT-03` según la pestaña abierta.
 - **Esquema unifilar**: la pestaña `Esquema` dibuja acometida, embarrado y una columna por derivación con los símbolos de la UNE-EN 60617, leyendo el resultado que ya calculó cada línea. La lámina se desplaza en horizontal y adapta sus colores al tema claro y oscuro.
 - **Panel de resultado** por módulo: en previsión, el total y el desglose P1–P5; en LGA y DI, la sección normalizada, la intensidad y los avisos de incumplimiento.
 - **Documentación exigible (ITC-BT-04)**: la pestaña de previsión cierra con una card para los datos que no salen de las cargas —potencia de alumbrado exterior, potencia de piscinas y fuentes y nueve criterios de sí o no— y la página **Requisitos del proyecto** (`/requisitos`) los clasifica y devuelve el veredicto: **proyecto** o solo **memoria técnica de diseño**. No es una lista de comprobación: se calcula con la previsión del edificio.

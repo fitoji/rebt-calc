@@ -59,10 +59,11 @@ S9. **Firma y sello no se generan nunca**: se completan a mano, como ya está re
 - **Corte 1 — estado** (commits `a4d132b`, `0fe1116`): documento de la feature, re-scope de los cinco
   campos a la derivación, snapshot v6 y helper de herencia. Revisable solo: no toca UI ni el adaptador.
   650 líneas autoradas, por encima de la unidad de revisión de ~400, así que el corte cierra acá.
-- **Corte 2 — adaptador** (T2): la hoja 2 lee la herencia resuelta, el uso se deriva del tipo y el
-  separador decimal deja de caer a pendiente.
-- **Corte 3 — UI** (T3, T4, T5): tab «Administrativos», campos por instalación en la card de Cuadros,
-  pines de tabs y documentación.
+- **Corte 2 — adaptador** (commits `1ebe30d`): la hoja 2 lee la herencia resuelta, el uso se deriva
+  del tipo y el separador decimal deja de caer a pendiente.
+- **Corte 3 — UI** (commits `2f28d57`, `14f92f9`, más el cierre de documentación): tab
+  «Administrativos» con lo del proyecto, campos por instalación en la card de Cuadros, pines de tabs,
+  README y esta bitácora. 1 756 líneas autoradas acumuladas.
 
 ## Tasks
 
@@ -97,3 +98,31 @@ S9. **Firma y sello no se generan nunca**: se completan a mano, como ya está re
   El worker paró pidiendo permiso para tocar un fixture fuera de su superficie; el padre exportó la
   versión del snapshot y reescribió ese fixture para que lo que afirma coincida con su nombre.
   Verificado: 573/573 tests y `tsc` en 0.
+- L6 (2026-11-15) — T2 hecho (`1ebe30d`). El adaptador consume `resolveAdministrative`: la regla de
+  herencia vive en un solo lugar y la hoja deja de mostrar como pendiente lo que la vivienda sí declara.
+  El `uso` se deriva del tipo cuando el proyecto no escribe texto libre (vivienda, comercial, garaje,
+  servicios generales, recarga de vehículo eléctrico) y lo no reconocido queda pendiente. Los números
+  escritos a mano aceptan una coma decimal (`12,5` → 12.5); lo ambiguo (`1.234,5`, `12,5.5`) sigue
+  pendiente en vez de interpretarse. Verificado: 583/583 y `tsc` en 0, con un diferencial del adaptador
+  contra el commit base que muestra como única diferencia el uso derivado.
+- L7 (2026-11-15) — T3 hecho (`2f28d57`). Tab «Administrativos», siempre visible porque son datos del
+  proyecto y no de un cálculo, con el bloque del instalador —el que ya existía en `ProjectInfo` más NIF
+  y número de instalador autorizado— y el bloque del proyecto (titular, uso libre, calle, localidad,
+  CP, distribuidora, tipo de instalación). Los campos compartidos con el diálogo del membrete viven en
+  un solo componente que ambos puntos montan: un campo no puede existir en dos editores.
+  Verificado: 598/598 y `tsc` en 0, con los pines del tab en RED primero.
+- L8 (2026-11-15) — T4 hecho (`14f92f9`). Los campos de la instalación (número, piso, puerta,
+  superficie del local, resistencia de tierra y titular cuando difiere) viven en la card de Cuadros,
+  debajo del resumen del DGMP y antes de la tabla de circuitos, y se guardan en `derivation.administrative`.
+  Superficie y tierra son campos de texto a propósito: la coma decimal sobrevive porque la parsea la
+  regla de herencia, no el `input`. El titular vacío dice en voz alta que hereda el del proyecto o que
+  queda pendiente si el proyecto tampoco declara.
+  Verificado: 607/607 y `tsc` en 0, con el round-trip del bloque probado a través de la capa de storage.
+
+## Lo que queda sin verificar
+
+- El selector de tipo de instalación ofrece una opción «Sin declarar» con valor vacío: compila y los
+  tests lo pinean, pero no se ejercitó un clic real en el navegador.
+- La tarjeta del rail no tiene equivalente administrativo; la pestaña nueva cae a la tarjeta de cargas
+  para el rail. Si se quiere una tarjeta propia, hay que ensanchar `components/rail-result.tsx`, que
+  quedó fuera de esta entrega.
