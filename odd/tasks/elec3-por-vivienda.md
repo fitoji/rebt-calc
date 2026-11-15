@@ -92,3 +92,11 @@ el proyecto, `PENDING_CELLS`).
     botón «Ver ELEC-3» después de «Cargar proyecto»), `tests/dialog-a11y-regression.test.mjs` (cuenta 6
     diálogos y 16 botones de ancho completo en `load-calculator.tsx`), `tests/project-rail.test.mjs`
     (el diálogo debe seguir siendo un elemento propio del rail).
+- L5 (2026-11-15) — T1 hecho. `lib/elec3.mjs` es la única implementación; se le quitó la cabecera de
+  «copia provisional» y se le anotó el contrato que le faltaba (`ELEC3_COLUMNS.key` y
+  `PENDING_CELLS.key` son `keyof Elec3Row`, sin eso el consumidor tipado indexa con `string` y falla).
+  `data/memoria_tecnica/src/lib/elec3.ts` pasa a ser una fachada de 16 líneas que re-exporta el `.mjs`
+  y no repite lógica; su `tsconfig.app.json` gana `allowJs`. Consecuencia asumida: la hoja del
+  subproyecto ahora sale en castellano (S3), antes salía en catalán.
+  Verificado: `npm run typecheck` del subproyecto en 0 (partiendo de un basamento también en 0) y
+  `node --test tests/elec3.test.mjs` con 7/7 en verde.
