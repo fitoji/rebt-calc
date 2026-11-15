@@ -161,3 +161,21 @@ declaren (no hay UI para ellos todavía); `resistenciaTierraOhm` y `superficieLo
 declarado está vacío o no es un número; de cada diferencial, `circuito`, `nombre` e `inA` — el motor
 resuelve cuántos diferenciales exige la vivienda y con qué sensibilidad, el calibre lo elige el
 instalador. Firma y sello se completan a mano por definición.
+
+## Próximas tareas del ELEC-3
+
+Registradas el 2026-11-15 al cerrar `#9` y `#10`. Ninguna está empezada.
+
+- **P1 — Celdas de cálculo de la hoja 1.** Rellenar las tres que hoy salen pendientes: carga simultánea
+  (% por línea), caída total acumulada (LGA + DI, y DI + circuito) y aislamiento de la instalación
+  (kΩ, con el mínimo de la ITC-BT-19 §2.9). **Bloqueada por una decisión, no por código**: cómo se
+  muestra la caída total —suma simple o con la compensación de límites— y si la derivación hereda la
+  simultaneidad de la previsión o se escribe. Toca el motor, no el papeleo.
+- **P2 — Descarga del documento y catalán.** Exportar a Excel/CSV y a PDF desde la app, y con eso
+  habilitar la hoja en catalán, que quedó diferida en S3 de esta feature. Hoy la exportación vive en el
+  subproyecto `data/memoria_tecnica` con `exceljs`, dependencia que la app principal no tiene: hay que
+  decidir si se trae o si el subproyecto sigue siendo el exportador.
+- **P3 — Verificación manual que no cubre ningún test.** Dos cosas quedaron sin ejercitar y hay que
+  cerrarlas antes de decir que el documento está terminado: el clic real en la opción «Sin declarar»
+  del selector de tipo de instalación (valor vacío) y la impresión de la hoja 2 en el navegador. El
+  proyecto no tiene tests de DOM ni de impresión.
