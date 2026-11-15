@@ -100,3 +100,13 @@ el proyecto, `PENDING_CELLS`).
   subproyecto ahora sale en castellano (S3), antes salía en catalán.
   Verificado: `npm run typecheck` del subproyecto en 0 (partiendo de un basamento también en 0) y
   `node --test tests/elec3.test.mjs` con 7/7 en verde.
+- L6 (2026-11-15) — T2 hecho. `buildDwellingDocument(input)` en `lib/elec3.mjs`: fila `A — B` de la
+  derivación individual + una fila por circuito, reutilizando el mismo mapeo de `buildRow`,
+  `splitCable` y `canalizacion`. El modelo sigue sin calcular: la sección, la caída y el momento
+  llegan ya resueltos; el `cosPhi` de un circuito queda en `null` cuando no viene, nunca se asume 1.
+  Tope de las doce filas del modelo: si hay más circuitos se emiten los doce primeros y el documento
+  declara `circuitsBeyondModel` con lo que no cupo. Tests nuevos en `tests/elec3-dwelling.test.mjs`
+  (7), RED observado antes de implementar (`does not provide an export named 'buildDwellingDocument'`)
+  y 14/14 junto con los preexistentes de `tests/elec3.test.mjs`.
+  Decisión no fijada por la spec y asumida: la etiqueta de la vivienda no se escribe en la fila de la
+  DI — esa fila dice literalmente «Derivación individual», como el impreso.
