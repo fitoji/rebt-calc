@@ -77,14 +77,14 @@ test('persists calculator inputs using a versioned snapshot', () => {
   saveCalculatorInputs(storage, sampleInputs)
 
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 5)
+  assert.equal(snapshot.version, 6)
   assert.deepEqual(loadCalculatorInputs(storage), sampleInputs)
 })
 
 test('reports a field-specific diagnostic for invalid persisted project data', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 5,
+      version: 6,
       ...sampleInputs,
       housing: [{ ...sampleInputs.housing[0], power: 6000 }],
     }),
@@ -99,7 +99,7 @@ test('reports a field-specific diagnostic for invalid persisted project data', (
 test('rejects old snapshots that omit dwelling surface', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 5,
+      version: 6,
       ...sampleInputs,
       housing: [{ level: 'Básica', power: 5750, homes: 2 }],
     }),
@@ -113,7 +113,7 @@ test('a malformed dwelling surface rejects the snapshot', () => {
   for (const area of ['wide', -20, null]) {
     const storage = createMemoryStorage({
       [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-        version: 5,
+        version: 6,
         ...sampleInputs,
         housing: [{ level: 'Básica', power: 5750, homes: 1, area }],
       }),
@@ -127,7 +127,7 @@ test('a malformed dwelling surface rejects the snapshot', () => {
 test('a garage missing parking spaces rejects the snapshot', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 5,
+      version: 6,
       ...sampleInputs,
       garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120 }],
     }),
@@ -141,7 +141,7 @@ test('a malformed parking count rejects the snapshot', () => {
   for (const plazas of ['many', -3, null]) {
     const storage = createMemoryStorage({
       [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-        version: 5,
+        version: 6,
         ...sampleInputs,
         garages: [{ name: 'Garaje 1', ventilation: 'Forzada', area: 120, plazas }],
       }),
@@ -166,7 +166,7 @@ test('does not retain an empty calculator snapshot', () => {
 test('loads current snapshots without optional lighting data', () => {
   const { lighting, ...legacyInputs } = sampleInputs
   const storage = createMemoryStorage({
-    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 5, ...legacyInputs }),
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 6, ...legacyInputs }),
   })
 
   const loaded = loadCalculatorInputs(storage)
@@ -213,7 +213,7 @@ test('ignores unsupported or malformed calculator snapshots', () => {
   assert.equal(loadCalculatorInputs(storage), null)
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 5,
+    version: 6,
     ...sampleInputs,
     garages: [{ name: 'Garaje', ventilation: 'Invalid', area: 20 }],
   }))
@@ -231,12 +231,12 @@ test('persists and restores the enlace scenario', () => {
   assert.equal(loaded, null, 'an unknown scenario rejects the snapshot')
 })
 
-test('persists the derivation list in a v5 snapshot', () => {
+test('persists the derivation list in a v6 snapshot', () => {
   const storage = createMemoryStorage()
 
   saveCalculatorInputs(storage, { ...sampleInputs, derivations: [sampleDerivation] })
   const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
-  assert.equal(snapshot.version, 5)
+  assert.equal(snapshot.version, 6)
   assert.deepEqual(snapshot.derivations, [sampleDerivation])
   assert.deepEqual(loadCalculatorInputs(storage).derivations, [sampleDerivation])
 })
@@ -261,7 +261,7 @@ test('persists the meter centre and rejects a malformed snapshot', () => {
   assert.deepEqual(loadCalculatorInputs(storage).meterCenter, meterCenter, 'the centre survives a reload')
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 5,
+    version: 6,
     ...sampleInputs,
     meterCenter: { ...meterCenter, assembly: 'garaje' },
   }))
@@ -304,7 +304,7 @@ test('persists the interior circuits of a supply and rejects a malformed snapsho
   assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interiorCircuits, circuits, 'the board survives a reload')
 
   storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({
-    version: 5,
+    version: 6,
     ...sampleInputs,
     derivations: [{ ...sampleDerivation, interiorCircuits: [{ ...circuits[0], use: 'otro' }] }],
   }))
@@ -351,7 +351,7 @@ test('does not migrate a prior-alpha single DI snapshot', () => {
 test('rejects invalid derivations instead of discarding invalid project data', () => {
   const storage = createMemoryStorage({
     [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
-      version: 5,
+      version: 6,
       ...sampleInputs,
       derivations: [{ ...sampleDerivation, system: 'invented' }],
     }),
@@ -417,20 +417,26 @@ test('falls back to the example when storage is unavailable', () => {
 /**
  * Hoja 2 of the ELEC-3: the project data the sheet prints. Like the letterhead it
  * lives in the project info block, outside the versioned snapshot, and every field
- * is a string even when the sheet prints it as a number.
+ * is a string. Number, floor, door, local surface and ground resistance are not
+ * here: they belong to each installation and travel inside its derivation.
  */
 const hojaTwoProjectInfo = {
   titularName: 'Ana Pérez Ruiz',
   uso: 'Vivienda habitual',
-  addressNumber: '12',
-  addressFloor: '3º',
-  addressDoor: 'B',
   addressCity: 'Girona',
   addressPostalCode: '17001',
   installType: 'reforma',
   distributorName: 'e-Distribución',
-  groundResistanceOhm: '12,5',
-  localAreaM2: '84,6',
+}
+
+/** The installation data a dwelling declares, stored as text inside its derivation. */
+const sampleAdministrative = {
+  numero: '12',
+  piso: '3º',
+  puerta: 'B',
+  superficieLocalM2: '84.6',
+  resistenciaTierraOhm: '12.5',
+  titularName: 'Ana Pérez Ruiz',
 }
 
 const sampleProjectInfo = {
@@ -526,7 +532,7 @@ test('an empty file is rejected instead of clearing the project', () => {
 })
 
 test('a raw storage snapshot is not accepted as a project file', () => {
-  const parsed = readProjectExport(JSON.stringify({ version: 5, ...sampleInputs }))
+  const parsed = readProjectExport(JSON.stringify({ version: 6, ...sampleInputs }))
 
   assert.equal(parsed.ok, false, 'the import reads the export, not the internal snapshot')
   assert.match(parsed.error, /proyecto/i)
@@ -558,15 +564,10 @@ test('project data from the file is sanitised field by field', () => {
     logo: '',
     titularName: '',
     uso: '',
-    addressNumber: '',
-    addressFloor: '',
-    addressDoor: '',
     addressCity: '',
     addressPostalCode: '',
     installType: '',
     distributorName: '',
-    groundResistanceOhm: '',
-    localAreaM2: '',
   })
 })
 
@@ -590,8 +591,6 @@ test('the hoja 2 fields round-trip as the strings that were stored', () => {
   for (const [key, value] of Object.entries(hojaTwoProjectInfo)) {
     assert.equal(parsed.project.projectInfo[key], value, `${key} survives the round-trip`)
   }
-  assert.equal(typeof parsed.project.projectInfo.groundResistanceOhm, 'string', 'the sheet number stays a string until the caller converts it')
-  assert.equal(typeof parsed.project.projectInfo.localAreaM2, 'string', 'the sheet number stays a string until the caller converts it')
 })
 
 test('an unknown property in the stored project data is never surfaced', () => {
@@ -632,7 +631,7 @@ test('a centre saved with the old enclosure field keeps its cabinet choice', () 
     enclosure: 'armario',
   }
   const storage = createMemoryStorage({
-    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 5, ...sampleInputs, meterCenter: legacy }),
+    [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ version: 6, ...sampleInputs, meterCenter: legacy }),
   })
 
   const migrated = loadCalculatorInputs(storage)
@@ -674,4 +673,90 @@ test('unknown keys inside the file inputs never reach the calculator', () => {
   assert.equal(parsed.ok, true)
   assert.equal('version' in parsed.project.inputs, false)
   assert.equal('intruso' in parsed.project.inputs, false)
+})
+
+test('S8: the snapshot is version 6 and a v5 snapshot is discarded, not migrated', () => {
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, sampleInputs)
+  assert.equal(JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY)).version, 6)
+
+  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({ version: 5, ...sampleInputs }))
+  assert.equal(loadCalculatorInputs(storage), null, 'the snapshot from before the installation data moved is retired')
+  assert.deepEqual(validatePersistedCalculatorInputs(storage), {
+    field: 'version',
+    reason: 'unsupported snapshot version; expected 6',
+  })
+})
+
+test('S8: a derivation carries its installation data inside the snapshot', () => {
+  const storage = createMemoryStorage()
+  const dwelling = { ...sampleDerivation, administrative: sampleAdministrative }
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [dwelling] })
+
+  const snapshot = JSON.parse(storage.getItem(CALCULATOR_INPUTS_STORAGE_KEY))
+  assert.deepEqual(snapshot.derivations[0].administrative, sampleAdministrative, 'the block is written inside the derivation')
+
+  const loaded = loadCalculatorInputs(storage)
+  assert.deepEqual(loaded.derivations, [dwelling], 'every field survives a reload')
+  for (const [key, value] of Object.entries(loaded.derivations[0].administrative)) {
+    assert.equal(typeof value, 'string', `${key} stays declared text, converted at the edge`)
+  }
+})
+
+test('S8: a malformed administrative block names the field and rejects the snapshot', () => {
+  const cases = {
+    'a block that is not an object': { administrative: ['12'], field: 'inputs.derivations[0].administrative' },
+    'a field that is not declared text': { administrative: { ...sampleAdministrative, piso: 3 }, field: 'inputs.derivations[0].administrative.piso' },
+    'a field the snapshot does not register': { administrative: { ...sampleAdministrative, altura: '3' }, field: 'inputs.derivations[0].administrative.altura' },
+  }
+
+  for (const [name, { administrative, field }] of Object.entries(cases)) {
+    const storage = createMemoryStorage({
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({
+        version: 6,
+        ...sampleInputs,
+        derivations: [{ ...sampleDerivation, administrative }],
+      }),
+    })
+
+    assert.equal(validatePersistedCalculatorInputs(storage)?.field, field, `${name}: the diagnostic names the field`)
+    assert.equal(loadCalculatorInputs(storage), null, `${name}: the snapshot is rejected instead of half-read`)
+  }
+})
+
+test('S8: the project data no longer carries the installation fields', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    projectInfo: {
+      ...sampleProjectInfo,
+      addressNumber: '12',
+      addressFloor: '3º',
+      addressDoor: 'B',
+      groundResistanceOhm: '12,5',
+      localAreaM2: '84,6',
+    },
+  })))
+
+  assert.equal(parsed.ok, true)
+  for (const key of ['addressNumber', 'addressFloor', 'addressDoor', 'groundResistanceOhm', 'localAreaM2']) {
+    assert.equal(key in parsed.project.projectInfo, false, `${key} belongs to the installation, not to the project`)
+  }
+  assert.deepEqual(parsed.project.projectInfo, sampleProjectInfo, 'the project keeps only what belongs to the building')
+})
+
+test('S8: the project file carries the installation data of each derivation', () => {
+  const dwelling = { ...sampleDerivation, administrative: sampleAdministrative }
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    inputs: { ...exportedInputs, derivations: [dwelling] },
+  })))
+
+  assert.equal(parsed.ok, true, 'the derivation travels in the export inputs, as it always has')
+  assert.deepEqual(parsed.project.inputs.derivations, [dwelling], 'the per-dwelling data round-trips through the export')
+
+  const broken = readProjectExport(JSON.stringify(exportedProject({
+    inputs: { ...exportedInputs, derivations: [{ ...dwelling, administrative: { ...sampleAdministrative, numero: 12 } }] },
+  })))
+  assert.equal(broken.ok, false, 'a malformed block rejects the file instead of losing it silently')
+  assert.match(broken.error, /inputs\.derivations\[0\]\.administrative\.numero/)
 })

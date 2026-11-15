@@ -111,7 +111,7 @@ test('reports the exact imported field and reason for invalid core data', () => 
 })
 
 test('rejects persisted snapshots from prior alpha versions', () => {
-  for (const version of [1, 2, 3, 4]) {
+  for (const version of [1, 2, 3, 4, 5]) {
     const storage = createMemoryStorage({
       [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...inputs, version }),
     })
@@ -212,7 +212,7 @@ test('S4: the required core is read the same way by the file and by localStorage
   for (const variant of variants) {
     const file = readProjectExport(wrap(variant))
     const snapshot = loadCalculatorInputs(createMemoryStorage({
-      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 5 }),
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 6 }),
     }))
 
     assert.equal(file.ok, snapshot !== null, `file and snapshot disagree on: ${JSON.stringify(variant).slice(0, 80)}`)
@@ -232,7 +232,7 @@ test('S4: an unreadable optional block is dropped by the snapshot and rejects th
   for (const variant of variants) {
     const file = readProjectExport(wrap(variant))
     const snapshot = loadCalculatorInputs(createMemoryStorage({
-      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 5 }),
+      [CALCULATOR_INPUTS_STORAGE_KEY]: JSON.stringify({ ...variant, version: 6 }),
     }))
 
     assert.equal(file.ok, false, `the import rejects the file: ${JSON.stringify(variant).slice(0, 80)}`)

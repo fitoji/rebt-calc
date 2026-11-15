@@ -14,6 +14,7 @@ import {
 } from '../lib/project-documentation.mjs'
 import {
   CALCULATOR_INPUTS_STORAGE_KEY,
+  CALCULATOR_SNAPSHOT_VERSION,
   loadCalculatorInputs,
   readProjectExport,
   saveCalculatorInputs,
@@ -457,11 +458,14 @@ test('la documentación ausente se completa con los valores por defecto', () => 
     'an older export opens with the default documentation',
   )
 
-  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({ version: 5, ...forecastInputs }))
+  // La versión se toma prestada del módulo: un salto de snapshot no vuelve a romper
+  // este fixture, y lo que el test afirma es lo que dice su nombre — un snapshot sin
+  // bloque de documentación abre con los valores por defecto.
+  storage.setItem(CALCULATOR_INPUTS_STORAGE_KEY, JSON.stringify({ version: CALCULATOR_SNAPSHOT_VERSION, ...forecastInputs }))
   assert.deepEqual(
     normalizeDocumentation(loadCalculatorInputs(storage).documentation),
     DEFAULT_DOCUMENTATION,
-    'a v1 snapshot still loads',
+    'a snapshot without a documentation block loads with the defaults',
   )
 })
 
