@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -126,7 +126,7 @@ function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
  * number of circuits are the only two project-specific data points, and both
  * feed the checks and the differential count.
  */
-export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdministrativeChange, onViewElec3, powerUnit, projectTitular = '', hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
+export type InteriorPanelProps = {
   dwellings: InteriorDwelling[]
   selectedId: string | null
   onSelect: (id: string) => void
@@ -142,17 +142,29 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
   hasIrve?: boolean
   explanationMode?: 'calculation' | 'didactic'
   showSourceNotes?: boolean
-}) {
-  const [showCircuitTable, setShowCircuitTable] = useState(false)
+}
 
-  if (dwellings.length === 0) {
-    return (
-      <section className="rounded-card border border-line bg-paper p-5 shadow-card">
-        <h3 className="font-bold">Instalaciones interiores</h3>
-        <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
-      </section>
-    )
-  }
+/**
+ * La card completa cuando el proyecto todavía no tiene viviendas. Vive fuera del
+ * cuerpo para que sus hooks (el aviso por puntos de la ITC-BT-25 §2.3.2) no queden
+ * detrás de un retorno temprano y cambien de orden al generar derivaciones.
+ */
+function EmptyInteriorPanel() {
+  return (
+    <section className="rounded-card border border-line bg-paper p-5 shadow-card">
+      <h3 className="font-bold">Instalaciones interiores</h3>
+      <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
+    </section>
+  )
+}
+
+export function InteriorPanel(props: InteriorPanelProps) {
+  if (props.dwellings.length === 0) return <EmptyInteriorPanel />
+  return <InteriorPanelBody {...props} />
+}
+
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdministrativeChange, onViewElec3, powerUnit, projectTitular = '', hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+  const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
@@ -180,19 +192,35 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
   // circuitos siguen al escalón, pero el aviso de la ITC-BT-25 §2.3.2 responde a lo que
   // la vivienda declara ser. Sin declaración se cae al grado del escalón.
   const declaredGrade = declaredGradeOf(dwelling.housingDeclaredGrade) ?? grade
-  // Marcar una previsión no cambia el grado declarado ni bloquea el dato, pero si la
-  // vivienda es básica se avisa de que la instrucción exige elevada.
-  const setPrevision = (key: 'hasHeating' | 'hasCooling' | 'hasDryer', checked: boolean) => {
-    setInput({ [key]: checked })
-    if (!checked) return
-    const warning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, [key]: true })
-    if (warning) toast.warning(warning.title, { description: warning.description, duration: 9000 })
-  }
   const pointFlags = { hasHeating: inputs.hasHeating, hasCooling: inputs.hasCooling, hasDryer: inputs.hasDryer, hasIrve }
   const points = totalPoints(rooms, pointFlags)
   // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
   // puntos instala de verdad en cada circuito, y ese número decide los circuitos.
   const effectivePoints = applyPointOverrides(points, inputs.pointsOverride)
+  // El aviso de la ITC-BT-25 §2.3.2 se arma una sola vez por render: la superficie, las
+  // previsiones y los puntos que obligan a más de un circuito C1–C5 son la misma regla.
+  const gradeWarning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals })
+  const pointOverflow = gradeWarning?.reasons.filter(reason => reason.id.startsWith('points:')) ?? []
+  // El toast del exceso de puntos sale cuando el exceso aparece (S8), no en cada tecla ni
+  // al montar: la ref guarda el estado del render anterior, así tipear «31» pasa por «3»
+  // sin apilar avisos y abrir una vivienda que ya lo declara no avisa.
+  const pointOverflowSeen = useRef(false)
+  useEffect(() => {
+    const overflowing = pointOverflow.length > 0
+    if (overflowing && !pointOverflowSeen.current && gradeWarning != null) {
+      const conditions = pointOverflow.map(reason => `${reason.condition}.`).join(' ')
+      toast.warning(gradeWarning.title, { description: `${conditions} El grado declarado es básico.`, duration: 9000 })
+    }
+    pointOverflowSeen.current = overflowing
+  }, [pointOverflow.length])
+  // Marcar una previsión no cambia el grado declarado ni bloquea el dato, pero si la
+  // vivienda es básica se avisa de que la instrucción exige elevada.
+  const setPrevision = (key: 'hasHeating' | 'hasCooling' | 'hasDryer', checked: boolean) => {
+    setInput({ [key]: checked })
+    if (!checked) return
+    const warning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals, [key]: true })
+    if (warning) toast.warning(warning.title, { description: warning.description, duration: 9000 })
+  }
   // Los totales se indexan por id de circuito: el id de la fila es texto.
   const pointsFor = (id: string) => effectivePoints.totals[id as keyof typeof effectivePoints.totals] ?? 0
   const minimumFor = (id: string) => points.totals[id as keyof typeof points.totals] ?? 0
@@ -383,6 +411,19 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
               <span>{remainingArea != null && remainingArea >= 0 ? `Disponible: ${fmt(remainingArea)} m²` : `Excedida en ${fmt(Math.abs(remainingArea ?? 0))} m²`}</span>
               {overArea && <span className="sr-only">. La suma de estancias supera la superficie de la vivienda</span>}
             </p>
+          )}
+
+          {/* El exceso de puntos de un circuito C1–C5 se queda a la vista cuando el toast
+              ya se fue: la instrucción exige elevada mientras el número siga ahí (S8). */}
+          {pointOverflow.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1 text-xs">
+              {pointOverflow.map(reason => (
+                <li key={reason.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-danger">
+                  <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span>{reason.condition}</span>
+                </li>
+              ))}
+            </ul>
           )}
 
           {rooms.length === 0

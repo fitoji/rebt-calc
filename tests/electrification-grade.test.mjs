@@ -108,6 +108,105 @@ test('the warning joins every violated condition into one sentence', () => {
   )
 })
 
+// S7 — «viviendas con una previsión importante de aparatos electrodomésticos que
+// obligue a instalar más de un circuito de cualquiera de los tipos descritos
+// anteriormente» (ITC-BT-25 §2.3.2): el máximo de la tabla 1 es el límite.
+test('S7: one point above the table-1 maximum of C1 requires the elevated grade', () => {
+  const atMax = requiredGradeFor({ pointsByCircuit: { C1: 30 } })
+  assert.equal(atMax.grade, 'basic')
+  assert.deepEqual(atMax.reasons, [])
+
+  const overMax = requiredGradeFor({ pointsByCircuit: { C1: 31 } })
+  assert.equal(overMax.grade, 'elevated')
+  assert.deepEqual(overMax.reasons.map(reason => reason.id), ['points:C1'])
+  assert.equal(overMax.reasons[0].source, 'ITC-BT-25 §2.3.2')
+  // El texto es exacto: nombra el circuito, el número declarado y el máximo pasado.
+  assert.equal(overMax.reasons[0].condition, '31 puntos de luz, más de los 30 que admite el circuito C1 (ITC-BT-25 §2.3.2 y §3, tabla 1)')
+})
+
+test('S7: the tables-1 maximum of C2 is 20 general sockets', () => {
+  assert.equal(requiredGradeFor({ pointsByCircuit: { C2: 20 } }).grade, 'basic')
+
+  const required = requiredGradeFor({ pointsByCircuit: { C2: 21 } })
+  assert.equal(required.grade, 'elevated')
+  assert.equal(required.reasons[0].id, 'points:C2')
+  assert.equal(required.reasons[0].condition, '21 tomas de uso general, más de los 20 que admite el circuito C2 (ITC-BT-25 §2.3.2 y §3, tabla 1)')
+})
+
+test('S7: C3, C4 and C5 elevate one point above their table-1 maximum', () => {
+  for (const [circuit, max] of [['C3', 2], ['C4', 3], ['C5', 6]]) {
+    const atMax = requiredGradeFor({ pointsByCircuit: { [circuit]: max } })
+    assert.equal(atMax.grade, 'basic', `${circuit} with ${max} points still admits the basic grade`)
+    assert.deepEqual(atMax.reasons, [], `${circuit} at its maximum triggers nothing`)
+
+    const overMax = requiredGradeFor({ pointsByCircuit: { [circuit]: max + 1 } })
+    assert.equal(overMax.grade, 'elevated', `${circuit} with ${max + 1} points requires the elevated grade`)
+    assert.deepEqual(overMax.reasons.map(reason => reason.id), [`points:${circuit}`])
+    assert.match(overMax.reasons[0].condition, new RegExp(`^${max + 1} .+, más de los ${max} que admite el circuito ${circuit} \\(ITC-BT-25 §2\\.3\\.2 y §3, tabla 1\\)$`))
+  }
+})
+
+test('S7: several overflowing circuits are reported once each, in circuit order', () => {
+  const required = requiredGradeFor({ pointsByCircuit: { C2: 21, C1: 31, C5: 7 } })
+  assert.equal(required.grade, 'elevated')
+  assert.deepEqual(required.reasons.map(reason => reason.id), ['points:C1', 'points:C2', 'points:C5'])
+  assert.equal(new Set(required.reasons.map(reason => reason.id)).size, 3)
+})
+
+test('S7: the point reasons come after the five declared conditions, never interleaved', () => {
+  const required = requiredGradeFor({
+    areaM2: 210,
+    hasCooling: true,
+    hasHeating: true,
+    hasAutomation: true,
+    hasDryer: true,
+    pointsByCircuit: { C5: 7, C1: 31 },
+  })
+  assert.equal(required.grade, 'elevated')
+  assert.deepEqual(required.reasons.map(reason => reason.id), ['surface', 'cooling', 'heating', 'automation', 'dryer', 'points:C1', 'points:C5'])
+})
+
+test('S7: no points declared leaves the rule exactly as it was', () => {
+  const before = requiredGradeFor({ areaM2: 180, hasHeating: true })
+  for (const pointsByCircuit of [undefined, null, 'nope', {}, { C1: 0 }]) {
+    const after = requiredGradeFor({ areaM2: 180, hasHeating: true, pointsByCircuit })
+    assert.deepEqual(after, before, `pointsByCircuit ${String(pointsByCircuit)} must change nothing`)
+  }
+})
+
+test('S7: a junk point count is ignored instead of throwing', () => {
+  for (const value of [-5, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, null, {}, 'siete']) {
+    const required = requiredGradeFor({ pointsByCircuit: { C1: value } })
+    assert.equal(required.grade, 'basic', `C1 with ${String(value)} points must not elevate`)
+    assert.deepEqual(required.reasons, [])
+  }
+
+  // Un número escrito como texto se lee con Number(), como el resto del módulo:
+  // '7' no supera el máximo de C1 y '31' sí lo supera, sin lanzar en ningún caso.
+  assert.equal(requiredGradeFor({ pointsByCircuit: { C1: '7' } }).grade, 'basic')
+  assert.equal(requiredGradeFor({ pointsByCircuit: { C1: '31' } }).grade, 'elevated')
+})
+
+test('S7: the warning reports the point overflow and still quotes the article', () => {
+  const warning = electrificationGradeWarning({ declaredGrade: 'basic', pointsByCircuit: { C1: 31 } })
+  assert.ok(warning != null)
+  assert.equal(warning.title, 'La ITC-BT-25 §2.3.2 exige electrificación elevada')
+  assert.equal(
+    warning.description,
+    '31 puntos de luz, más de los 30 que admite el circuito C1 (ITC-BT-25 §2.3.2 y §3, tabla 1). El grado declarado es básico.',
+  )
+  assert.deepEqual(warning.reasons.map(reason => reason.id), ['points:C1'])
+  // El grado elevado declarado sigue sin aviso: nada que corregir (S1).
+  assert.equal(electrificationGradeWarning({ declaredGrade: 'elevated', pointsByCircuit: { C1: 31 } }), null)
+})
+
+// Del §3, tabla 1: los máximos no viven en este módulo, salen de MAX_POINTS.
+test('S7: the maximums come from the table-1 source, never from this module', () => {
+  const source = read('lib/electrification-grade.mjs')
+  assert.match(source, /MAX_POINTS/)
+  assert.match(source, /from '\.\/housing-points\.mjs'/)
+})
+
 test('both consumers read the rule from this module instead of reimplementing it', () => {
   const calculator = read('components/load-calculator.tsx')
   assert.match(calculator, /from '\.\.\/lib\/electrification-grade\.mjs'/)

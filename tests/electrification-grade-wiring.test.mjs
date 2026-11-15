@@ -46,6 +46,31 @@ test('S6: syncDerivationPowers refreshes the declared level with the forecast', 
   assert.equal(synced.housingDeclaredGrade, 'Elevada', 'the declared level follows P1, not the old row')
 })
 
+test('S7: the interior panel passes the declared points of every circuit into the rule', () => {
+  const panel = read('components/interior-panel.tsx')
+  // Una sola lectura para los dos avisos: el persistente y el toast de una previsión.
+  const calls = panel.match(/pointsByCircuit: effectivePoints\.totals/g) ?? []
+  assert.ok(calls.length >= 2, 'both electrificationGradeWarning calls must pass pointsByCircuit: effectivePoints.totals')
+  assert.match(panel, /const effectivePoints = applyPointOverrides\(points, inputs\.pointsOverride\)/, 'the declared points still come from applyPointOverrides')
+})
+
+test('S7: no consumer reimplements the table-1 point maxima', () => {
+  // `components/electrification-grade.mjs` no existe: la regla vive en lib/.
+  for (const file of ['components/interior-panel.tsx', 'lib/electrification-grade.mjs']) {
+    assert.doesNotMatch(read(file), /[<>]=?\s*(?:30|20|6)\b/, `${file} must compare through MAX_POINTS`)
+  }
+  assert.match(read('lib/electrification-grade.mjs'), /BASIC_CIRCUIT_IDS/)
+})
+
+// S8: el toast sale cuando el exceso aparece, no en cada tecla ni al montar.
+test('S8: the point-overflow toast fires only when the overflow appears', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /useRef\(false\)/)
+  assert.match(panel, /useEffect\(/)
+  assert.match(panel, /reason\.id\.startsWith\('points:'\)/)
+  assert.match(panel, /overflowing && !pointOverflowSeen\.current/, 'the toast must be gated by the previous render')
+})
+
 test('S6: no consumer reimplements the 160 m² threshold', () => {
   for (const file of ['components/load-calculator.tsx', 'components/interior-panel.tsx']) {
     assert.doesNotMatch(read(file), /[<>]=?\s*160\b/, `${file} must compare through BASIC_MAX_SURFACE_M2`)
