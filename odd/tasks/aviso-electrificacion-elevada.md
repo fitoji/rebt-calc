@@ -24,7 +24,7 @@ S8. **El aviso por puntos no bloquea ni repite.** Sigue siendo no bloqueante (S1
 
 A1. **La secadora eleva el grado, aunque no esté enumerada en el §2.3.2.** El literal del articulado no la menciona: la lista es calefacción, aire acondicionado, automatización y 160 m². La secadora aparece como circuito C10, que la tabla 1 solo define para electrificación elevada, y la Guía BT-25 del Ministerio la enumera explícitamente («si está prevista la instalación de una secadora»). Se implementa como el usuario pidió y se cita la Guía en ese motivo, no el articulado.
 
-A2. **La automatización no tiene campo en el modelo.** No existe flag de domótica/GTE, así que hoy no hay entrada que pueda disparar ese motivo. La condición queda declarada en la regla para cuando el modelo la incorpore, pero ningún componente la dispara.
+A2. **La automatización no tiene campo en el modelo.** No existe flag de domótica/GTE, así que hoy no hay entrada que pueda disparar ese motivo. La condición queda declarada en la regla para cuando el modelo la incorpore, pero ningún componente la dispara. Diferido por decisión del usuario (L16): se deja anotado como pendiente y no se implementa hasta saber dónde aplicarlo.
 
 A3. **Los disparadores por número de puntos no entran en esta entrega.** El §2.3.2 también obliga a elevada cuando hace falta más de un circuito de los tipos C1–C5 (>30 puntos de luz, >20 tomas de uso general, >6 en baño y cocina auxiliares). `applyPointOverrides` ya cuenta esos puntos, pero el usuario no los pidió: se dejan fuera para no inflar la revisión y se reportan como siguiente paso.
 
@@ -53,6 +53,16 @@ Dos slices, cada uno revisable por separado.
 **Slice 2** — commit `0b60fc3`: ~300 líneas autoradas. Los disparadores por número de puntos (T9), autorizados por el usuario después de leer el reporte de cierre del slice 1.
 
 Total: 780 líneas autoradas en 5 commits sobre `feat/aviso-electrificacion-elevada` (los lockfiles no cuentan). No se agrega código en esta rama sin una decisión de entrega aparte. Push y PR quedan a decisión del usuario.
+
+## Pendientes
+
+Quedan anotados acá, sin implementar, para retomarlos cuando haya decisión.
+
+**P1 · Automatización, gestión técnica de la energía y seguridad (A2).** La condición ya está implementada en la regla: `requiredGradeFor({ hasAutomation: true })` devuelve el motivo «Previsión de automatización, gestión técnica de la energía y seguridad (ITC-BT-25 §2.3.2)». Lo que falta es de dónde leerla: el modelo no tiene el campo, así que ningún control la dispara. El usuario la difirió por no saber todavía dónde aplicarla (L16).
+
+Para cerrarla hacen falta cuatro piezas, en este orden: (1) el control —un checkbox junto a «Calefacción eléctrica / Aire acondicionado / Secadora» en el panel interior, o una columna en P1 si se decide que la domótica se declara a nivel de tipo de vivienda—; (2) el dato, en `InteriorInputs` o en `HousingRow` según dónde caiga el control; (3) el transporte a la derivación, igual que se hizo con `housingDeclaredGrade` en `lib/project-model.mjs`, incluida la comparación de `syncDerivationPowers`; (4) la validación al importar un proyecto en `lib/calculator-storage.mjs`, para que un JSON viejo sin el campo no rompa.
+
+La decisión de fondo que falta no es técnica sino de producto: **la automatización no es una carga, es una instalación**. La ITC-BT-25 §2.2 la trata como previsión de alimentación a los dispositivos de control y mando centralizado, y su desarrollo está en la ITC-BT-51, así que declararla puede terminar pidiendo el circuito C11 y no solo el cambio de grado. Conviene decidir eso antes de agregar el checkbox.
 
 ## Log
 
@@ -85,3 +95,5 @@ L13 — T9 implementado y verificado: `requiredGradeFor` acepta `pointsByCircuit
 L14 — decisión de implementación que conviene revisar: el `useEffect` que emite el toast por puntos necesita estar antes del retorno temprano de «todavía no hay viviendas», así que `InteriorPanel` se partió en un guard (`InteriorPanel`) y un cuerpo (`InteriorPanelBody`), con el tipo de props exportado como `InteriorPanelProps`. La salida renderizada y la API de props no cambian. El efecto depende de `[pointOverflow.length]` a propósito: el `useRef` solo deja pasar la transición de «sin exceso» a «con exceso», pero un lint con `react-hooks/exhaustive-deps` lo marcaría; el repo no corre lint, así que queda anotado.
 
 L15 — evidencia de cierre de T9: `node --test "tests/*.test.mjs"` 638/638 (626 + 12 nuevos), `npx tsc --noEmit` sin diagnósticos. `text-danger` usado en el aviso persistente es un token real (`app/globals.css:122` lo mapea desde `--danger`) y ya se usa en cinco lugares del proyecto.
+
+L16 — decisión del usuario sobre la automatización, verbatim: «dejalo anotado para tenerlo en cuenta en el futuro, no se todavia donde aplicarlo». No se implementa. La condición queda viva en la regla y el pendiente se documenta en «Pendientes · P1» con las cuatro piezas que faltan y la decisión de producto que las precede.
