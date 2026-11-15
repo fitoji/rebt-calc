@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
@@ -17,6 +18,7 @@ import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/in
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
+import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
 
 /**
@@ -44,6 +46,8 @@ export type InteriorDwelling = {
   powerW: number
   housingIgaA?: number
   housingAreaM2?: number
+  /** Grado que la previsión de cargas declara para esta vivienda (ITC-BT-25 §2.3.2). */
+  housingDeclaredGrade?: 'Básica' | 'Elevada'
   /** Lo que esta instalación declara para la hoja 2; lo que falte se hereda del proyecto. */
   administrative?: Partial<InteriorAdministrative>
   interior?: {
@@ -122,7 +126,7 @@ function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
  * number of circuits are the only two project-specific data points, and both
  * feed the checks and the differential count.
  */
-export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdministrativeChange, onViewElec3, powerUnit, projectTitular = '', hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: {
+export type InteriorPanelProps = {
   dwellings: InteriorDwelling[]
   selectedId: string | null
   onSelect: (id: string) => void
@@ -138,17 +142,29 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
   hasIrve?: boolean
   explanationMode?: 'calculation' | 'didactic'
   showSourceNotes?: boolean
-}) {
-  const [showCircuitTable, setShowCircuitTable] = useState(false)
+}
 
-  if (dwellings.length === 0) {
-    return (
-      <section className="rounded-card border border-line bg-paper p-5 shadow-card">
-        <h3 className="font-bold">Instalaciones interiores</h3>
-        <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
-      </section>
-    )
-  }
+/**
+ * La card completa cuando el proyecto todavía no tiene viviendas. Vive fuera del
+ * cuerpo para que sus hooks (el aviso por puntos de la ITC-BT-25 §2.3.2) no queden
+ * detrás de un retorno temprano y cambien de orden al generar derivaciones.
+ */
+function EmptyInteriorPanel() {
+  return (
+    <section className="rounded-card border border-line bg-paper p-5 shadow-card">
+      <h3 className="font-bold">Instalaciones interiores</h3>
+      <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
+    </section>
+  )
+}
+
+export function InteriorPanel(props: InteriorPanelProps) {
+  if (props.dwellings.length === 0) return <EmptyInteriorPanel />
+  return <InteriorPanelBody {...props} />
+}
+
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdministrativeChange, onViewElec3, powerUnit, projectTitular = '', hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+  const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
@@ -172,11 +188,39 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
   const dwellingArea = dwelling.housingAreaM2 ?? 0
   const overArea = dwellingArea > 0 && roomsArea > dwellingArea + 0.001
   const remainingArea = dwellingArea > 0 ? dwellingArea - roomsArea : null
+  // El grado que la previsión declara, no el que implica el escalón de potencia: los
+  // circuitos siguen al escalón, pero el aviso de la ITC-BT-25 §2.3.2 responde a lo que
+  // la vivienda declara ser. Sin declaración se cae al grado del escalón.
+  const declaredGrade = declaredGradeOf(dwelling.housingDeclaredGrade) ?? grade
   const pointFlags = { hasHeating: inputs.hasHeating, hasCooling: inputs.hasCooling, hasDryer: inputs.hasDryer, hasIrve }
   const points = totalPoints(rooms, pointFlags)
   // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
   // puntos instala de verdad en cada circuito, y ese número decide los circuitos.
   const effectivePoints = applyPointOverrides(points, inputs.pointsOverride)
+  // El aviso de la ITC-BT-25 §2.3.2 se arma una sola vez por render: la superficie, las
+  // previsiones y los puntos que obligan a más de un circuito C1–C5 son la misma regla.
+  const gradeWarning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals })
+  const pointOverflow = gradeWarning?.reasons.filter(reason => reason.id.startsWith('points:')) ?? []
+  // El toast del exceso de puntos sale cuando el exceso aparece (S8), no en cada tecla ni
+  // al montar: la ref guarda el estado del render anterior, así tipear «31» pasa por «3»
+  // sin apilar avisos y abrir una vivienda que ya lo declara no avisa.
+  const pointOverflowSeen = useRef(false)
+  useEffect(() => {
+    const overflowing = pointOverflow.length > 0
+    if (overflowing && !pointOverflowSeen.current && gradeWarning != null) {
+      const conditions = pointOverflow.map(reason => `${reason.condition}.`).join(' ')
+      toast.warning(gradeWarning.title, { description: `${conditions} El grado declarado es básico.`, duration: 9000 })
+    }
+    pointOverflowSeen.current = overflowing
+  }, [pointOverflow.length])
+  // Marcar una previsión no cambia el grado declarado ni bloquea el dato, pero si la
+  // vivienda es básica se avisa de que la instrucción exige elevada.
+  const setPrevision = (key: 'hasHeating' | 'hasCooling' | 'hasDryer', checked: boolean) => {
+    setInput({ [key]: checked })
+    if (!checked) return
+    const warning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals, [key]: true })
+    if (warning) toast.warning(warning.title, { description: warning.description, duration: 9000 })
+  }
   // Los totales se indexan por id de circuito: el id de la fila es texto.
   const pointsFor = (id: string) => effectivePoints.totals[id as keyof typeof effectivePoints.totals] ?? 0
   const minimumFor = (id: string) => points.totals[id as keyof typeof points.totals] ?? 0
@@ -354,9 +398,9 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
           </div>
           <p className="mt-1 text-[11px] leading-4 text-ink-faint">La tabla 2 fija los puntos mínimos por estancia según su superficie o longitud. C8, C9 y C10 se cuentan solo si la vivienda los prevé.</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <div className="flex items-center gap-2"><Checkbox id="interior-heating" checked={inputs.hasHeating ?? false} onCheckedChange={checked => setInput({ hasHeating: checked === true })} /><Label htmlFor="interior-heating" className="text-sm font-normal">Calefacción eléctrica</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-cooling" checked={inputs.hasCooling ?? false} onCheckedChange={checked => setInput({ hasCooling: checked === true })} /><Label htmlFor="interior-cooling" className="text-sm font-normal">Aire acondicionado</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-dryer" checked={inputs.hasDryer ?? false} onCheckedChange={checked => setInput({ hasDryer: checked === true })} /><Label htmlFor="interior-dryer" className="text-sm font-normal">Secadora</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-heating" checked={inputs.hasHeating ?? false} onCheckedChange={checked => setPrevision('hasHeating', checked === true)} /><Label htmlFor="interior-heating" className="text-sm font-normal">Calefacción eléctrica</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-cooling" checked={inputs.hasCooling ?? false} onCheckedChange={checked => setPrevision('hasCooling', checked === true)} /><Label htmlFor="interior-cooling" className="text-sm font-normal">Aire acondicionado</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-dryer" checked={inputs.hasDryer ?? false} onCheckedChange={checked => setPrevision('hasDryer', checked === true)} /><Label htmlFor="interior-dryer" className="text-sm font-normal">Secadora</Label></div>
           </div>
 
           {dwellingArea > 0 && (
@@ -367,6 +411,19 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
               <span>{remainingArea != null && remainingArea >= 0 ? `Disponible: ${fmt(remainingArea)} m²` : `Excedida en ${fmt(Math.abs(remainingArea ?? 0))} m²`}</span>
               {overArea && <span className="sr-only">. La suma de estancias supera la superficie de la vivienda</span>}
             </p>
+          )}
+
+          {/* El exceso de puntos de un circuito C1–C5 se queda a la vista cuando el toast
+              ya se fue: la instrucción exige elevada mientras el número siga ahí (S8). */}
+          {pointOverflow.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-1 text-xs">
+              {pointOverflow.map(reason => (
+                <li key={reason.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold text-danger">
+                  <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span>{reason.condition}</span>
+                </li>
+              ))}
+            </ul>
           )}
 
           {rooms.length === 0

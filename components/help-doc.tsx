@@ -211,7 +211,7 @@ export function HelpDoc() {
                 <DataTable
                   head={['Bloque', 'Qué incluye', 'Simultaneidad']}
                   rows={[
-                    ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación y la superficie por vivienda (informativa)', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
+                    ['P1 · Viviendas', 'Una fila por tipo de vivienda, con su grado de electrificación y la superficie por vivienda (decide el aviso de la ITC-BT-25 §2.3.2)', 'Coeficiente según el número de viviendas (ITC-BT-10 §2.2)'],
                     ['P2 · Servicios generales', 'Ascensores, motores, otras cargas y alumbrado de zonas comunes', 'Suma nominal más los criterios de proyecto configurados'],
                     ['P3 · Locales, oficinas e industrias', 'Superficie, previsión real declarada o mínimo por abonado', '1'],
                     ['P4 · Garajes', 'Superficie, tipo de ventilación y plazas (informativas)', '1'],
@@ -242,7 +242,7 @@ export function HelpDoc() {
                 </p>
                 <Bullets items={[
                   <><strong>Grado de electrificación y potencia.</strong> La tabla A prevé estos escalones: {housingPowerHelp()}</>,
-                  <><strong>Superficie (m²/viv.).</strong> Los metros cuadrados de una vivienda de ese tipo. Es un dato informativo: no entra en P1, y la tarjeta de superficie construida multiplica por el número de viviendas.</>,
+                  <><strong>Superficie (m²/viv.).</strong> Los metros cuadrados de una vivienda de ese tipo. No entra en la potencia de P1, y la tarjeta de superficie construida multiplica por el número de viviendas. Sí decide el grado: por encima de 160 m² la ITC-BT-25 §2.3.2 exige electrificación elevada, así que con grado básico aparece un aviso. El aviso no bloquea nada: la vivienda se sigue calculando con el grado que declares.</>,
                   <><strong>Viviendas (uds.).</strong> Cuántas viviendas son de ese tipo. El subtotal de la fila es potencia × unidades.</>,
                   <><strong>Coeficiente de simultaneidad.</strong> Se calcula solo, a partir del total de viviendas, y tiene su propia tabla en el botón de la derecha.</>,
                 ]} />
@@ -469,7 +469,7 @@ export function HelpDoc() {
                   ]}
                 />
                 <p>
-                  Los únicos datos que se cargan a mano son la potencia contratada, el número de circuitos instalados y si lleva protección contra sobretensiones. El número de circuitos arranca en el valor del grado (5 en básica, 10 en elevada) y se puede cambiar. Debajo, la tabla de circuitos de la ITC-BT-25 muestra el nombre, el PIA, la sección mínima, el tubo, el máximo de puntos y la potencia por toma de cada circuito del grado; C13 aparece si el proyecto prevé recarga de vehículos. Cada fila admite la longitud del circuito: con ella se calcula la caída al 3 % a la intensidad del PIA y, si la sección de tabla no alcanza, se adopta la superior; si no hay sección en la serie, la caída se marca en rojo con el máximo permitido. Más abajo se cargan las estancias de la vivienda (salón, cocina, baños, dormitorios, pasillos, terrazas, garaje) con su superficie y longitud: la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y de tomas por circuito, y los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El IGA y la potencia máxima salen del escalón de la vivienda; el ICP se muestra como la intensidad que implica la potencia contratada, no como un calibre inventado.
+                  Los únicos datos que se cargan a mano son la potencia contratada, el número de circuitos instalados y si lleva protección contra sobretensiones. El número de circuitos arranca en el valor del grado (5 en básica, 10 en elevada) y se puede cambiar. Debajo, la tabla de circuitos de la ITC-BT-25 muestra el nombre, el PIA, la sección mínima, el tubo, el máximo de puntos y la potencia por toma de cada circuito del grado; C13 aparece si el proyecto prevé recarga de vehículos. Cada fila admite la longitud del circuito: con ella se calcula la caída al 3 % a la intensidad del PIA y, si la sección de tabla no alcanza, se adopta la superior; si no hay sección en la serie, la caída se marca en rojo con el máximo permitido. Más abajo se cargan las estancias de la vivienda (salón, cocina, baños, dormitorios, pasillos, terrazas, garaje) con su superficie y longitud: la tabla 2 de la ITC-BT-25 calcula los puntos mínimos de luz y de tomas por circuito, y los circuitos que exige cada acumulado. La superficie de la vivienda sale de la previsión de cargas (m² por vivienda) y la card avisa si la suma de estancias la supera. El IGA y la potencia máxima salen del escalón de la vivienda; el ICP se muestra como la intensidad que implica la potencia contratada, no como un calibre inventado. Marcar calefacción eléctrica, aire acondicionado o secadora en una vivienda de grado básico no cambia el grado declarado, pero emite el aviso de la ITC-BT-25 §2.3.2, que exige electrificación elevada cuando se prevén.
                 </p>
               </Section>
 
