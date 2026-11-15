@@ -59,6 +59,20 @@ type ProjectInfo = {
   phone: string
   email: string
   logo: string
+  // Hoja 2 del ELEC-3: los datos administrativos que la hoja imprime. La capa de
+  // almacenamiento los devuelve siempre como texto, aunque las dos cifras
+  // (`groundResistanceOhm`, `localAreaM2`) se impriman como números.
+  titularName?: string
+  uso?: string
+  addressNumber?: string
+  addressFloor?: string
+  addressDoor?: string
+  addressCity?: string
+  addressPostalCode?: string
+  installType?: string
+  distributorName?: string
+  groundResistanceOhm?: string
+  localAreaM2?: string
 }
 
 type HousingRow = { level: 'Básica' | 'Elevada'; power: number; homes: number; area: number }

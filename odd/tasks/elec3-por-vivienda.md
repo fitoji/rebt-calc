@@ -40,6 +40,17 @@ datos administrativos + tres filas de interruptor diferencial.
 S9. Celdas que la app no puede rellenar se marcan pendientes, nunca se estiman (regla ya vigente en
 el proyecto, `PENDING_CELLS`).
 
+## Cortes de entrega
+
+- **Corte 1 — capa de modelo** (commits `f82c25f`, `84f3c28`, `dd1f962`): documento de la feature, modelo
+  unificado en `lib/elec3.mjs` y `buildDwellingDocument` con su test. Es revisable solo: no toca UI ni
+  estado y la suite de ELEC-3 queda verde por sí misma. 644 líneas autoradas acumuladas, por encima de
+  la unidad de revisión de ~400, así que el corte se cierra acá.
+- **Corte 2 — hoja 2 y estado** (T3): bloque administrativo del modelo + campos nuevos de `ProjectInfo`,
+  sin UI. Cierra con su propio commit.
+- **Corte 3 — UI** (T4, T5): botón junto al selector de vivienda, borrado del provisorio, render de la
+  hoja 2 y actualización de los tests que pinnean el cableado.
+
 ## Tasks
 
 - T1 — Unificar el modelo ELEC-3 en `lib/elec3.mjs` (castellano, único) y dejar
