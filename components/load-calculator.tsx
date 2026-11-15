@@ -17,7 +17,7 @@ import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PL
 import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } from '../lib/project-documentation.mjs'
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
 import { DocumentationPanel, DocumentationToggles } from '@/components/documentation-panel'
-import { InteriorPanel, type InteriorDwelling } from '@/components/interior-panel'
+import { InteriorPanel, EMPTY_INTERIOR_ADMINISTRATIVE, type InteriorAdministrative, type InteriorDwelling } from '@/components/interior-panel'
 import { AdministrativePanel, InstallerFields, ProjectDataFields } from '@/components/administrative-panel'
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
@@ -119,7 +119,7 @@ type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
 type LightingRow = { id: LightingId; area: number; lamp: 'Incandescencia' | 'Fluorescencia/LED'; power: number }
 type DerivationKind = 'dwelling' | 'local' | 'common-services' | 'garage' | 'irve' | 'custom'
-type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase'; housingAreaM2?: number; interior?: { contractedPowerW: number; circuits: number; hasSurge: boolean }; interiorCircuits?: Array<{ id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }> }
+type Derivation = LineState & { id: string; kind: DerivationKind; label: string; sourceKey: string | null; system: 'single-phase' | 'three-phase'; housingAreaM2?: number; administrative?: InteriorAdministrative; interior?: { contractedPowerW: number; circuits: number; hasSurge: boolean }; interiorCircuits?: Array<{ id: string; description: string; use: 'alumbrado' | 'otros'; powerW: number; lengthM: number }> }
 const DERIVATION_LABELS: Record<DerivationKind, string> = { dwelling: 'Vivienda', local: 'Local', 'common-services': 'Servicios generales', garage: 'Garaje', irve: 'IRVE', custom: 'Manual' }
 type PdfExplanationStep = {
   id: string
@@ -474,6 +474,7 @@ export function LoadCalculator() {
       powerW: derivation.powerW,
       housingIgaA: derivation.housingIgaA,
       housingAreaM2: derivation.housingAreaM2,
+      administrative: derivation.administrative,
       interior: derivation.interior,
     })),
     [dwellingDerivations],
@@ -482,6 +483,16 @@ export function LoadCalculator() {
     setLineTouched(true)
     setDerivations(current => current.map(derivation => derivation.id === id
       ? { ...derivation, interior: { ...resolveInterior(derivation.powerW, derivation.interior), ...patch } }
+      : derivation))
+  }
+
+  // Los datos administrativos son de cada instalación y viajan en su derivación,
+  // que ya se guarda en el snapshot v6: la card sólo devuelve el texto escrito y
+  // `lib/administrative.mjs` resuelve la herencia al imprimir la hoja 2.
+  const updateDerivationAdministrative = (id: string, patch: Partial<InteriorAdministrative>) => {
+    setLineTouched(true)
+    setDerivations(current => current.map(derivation => derivation.id === id
+      ? { ...derivation, administrative: { ...EMPTY_INTERIOR_ADMINISTRATIVE, ...derivation.administrative, ...patch } }
       : derivation))
   }
 
@@ -1501,7 +1512,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onAdministrativeChange={updateDerivationAdministrative} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
