@@ -121,3 +121,43 @@ el proyecto, `PENDING_CELLS`).
   y 14/14 junto con los preexistentes de `tests/elec3.test.mjs`.
   Decisión no fijada por la spec y asumida: la etiqueta de la vivienda no se escribe en la fila de la
   DI — esa fila dice literalmente «Derivación individual», como el impreso.
+- L7 (2026-11-15) — T4 hecho (`e9163fa`). El ELEC-3 se genera desde el estado vivo de la vivienda
+  seleccionada y su botón vive en la card «Instalaciones interiores», junto al selector, con nombre
+  accesible «Ver ELEC-3 de <vivienda>». Se borró el provisorio bajo «Cargar proyecto» y todo el camino
+  de lectura de archivo (`FileReader`, `readCalculatorExport`, `type="file"`). Adaptador puro en
+  `lib/elec3-dwelling.mjs`.
+  Corrección sobre el reporte del worker, aplicada por el padre: la celda «Potencia» de un circuito
+  llevaba la potencia **por toma** de la tabla 1. Para un documento que se firma eso subdeclara la
+  carga, así que ahora lleva la potencia instalada del circuito — los puntos que el proyecto declara
+  por la potencia de cada toma — y sin puntos declarados la celda queda pendiente en vez de suponerse.
+  El factor de simultaneidad no se aplica: el modelo lo lleva en su propia columna, que sigue pendiente.
+  Verificado: 550 en verde antes de la corrección, 11/11 del adaptador después, suite completa y
+  `tsc` en 0.
+- L8 (2026-11-15) — T5 hecho. La hoja 2 se pinta dentro del mismo diálogo, debajo de la tabla de la
+  hoja 1, en seis grupos en el orden del impreso (Titular y uso · Emplazamiento · Instalación ·
+  Características · Interruptor diferencial · Firma y sello). Un único componente `Pending` pinta toda
+  celda desconocida — guion, `title` explicativo y `sr-only` «Pendiente» — y lo comparten las dos hojas,
+  así que no existe una segunda forma de representar lo que la app no sabe. El diferencial siempre
+  pinta las tres filas del impreso; las que no se declaran salen pendientes.
+  Decisiones asumidas en este paso: se agregaron las variantes `print:break-before-page` y
+  `print:break-inside-avoid` (no había ninguna convención `print:` previa en el repo y no se verificó
+  con una impresión real), y el pie de la hoja 1 dejó de decir que la vista «no imprime», que
+  contradecía el requisito de imprimir las dos hojas.
+  Verificado: 559 tests en verde y `tsc` en 0.
+
+## Celdas que quedan pendientes (y por qué)
+
+Hoja 1, todas las filas: `simultaneitat` (la app no aplica Fs/Fu por línea), `caigudaTotal` (solo se
+calcula la caída parcial) y `aillament` (la resistencia de aislamiento no se calcula en ningún lado).
+
+Hoja 1, circuitos: `cosPhi` (un circuito no lo declara y no se asume 1); `conductor` y `tensio` (el
+motor de vivienda no expone el tipo de cable); `neutre` y `proteccio` (el motor de vivienda solo da la
+sección de fase); `potencia` y `moment` cuando el proyecto no declara puntos del circuito, y siempre
+en C12; `seccio` e `intensitat` de C12, que no tiene características de la tabla 1; `caigudaParcial`
+cuando no hay longitud declarada.
+
+Hoja 2: todo el emplazamiento, titular, uso, tipo de instalación y distribuidora mientras no se
+declaren (no hay UI para ellos todavía); `resistenciaTierraOhm` y `superficieLocalM2` cuando el valor
+declarado está vacío o no es un número; de cada diferencial, `circuito`, `nombre` e `inA` — el motor
+resuelve cuántos diferenciales exige la vivienda y con qué sensibilidad, el calibre lo elige el
+instalador. Firma y sello se completan a mano por definición.

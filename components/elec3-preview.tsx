@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,38 @@ import { ELEC3_COLUMNS, PENDING_CELLS } from '@/lib/elec3.mjs'
 
 type Elec3Row = Record<string, string | number | null | undefined>
 
+/** Una fila de interruptor diferencial de la hoja 2. */
+type AdministrativeDifferential = {
+  circuito: string | null
+  nombre: string | null
+  inA: number | null
+  sensibilidadMa: number | null
+}
+
+/** La hoja 2 del modelo: los datos administrativos que la app declara, o pendientes. */
+type AdministrativeBlock = {
+  titular: string | null
+  uso: string | null
+  emplazamiento: {
+    calle: string | null
+    numero: string | null
+    piso: string | null
+    puerta: string | null
+    localidad: string | null
+    codigoPostal: string | null
+  }
+  instalacion: string | null
+  distribuidora: string | null
+  resistenciaTierraOhm: number | null
+  superficieLocalM2: number | null
+  seccionDi: number | null
+  potenciaMaximaAdmisibleKw: number | null
+  tensionV: number | null
+  potenciaInstalarKw: number | null
+  igaA: number | null
+  diferenciales: AdministrativeDifferential[]
+}
+
 type Elec3Document = {
   obra: string
   data: string
@@ -24,22 +57,36 @@ type Elec3Document = {
   lga: Record<string, number | null> | null
   files: Elec3Row[]
   circuitsBeyondModel?: number
+  administrative?: AdministrativeBlock | null
 }
+
+/** Filas de interruptor diferencial del impreso; la app solo declara la sensibilidad. */
+const MODEL_DIFFERENTIAL_ROWS = 3
 
 const number = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 })
 
-function Cell({ row, column }: { row: Elec3Row; column: (typeof ELEC3_COLUMNS)[number] }) {
-  const value = row[column.key]
+/** Una celda sin valor declarado: ni número ni texto. Nunca se escribe como 0 ni se estima. */
+function isEmpty(value: string | number | null | undefined) {
+  return value === null || value === undefined || (typeof value === 'string' && value.trim() === '')
+}
 
-  if (value === null || value === undefined || value === '') {
-    return (
-      <span className="text-ink-faint" title="Pendiente: la calculadora todavía no lo calcula">
-        —<span className="sr-only">Pendiente</span>
-      </span>
-    )
-  }
+/** El pendiente de la hoja 1 y de la hoja 2: un único tratamiento. */
+function Pending() {
+  return (
+    <span className="text-ink-faint" title="Pendiente: la calculadora todavía no lo calcula">
+      —<span className="sr-only">Pendiente</span>
+    </span>
+  )
+}
 
+/** El valor de una celda, o su pendiente: el número con el formato del proyecto. */
+function Value({ value }: { value: string | number | null | undefined }) {
+  if (isEmpty(value)) return <Pending />
   return <>{typeof value === 'number' ? number.format(value) : value}</>
+}
+
+function Cell({ row, column }: { row: Elec3Row; column: (typeof ELEC3_COLUMNS)[number] }) {
+  return <Value value={row[column.key]} />
 }
 
 export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel }: {
@@ -163,11 +210,156 @@ export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel
               </p>
             )}
             <p className="mt-3 border-t border-line pt-3 text-[11px] leading-4 text-ink-faint">
-              Modelo ELEC-3 (G146NSIN-157-00) · las celdas con guion quedan pendientes y la memoria no las estima. Vista de pantalla: no exporta Excel ni CSV ni imprime; eso vive en <code>data/memoria_tecnica</code>.
+              Modelo ELEC-3 (G146NSIN-157-00) · las celdas con guion quedan pendientes y la memoria no las estima. Vista de pantalla: no descarga Excel ni CSV; la descarga vive en <code>data/memoria_tecnica</code>.
             </p>
           </>
         )}
+
+        <Sheet2 administrative={document?.administrative} />
       </DialogContent>
     </Dialog>
+  )
+}
+
+/* Hoja 2 del modelo: datos administrativos e interruptor diferencial. */
+
+/**
+ * Un dato de la hoja 2: su etiqueta —con la unidad del impreso— y su valor, o su
+ * pendiente cuando nadie lo declaró. La unidad viaja con la etiqueta para que se lea
+ * también cuando la celda está vacía.
+ */
+function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{label}</dt>
+      <dd className="mt-0.5 break-words text-sm tabular-nums text-ink">
+        <Value value={value} />
+      </dd>
+    </div>
+  )
+}
+
+/** Un grupo de la hoja 2, en el orden del impreso. */
+function Sheet2Group({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-card border border-line bg-surface-muted/40 p-3 print:break-inside-avoid">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/** Columnas de la fila de diferencial, en el orden del impreso. */
+const DIFFERENTIAL_COLUMNS = [
+  { key: 'circuito', label: 'Circuito', numeric: false },
+  { key: 'nombre', label: 'Nombre', numeric: false },
+  { key: 'inA', label: 'In (A)', numeric: true },
+  { key: 'sensibilidadMa', label: 'Sensibilidad (mA)', numeric: true },
+] as const
+
+/**
+ * Hoja 2 del modelo: los datos administrativos y las tres filas de interruptor
+ * diferencial. La app declara lo que sabe y deja pendiente lo que solo completa el
+ * instalador; sin bloque administrativo la hoja se pinta igual, toda pendiente.
+ */
+function Sheet2({ administrative }: { administrative?: AdministrativeBlock | null }) {
+  const emplazamiento = administrative?.emplazamiento
+  // El impreso tiene tres filas de diferencial: las que la app no declara se pintan
+  // pendientes en vez de desaparecer.
+  const diferenciales = Array.from({ length: MODEL_DIFFERENTIAL_ROWS }, (_, index) => administrative?.diferenciales?.[index] ?? null)
+
+  return (
+    <section className="mt-4 print:break-before-page">
+      <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-sm font-bold text-ink">Hoja 2 · Datos administrativos</h2>
+        <p className="text-[11px] text-ink-faint">Los datos que declara el proyecto; ninguna celda se estima.</p>
+      </div>
+
+      <div className="grid gap-3">
+        <Sheet2Group title="Titular y uso">
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            <Field label="Titular" value={administrative?.titular} />
+            <Field label="Uso" value={administrative?.uso} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title="Emplazamiento">
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Calle" value={emplazamiento?.calle} />
+            <Field label="Número" value={emplazamiento?.numero} />
+            <Field label="Piso" value={emplazamiento?.piso} />
+            <Field label="Puerta" value={emplazamiento?.puerta} />
+            <Field label="Localidad" value={emplazamiento?.localidad} />
+            <Field label="Código postal" value={emplazamiento?.codigoPostal} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title="Instalación">
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Tipo" value={administrative?.instalacion} />
+            <Field label="Empresa distribuidora" value={administrative?.distribuidora} />
+            <Field label="Resistencia de tierra (Ω)" value={administrative?.resistenciaTierraOhm} />
+            <Field label="Superficie del local (m²)" value={administrative?.superficieLocalM2} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title="Características">
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Sección de la derivación individual (mm²)" value={administrative?.seccionDi} />
+            <Field label="Potencia máxima admisible (kW)" value={administrative?.potenciaMaximaAdmisibleKw} />
+            <Field label="Tensión (V)" value={administrative?.tensionV} />
+            <Field label="Potencia a instalar (kW)" value={administrative?.potenciaInstalarKw} />
+            <Field label="IGA (A)" value={administrative?.igaA} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title="Interruptor diferencial">
+          <div className="mt-2 overflow-x-auto rounded-control border border-line">
+            <table className="w-full min-w-max border-collapse text-xs leading-tight">
+              <caption className="sr-only">
+                Interruptores diferenciales de la hoja 2: el circuito, el nombre y el calibre los completa el instalador; la app solo declara la sensibilidad.
+              </caption>
+              <thead>
+                <tr className="bg-surface-muted text-left align-bottom">
+                  {DIFFERENTIAL_COLUMNS.map(column => (
+                    <th
+                      key={column.key}
+                      scope="col"
+                      className={`whitespace-nowrap px-3 py-2 font-semibold text-ink-soft ${column.numeric ? 'text-right' : ''}`}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {diferenciales.map((differential, index) => (
+                  <tr key={`diferencial-${index + 1}`}>
+                    {DIFFERENTIAL_COLUMNS.map(column => (
+                      <td
+                        key={column.key}
+                        className={`px-3 py-2 text-ink-subtle ${column.numeric ? 'whitespace-nowrap text-right tabular-nums' : ''}`}
+                      >
+                        <Value value={differential?.[column.key] ?? null} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Sheet2Group>
+
+        <Sheet2Group title="Firma y sello">
+          <p className="mt-2 max-w-[70ch] text-sm leading-6 text-ink-subtle">
+            La firma del titular y el sello del instalador se completan a mano sobre el impreso: la aplicación no los genera ni los sustituye.
+          </p>
+        </Sheet2Group>
+      </div>
+
+      <p className="mt-2 text-[11px] leading-4 text-ink-faint">
+        Solo el instalador puede completar en la hoja 2: el circuito, el nombre y el calibre (In) de cada diferencial, y la firma con el sello.
+      </p>
+    </section>
   )
 }

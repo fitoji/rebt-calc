@@ -121,4 +121,10 @@ test('el botón vive en la card «Instalaciones interiores», junto al selector 
   assert.doesNotMatch(preview, /readCalculatorExport|FileReader|handleFile|type="file"/, 'the dialog no longer reads a JSON file')
   assert.match(preview, /document: Elec3Document \| null/, 'it renders the document it is given')
   assert.match(preview, /no tiene líneas que documentar/, 'an empty document says so instead of asking for a file')
+
+  assert.match(preview, /<Sheet2 administrative=\{document\?\.administrative\} \/>/, 'la hoja 2 administrativa viaja con el documento')
+  assert.ok(
+    preview.indexOf('<Sheet2 administrative=') > preview.indexOf('<table'),
+    'la hoja 2 se pinta debajo de la tabla de la hoja 1, en el mismo diálogo',
+  )
 })
