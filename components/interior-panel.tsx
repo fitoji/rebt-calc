@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
@@ -17,6 +18,7 @@ import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/in
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
+import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
 
 /**
@@ -44,6 +46,8 @@ export type InteriorDwelling = {
   powerW: number
   housingIgaA?: number
   housingAreaM2?: number
+  /** Grado que la previsión de cargas declara para esta vivienda (ITC-BT-25 §2.3.2). */
+  housingDeclaredGrade?: 'Básica' | 'Elevada'
   /** Lo que esta instalación declara para la hoja 2; lo que falte se hereda del proyecto. */
   administrative?: Partial<InteriorAdministrative>
   interior?: {
@@ -172,6 +176,18 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
   const dwellingArea = dwelling.housingAreaM2 ?? 0
   const overArea = dwellingArea > 0 && roomsArea > dwellingArea + 0.001
   const remainingArea = dwellingArea > 0 ? dwellingArea - roomsArea : null
+  // El grado que la previsión declara, no el que implica el escalón de potencia: los
+  // circuitos siguen al escalón, pero el aviso de la ITC-BT-25 §2.3.2 responde a lo que
+  // la vivienda declara ser. Sin declaración se cae al grado del escalón.
+  const declaredGrade = declaredGradeOf(dwelling.housingDeclaredGrade) ?? grade
+  // Marcar una previsión no cambia el grado declarado ni bloquea el dato, pero si la
+  // vivienda es básica se avisa de que la instrucción exige elevada.
+  const setPrevision = (key: 'hasHeating' | 'hasCooling' | 'hasDryer', checked: boolean) => {
+    setInput({ [key]: checked })
+    if (!checked) return
+    const warning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, [key]: true })
+    if (warning) toast.warning(warning.title, { description: warning.description, duration: 9000 })
+  }
   const pointFlags = { hasHeating: inputs.hasHeating, hasCooling: inputs.hasCooling, hasDryer: inputs.hasDryer, hasIrve }
   const points = totalPoints(rooms, pointFlags)
   // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
@@ -354,9 +370,9 @@ export function InteriorPanel({ dwellings, selectedId, onSelect, onChange, onAdm
           </div>
           <p className="mt-1 text-[11px] leading-4 text-ink-faint">La tabla 2 fija los puntos mínimos por estancia según su superficie o longitud. C8, C9 y C10 se cuentan solo si la vivienda los prevé.</p>
           <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <div className="flex items-center gap-2"><Checkbox id="interior-heating" checked={inputs.hasHeating ?? false} onCheckedChange={checked => setInput({ hasHeating: checked === true })} /><Label htmlFor="interior-heating" className="text-sm font-normal">Calefacción eléctrica</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-cooling" checked={inputs.hasCooling ?? false} onCheckedChange={checked => setInput({ hasCooling: checked === true })} /><Label htmlFor="interior-cooling" className="text-sm font-normal">Aire acondicionado</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-dryer" checked={inputs.hasDryer ?? false} onCheckedChange={checked => setInput({ hasDryer: checked === true })} /><Label htmlFor="interior-dryer" className="text-sm font-normal">Secadora</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-heating" checked={inputs.hasHeating ?? false} onCheckedChange={checked => setPrevision('hasHeating', checked === true)} /><Label htmlFor="interior-heating" className="text-sm font-normal">Calefacción eléctrica</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-cooling" checked={inputs.hasCooling ?? false} onCheckedChange={checked => setPrevision('hasCooling', checked === true)} /><Label htmlFor="interior-cooling" className="text-sm font-normal">Aire acondicionado</Label></div>
+            <div className="flex items-center gap-2"><Checkbox id="interior-dryer" checked={inputs.hasDryer ?? false} onCheckedChange={checked => setPrevision('hasDryer', checked === true)} /><Label htmlFor="interior-dryer" className="text-sm font-normal">Secadora</Label></div>
           </div>
 
           {dwellingArea > 0 && (
