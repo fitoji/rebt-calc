@@ -54,6 +54,16 @@ S9. **Firma y sello no se generan nunca**: se completan a mano, como ya está re
 | Instalación (vivienda) | número, piso, puerta, superficie del local, resistencia de tierra, titular si difiere, tipo de instalación si difiere, uso si no sale del tipo | snapshot v6, en la derivación |
 | Derivado | IGA, potencia a instalar, potencia máxima admisible, tensión, sección de la DI, circuitos, diferenciales | motor |
 
+## Cortes de entrega
+
+- **Corte 1 — estado** (commits `a4d132b`, `0fe1116`): documento de la feature, re-scope de los cinco
+  campos a la derivación, snapshot v6 y helper de herencia. Revisable solo: no toca UI ni el adaptador.
+  650 líneas autoradas, por encima de la unidad de revisión de ~400, así que el corte cierra acá.
+- **Corte 2 — adaptador** (T2): la hoja 2 lee la herencia resuelta, el uso se deriva del tipo y el
+  separador decimal deja de caer a pendiente.
+- **Corte 3 — UI** (T3, T4, T5): tab «Administrativos», campos por instalación en la card de Cuadros,
+  pines de tabs y documentación.
+
 ## Tasks
 
 - T1 — Re-scopear el estado: sacar de `ProjectInfo` los cinco campos que son de la instalación
@@ -80,3 +90,10 @@ S9. **Firma y sello no se generan nunca**: se completan a mano, como ya está re
   a nivel proyecto, pero cinco son de la instalación. Si no se re-scopean, cada vivienda hereda el piso
   y la superficie de la primera: el documento sale con datos válidos y falsos, que es el peor tipo de
   error. T1 es exactamente esa corrección.
+- L5 (2026-11-15) — T1 hecho (`0fe1116`). Los cinco campos salieron de `ProjectInfo` y viven en
+  `derivation.administrative` (texto declarado, vacío = no declarado, claves desconocidas rechazadas).
+  Snapshot a la versión 6, descartando lo viejo. `lib/administrative.mjs` resuelve la herencia y deja
+  `null` lo que no declara ninguno de los dos niveles; número, piso y puerta nunca se heredan.
+  El worker paró pidiendo permiso para tocar un fixture fuera de su superficie; el padre exportó la
+  versión del snapshot y reescribió ese fixture para que lo que afirma coincida con su nombre.
+  Verificado: 573/573 tests y `tsc` en 0.

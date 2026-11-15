@@ -139,7 +139,8 @@ test('S5: a blank string counts as not declared and never leaks through', () => 
 
   assert.deepEqual(resolved, {
     titular: null,
-    uso: null,
+    // El `uso` no se declaró, pero el tipo de la derivación sí lo dice (S6).
+    uso: 'Vivienda',
     emplazamiento: { calle: null, numero: null, piso: null, puerta: null, localidad: null, codigoPostal: null },
     instalacion: null,
     distribuidora: null,
@@ -160,13 +161,57 @@ test('S5: the declared numbers are parsed from text, and an unparsable one is pe
   assert.equal(resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: ' 12.5 ' })).resistenciaTierraOhm, 12.5)
   assert.equal(resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: '0' })).resistenciaTierraOhm, 0, 'a declared zero is a declared value')
 
-  for (const text of ['sin dato', '12,5', 'Infinity', '']) {
+  for (const text of ['sin dato', 'Infinity', '']) {
     assert.equal(
       resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: text })).resistenciaTierraOhm,
       null,
       `"${text}" is not a plain finite number and stays pending`,
     )
   }
+})
+
+test('S5: una sola coma decimal vale lo mismo que un punto', () => {
+  const parsed = text => resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: text })).resistenciaTierraOhm
+  const surface = text => resolveAdministrative(projectInfo, derivation({ superficieLocalM2: text })).superficieLocalM2
+
+  assert.equal(parsed('12,5'), 12.5, 'la coma decimal de un usuario español')
+  assert.equal(parsed('12.5'), 12.5, 'el punto sigue valiendo')
+  assert.equal(parsed(' 12,5 '), 12.5, 'y el texto se recorta antes de convertir')
+  assert.equal(parsed('0,5'), 0.5)
+  assert.equal(parsed('-3,25'), -3.25, 'el signo también se declara')
+  assert.equal(surface('84,6'), 84.6, 'vale para las dos cifras de la hoja')
+  assert.equal(resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: 12.5 })).resistenciaTierraOhm, 12.5, 'un número ya convertido sigue entrando')
+})
+
+test('S5: dos separadores en la misma cifra son ambiguos y quedan pendientes', () => {
+  const parsed = text => resolveAdministrative(projectInfo, derivation({ resistenciaTierraOhm: text })).resistenciaTierraOhm
+
+  for (const text of ['12,5.5', '1.234,5', '12,5,5', '1.234.567,8', '12,,5']) {
+    assert.equal(parsed(text), null, `"${text}" se podría leer de dos maneras y no se adivina`)
+  }
+
+  assert.equal(parsed(''), null, 'una cifra vacía queda pendiente')
+  assert.equal(parsed('   '), null)
+})
+
+test('S6: el uso sale del tipo de derivación cuando el proyecto no lo declara', () => {
+  const useOf = (kind, projectValue) => resolveAdministrative(
+    { ...projectInfo, uso: projectValue },
+    { ...derivation(), kind },
+  ).uso
+
+  assert.equal(useOf('dwelling', ''), 'Vivienda')
+  assert.equal(useOf('local', ''), 'Comercial')
+  assert.equal(useOf('garage', ''), 'Garaje')
+  assert.equal(useOf('common-services', ''), 'Servicios generales')
+  assert.equal(useOf('irve', ''), 'Recarga de vehículo eléctrico')
+
+  for (const kind of ['custom', 'otro', undefined, null, 42]) {
+    assert.equal(useOf(kind, ''), null, `el tipo ${String(kind)} no se adivina: la celda queda pendiente`)
+  }
+
+  assert.equal(useOf('garage', 'Vivienda habitual'), 'Vivienda habitual', 'el uso declarado gana sobre el tipo')
+  assert.equal(useOf('garage', '   '), 'Garaje', 'un uso en blanco no gana: se deriva del tipo')
 })
 
 test('S5: the installation data block maps the company block defensively', () => {
