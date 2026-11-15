@@ -102,13 +102,29 @@ test('a file that is not an export is rejected with its own reason', () => {
   assert.match(readCalculatorExport('{"lines":{"di":{}}}').error, /no trae ninguna línea dimensionada/)
 })
 
-test('the button lives under «Cargar proyecto» and opens the provisional view', () => {
+test('el botón vive en la card «Instalaciones interiores», junto al selector de vivienda', () => {
   const calc = readFileSync(path.join(root, 'components/load-calculator.tsx'), 'utf8')
+  const panel = readFileSync(path.join(root, 'components/interior-panel.tsx'), 'utf8')
   const preview = readFileSync(path.join(root, 'components/elec3-preview.tsx'), 'utf8')
 
-  assert.ok(calc.includes('Ver ELEC-3'), 'the button is labelled')
-  assert.ok(calc.indexOf('Cargar proyecto') < calc.indexOf('Ver ELEC-3'), 'it sits below «Cargar proyecto»')
-  assert.match(calc, /<Elec3PreviewDialog open=\{showElec3\}/, 'the dialog is wired to its own state')
-  assert.match(preview, /readCalculatorExport/, 'the view reads the export, it does not recalculate')
-  assert.match(preview, /Provisional/, 'the provisional status is visible in the dialog')
+  assert.ok(panel.includes('Ver ELEC-3'), 'the button is labelled in the dwelling card')
+  assert.ok(panel.indexOf('id="interior-dwelling"') < panel.indexOf('Ver ELEC-3'), 'it sits with the dwelling selector, after it')
+  assert.match(panel, /aria-label={`Ver ELEC-3 de \$\{dwelling\.label\}`}/, 'its accessible name says which dwelling it opens')
+  assert.match(panel, /onViewElec3\?: \(dwellingId: string\) => void/, 'the panel takes the callback and does not import the model')
+  assert.doesNotMatch(panel, /elec3\.mjs|buildDwellingDocument/, 'the panel never builds the document')
+
+  assert.doesNotMatch(calc, /Ver ELEC-3/, 'the provisional rail button is gone')
+  assert.match(calc, /onViewElec3=\{setElec3DwellingId\}/, 'the calculator hands the selected dwelling to the document')
+  assert.match(calc, /<Elec3PreviewDialog open=\{elec3DwellingId != null\}/, 'the dialog follows the selected dwelling')
+  assert.match(calc, /dwellingDocumentInput\(\{/, 'the document comes from the live state adapter')
+
+  assert.doesNotMatch(preview, /readCalculatorExport|FileReader|handleFile|type="file"/, 'the dialog no longer reads a JSON file')
+  assert.match(preview, /document: Elec3Document \| null/, 'it renders the document it is given')
+  assert.match(preview, /no tiene líneas que documentar/, 'an empty document says so instead of asking for a file')
+
+  assert.match(preview, /<Sheet2 administrative=\{document\?\.administrative\} \/>/, 'la hoja 2 administrativa viaja con el documento')
+  assert.ok(
+    preview.indexOf('<Sheet2 administrative=') > preview.indexOf('<table'),
+    'la hoja 2 se pinta debajo de la tabla de la hoja 1, en el mismo diálogo',
+  )
 })

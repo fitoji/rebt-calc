@@ -414,6 +414,25 @@ test('falls back to the example when storage is unavailable', () => {
   assert.doesNotThrow(() => setClearedProjectMark(blocked, true))
 })
 
+/**
+ * Hoja 2 of the ELEC-3: the project data the sheet prints. Like the letterhead it
+ * lives in the project info block, outside the versioned snapshot, and every field
+ * is a string even when the sheet prints it as a number.
+ */
+const hojaTwoProjectInfo = {
+  titularName: 'Ana Pérez Ruiz',
+  uso: 'Vivienda habitual',
+  addressNumber: '12',
+  addressFloor: '3º',
+  addressDoor: 'B',
+  addressCity: 'Girona',
+  addressPostalCode: '17001',
+  installType: 'reforma',
+  distributorName: 'e-Distribución',
+  groundResistanceOhm: '12,5',
+  localAreaM2: '84,6',
+}
+
 const sampleProjectInfo = {
   companyName: 'Estudio',
   companyAddress: 'Calle 1',
@@ -421,6 +440,7 @@ const sampleProjectInfo = {
   phone: '600 000 000',
   email: 'obra@example.com',
   logo: 'data:image/png;base64,AAAA',
+  ...hojaTwoProjectInfo,
 }
 
 const sampleLine = {
@@ -536,7 +556,53 @@ test('project data from the file is sanitised field by field', () => {
     phone: '',
     email: 'obra@example.com',
     logo: '',
+    titularName: '',
+    uso: '',
+    addressNumber: '',
+    addressFloor: '',
+    addressDoor: '',
+    addressCity: '',
+    addressPostalCode: '',
+    installType: '',
+    distributorName: '',
+    groundResistanceOhm: '',
+    localAreaM2: '',
   })
+})
+
+test('project data with no hoja 2 fields returns them empty, never guessed', () => {
+  const empty = readProjectExport(JSON.stringify(exportedProject({ projectInfo: {} })))
+  const withoutBlock = readProjectExport(JSON.stringify(exportedProject({ projectInfo: undefined })))
+
+  assert.equal(empty.ok, true, 'a file without letterhead still loads its calculation data')
+  assert.equal(withoutBlock.ok, true)
+  for (const key of Object.keys(hojaTwoProjectInfo)) {
+    assert.equal(empty.project.projectInfo[key], '', `${key} is empty when the file does not carry it`)
+    assert.equal(withoutBlock.project.projectInfo[key], '', `${key} is empty when the file has no project data block`)
+  }
+  assert.deepEqual(withoutBlock.project.projectInfo, empty.project.projectInfo)
+})
+
+test('the hoja 2 fields round-trip as the strings that were stored', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject()))
+
+  assert.equal(parsed.ok, true)
+  for (const [key, value] of Object.entries(hojaTwoProjectInfo)) {
+    assert.equal(parsed.project.projectInfo[key], value, `${key} survives the round-trip`)
+  }
+  assert.equal(typeof parsed.project.projectInfo.groundResistanceOhm, 'string', 'the sheet number stays a string until the caller converts it')
+  assert.equal(typeof parsed.project.projectInfo.localAreaM2, 'string', 'the sheet number stays a string until the caller converts it')
+})
+
+test('an unknown property in the stored project data is never surfaced', () => {
+  const parsed = readProjectExport(JSON.stringify(exportedProject({
+    projectInfo: { ...sampleProjectInfo, intruso: 'x', titular: 'otro nombre' },
+  })))
+
+  assert.equal(parsed.ok, true)
+  assert.equal('intruso' in parsed.project.projectInfo, false, 'an extra key is not carried into the project')
+  assert.equal('titular' in parsed.project.projectInfo, false, 'only the registered keys are read')
+  assert.deepEqual(parsed.project.projectInfo, sampleProjectInfo)
 })
 
 test('a file without lines or derivations loads the load forecast only', () => {

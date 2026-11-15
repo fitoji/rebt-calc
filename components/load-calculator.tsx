@@ -47,6 +47,8 @@ import { lgaNeutralSection, protectiveSection } from '../lib/conductor-sections.
 import { LGA_INSULATION, defaultLineState } from '../lib/line-state.mjs'
 import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/components/source-note'
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
+import { buildDwellingDocument } from '../lib/elec3.mjs'
+import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { UnifilarPanel } from '@/components/unifilar-panel'
 import { RailResult, type RailDwellingSummary, type RailLineSummary, type RailSelectedDerivation } from '@/components/rail-result'
 import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
@@ -59,6 +61,20 @@ type ProjectInfo = {
   phone: string
   email: string
   logo: string
+  // Hoja 2 del ELEC-3: los datos administrativos que la hoja imprime. La capa de
+  // almacenamiento los devuelve siempre como texto, aunque las dos cifras
+  // (`groundResistanceOhm`, `localAreaM2`) se impriman como números.
+  titularName?: string
+  uso?: string
+  addressNumber?: string
+  addressFloor?: string
+  addressDoor?: string
+  addressCity?: string
+  addressPostalCode?: string
+  installType?: string
+  distributorName?: string
+  groundResistanceOhm?: string
+  localAreaM2?: string
 }
 
 type HousingRow = { level: 'Básica' | 'Elevada'; power: number; homes: number; area: number }
@@ -258,7 +274,7 @@ export function LoadCalculator() {
   }
   const [showReferences, setShowReferences] = useState(false)
   const [showDownload, setShowDownload] = useState(false)
-  const [showElec3, setShowElec3] = useState(false)
+  const [elec3DwellingId, setElec3DwellingId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
   const [showItaTable, setShowItaTable] = useState(false)
@@ -539,6 +555,23 @@ export function LoadCalculator() {
     [result.total, lga, lgaPowerMode, derivations, installationType],
   )
   const calculatedDerivations = project.derivations as Array<Derivation & { result: ReturnType<typeof computeLine> }>
+
+  // Un ELEC-3 por vivienda, armado con el estado vivo: la DI que ya calculó la
+  // pestaña DI y los circuitos de la ITC-BT-25 de esa vivienda. No hay archivo
+  // intermedio ni se relee nada de disco.
+  const elec3Dwelling = elec3DwellingId == null
+    ? null
+    : calculatedDerivations.find(derivation => derivation.id === elec3DwellingId) ?? null
+  const elec3Document = elec3Dwelling == null
+    ? null
+    : buildDwellingDocument(dwellingDocumentInput({
+        derivation: elec3Dwelling,
+        interior: resolveInterior(elec3Dwelling.powerW, elec3Dwelling.interior),
+        circuits: housingCircuitsFor(elec3Dwelling.powerW, { hasIrve: parking > 0 }),
+        projectInfo,
+        lga: project.lga,
+        hasIrve: parking > 0,
+      }))
 
   useEffect(() => {
     if (lgaPowerMode !== 'auto') return
@@ -1435,7 +1468,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
@@ -1519,7 +1552,6 @@ export function LoadCalculator() {
                 <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
               </DialogContent>
             </Dialog>
-            <Elec3PreviewDialog open={showElec3} onOpenChange={setShowElec3} />
             <Dialog open={showDownload} onOpenChange={setShowDownload}>
               <DialogContent id="download-dialog" showCloseButton={false} className="max-h-[85dvh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
                 <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
@@ -1532,7 +1564,6 @@ export function LoadCalculator() {
               </DialogContent>
             </Dialog>            <RailGroup title="Salida">
               <Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button>
-              <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowElec3(true)}><FileJson data-icon="inline-start" /> Ver ELEC-3</Button>
             </RailGroup>
             <RailGroup title="Referencias">
 <button type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-control border border-line bg-paper px-4 py-3 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowReferences(true)}>
@@ -1546,6 +1577,7 @@ export function LoadCalculator() {
           </aside>
           </div>        </Tabs>
         <LineTablesDialog open={showLineTables} onOpenChange={setShowLineTables} tables={lineTableFocus ?? undefined} />
+        <Elec3PreviewDialog open={elec3DwellingId != null} onOpenChange={open => { if (!open) setElec3DwellingId(null) }} document={elec3Document} dwellingLabel={elec3Dwelling?.label} />
       </div>
       <SiteFooter />
     </main>
