@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
-import { HOUSING_POWER_STEPS } from '../lib/normative-tables.mjs'
+import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
 
@@ -65,6 +65,9 @@ export type InteriorDwelling = {
 }
 
 const fmt = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value)
+const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(value)
+/** La serie sale del registro normativo: aquí solo se formatea para el texto. */
+const ICP_SERIES_TEXT = `${ICP_RATINGS.map(rating => fmtDec(rating)).join(' · ')} A`
 
 export type InteriorRoomRow = { id: string; type: string; area: number; length: number }
 
@@ -294,7 +297,11 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdmini
             <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true })} />
             <Label htmlFor="interior-surge" className="text-sm font-normal">Protección contra sobretensiones</Label>
           </div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">ICP · intensidad de la potencia contratada</span><span className="tabular-nums">{evaluation.icpCurrentA == null ? 'Sin potencia contratada' : `${evaluation.icpCurrentA.toFixed(1)} A`}</span></div>
+          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">ICP · calibre de la potencia contratada</span>{evaluation.icpCurrentA == null
+            ? <span>Sin potencia contratada</span>
+            : evaluation.icpRatingA == null
+              ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
+              : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
         </div>
 
         {/* Va justo debajo del cuadro del DGMP: es la identidad de la instalación
@@ -523,7 +530,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdmini
         {explanationMode === 'didactic' && <CalculationSteps steps={interiorExplanation.steps as ExplanationStep[]} />}
         {explanationMode === 'didactic' && <CalculationSteps steps={pointsExplanation.steps as ExplanationStep[]} />}
 
-        {showSourceNotes && <SourceNote label="ITC-BT-25 §2.1">ITC-BT-25 §2.1: el DGMP lleva un IGA omnipolar independiente del ICP y uno o varios diferenciales de 30 mA con intensidad asignada igual o superior a la del IGA, como mínimo uno por cada cinco circuitos; la protección contra sobretensiones se añade cuando la ITC-BT-23 lo exige. El ICP va en envolvente precintable y su calibre depende de la potencia contratada (ITC-BT-17). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+        {showSourceNotes && <SourceNote label="ITC-BT-25 §2.1">ITC-BT-25 §2.1: el DGMP lleva un IGA omnipolar independiente del ICP y uno o varios diferenciales de 30 mA con intensidad asignada igual o superior a la del IGA, como mínimo uno por cada cinco circuitos; la protección contra sobretensiones se añade cuando la ITC-BT-23 lo exige. El ICP va en envolvente precintable y su calibre depende de la potencia contratada (ITC-BT-17): es el menor de la serie normalizada de potencias de contratación por ICP ({ICP_SERIES_TEXT}), sin la serie antigua del ICP-M de la UNE 20-317. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
     </div>
   )
