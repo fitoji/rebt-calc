@@ -53,7 +53,7 @@ Se entrega por etapas. Slice 1 resuelve lo pedido sin refactorizar las superfici
 
 **P1 · `mín. tabla N` en las celdas de la tabla 1 de Cuadros.** Es una nota de celda que nombra la tabla; el patrón pediría dejarla en `mín. N`. No se tocó porque no es una etiqueta de opción y el alcance del slice 2 no la cubría.
 
-**P2 · Tabla 1 de la ITC-BT-25 como tabla consultable (A2).** Hoy vive inline en la card de Cuadros porque sus filas son los circuitos editables. Si se quiere el patrón también ahí, hay que decidir antes si la card conserva la tabla de trabajo y el botón abre una copia de consulta, o si la tabla de trabajo se separa de la de consulta.
+**P2 · El diálogo de la tabla 1 de Cuadros queda como está — CERRADO por decisión del usuario (L15).** Esta nota reemplaza una formulación equivocada: acá se había planteado como pendiente «decidir si la card conserva la tabla de trabajo y el botón abre una copia de consulta, o si se separan», y esa decisión **ya estaba tomada en el código**. La card tiene la tabla de trabajo (`components/interior-panel.tsx:310-322`, filas editables: longitud, PIA, sección adoptada, caída, puntos) y el botón «Tabla» (`:311`) abre el dialog `housing-circuits-dialog` (`:467-509`) con la tabla 1 publicada. Lo único que quedaba era migrar ese dialog al panel unificado, y el usuario decidió no hacerlo. Queda como **excepción documentada** a la convención.
 
 La automatización de la ITC-BT-25 §2.3.2 sigue anotada en `odd/tasks/aviso-electrificacion-elevada.md`, sección «Pendientes».
 
@@ -86,3 +86,9 @@ L12 — la skill se corrigió después del commit del slice 2: sus anclas apunta
 L13 — evidencia de cierre del slice 2: `node --test "tests/*.test.mjs"` 675/675 (666 + 9 nuevos), `npx tsc --noEmit` sin diagnósticos, y `grep` confirma 0 ocurrencias de los tres estados de diálogo retirados en `components/load-calculator.tsx`.
 
 L14 — sigue pendiente `mín. tabla N` en las celdas de la tabla 1 de Cuadros (`components/interior-panel.tsx`), que T8 no cubría porque no es una etiqueta de opción. Queda anotado en «Pendientes».
+
+L15 — consulta del usuario «a que tabla te referes?» y decisión «el 2. dejalo como esta»: el diálogo de la tabla 1 de la ITC-BT-25 en Cuadros **no se migra** al panel unificado. Al responder esa consulta apareció un error en este documento: L14 había anotado como pendiente una decisión que ya estaba resuelta en el código —la card conserva la tabla de trabajo y el botón «Tabla» abre la copia publicada—, así que P2 se reescribe como decisión cerrada y no como pregunta abierta.
+
+L16 — la decisión de L15 obliga a tocar la skill: la convención prohíbe los diálogos por tabla, y `housing-circuits-dialog` es exactamente eso, ahora tolerado. Se agregó a `.agents/skills/normative-tables-ui/SKILL.md` como excepción documentada con su motivo, para que una sesión futura no la «arregle» contra la decisión del usuario. Sin ese registro, la propia skill habría empujado a deshacerla.
+
+L17 — sigue abierto P1 (`mín. tabla N` en la celda de Sección, `components/interior-panel.tsx:346`): la tabla fija un mínimo y la caída obliga a subir, así que la celda muestra la sección adoptada arriba y `mín. tabla 2,5` abajo. El patrón pediría `mín. 2,5`, sin nombrar la tabla. No se tocó: el usuario resolvió sobre P2 y no sobre P1.
