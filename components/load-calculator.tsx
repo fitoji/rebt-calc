@@ -54,6 +54,7 @@ import { BoeLink, BOE_ITC_BT_52, BOE_REBT, GUIA_BT_52, SourceNote } from '@/comp
 import { Elec3PreviewDialog } from '@/components/elec3-preview'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
+import { DEFAULT_INTERIOR_CONDUCTOR, type InteriorConductor } from '../lib/interior-conductors.mjs'
 import { UnifilarPanel } from '@/components/unifilar-panel'
 import { RailResult, type RailDwellingSummary, type RailLineSummary, type RailSelectedDerivation } from '@/components/rail-result'
 import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
@@ -275,6 +276,9 @@ export function LoadCalculator() {
   const [lighting, setLighting] = useState<LightingRow[]>(emptyLighting)
   const [parking, setParking] = useState(0)
   const [irveOption, setIrveOption] = useState(1)
+  // Tipo de conductor de los circuitos interiores (ITC-BT-26): se imprime en el
+  // campo «Tipo de conductor» del ELEC-3. Por defecto se instala H07V-K.
+  const [interiorConductor, setInteriorConductor] = useState<InteriorConductor>(DEFAULT_INTERIOR_CONDUCTOR)
   const [activeTab, setActiveTab] = useState<TabValue>('cargas')
   const [tabDirection, setTabDirection] = useState<'forward' | 'back'>('forward')
   const [meterCenter, setMeterCenter] = useState<MeterCenterState>({ ...DEFAULT_METER_CENTER })
@@ -334,7 +338,7 @@ export function LoadCalculator() {
   // El edificio de ejemplo es el punto de partida de un proyecto nuevo: la primera
   // visita nunca se encuentra la calculadora en ceros. «Limpiar» deja una marca para
   // que ese vaciado deliberado sobreviva a la recarga.
-  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setMeterCenter({ ...DEFAULT_METER_CENTER }); setLga(current => ({ ...current, maxDropPercent: 0.5, sectionOverride: 0 })); setDi(current => ({ ...current, maxDropPercent: 1, sectionOverride: 0 })); setParking(30); setIrveOption(3); setDerivations([]); setLgaPowerMode('auto') }
+  const reset = () => { setClearedProjectMark(window.localStorage, false); setHousing(initialHousing); setLocals(exampleLocals); setGarages(exampleGarages); setElevators([{ name: 'Ascensor 1', ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }]); setMotors([{ name: 'Motor 1', power: 1, unit: 'CV' }]); setOtherLoads([]); setLighting(exampleLighting); setMeterCenter({ ...DEFAULT_METER_CENTER }); setLga(current => ({ ...current, maxDropPercent: 0.5, sectionOverride: 0 })); setDi(current => ({ ...current, maxDropPercent: 1, sectionOverride: 0 })); setParking(30); setIrveOption(3); setInteriorConductor(DEFAULT_INTERIOR_CONDUCTOR); setDerivations([]); setLgaPowerMode('auto') }
 
   useEffect(() => {
     let stored: string | null = null
@@ -370,6 +374,7 @@ export function LoadCalculator() {
         else setMeterCenter(meterCenterFromInstallationType(savedInputs.installationType) as MeterCenterState)
         setParking(savedInputs.parking)
         setIrveOption(savedInputs.irveOption)
+        if (savedInputs.interiorConductor) setInteriorConductor(savedInputs.interiorConductor)
         setDocumentation(normalizeDocumentation(savedInputs.documentation))
         if (savedInputs.lga) { setLga(savedInputs.lga as LineState); setLineTouched(true) }
         if (savedInputs.lgaPowerMode) setLgaPowerMode(savedInputs.lgaPowerMode)
@@ -579,7 +584,7 @@ export function LoadCalculator() {
     if (!storageLoaded) return
     try {
       saveCalculatorInputs(window.localStorage, {
-        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption,
+        housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, interiorConductor,
         lga: lineTouched ? lga : null,
         lgaPowerMode,
         di: lineTouched ? di : null,
@@ -598,7 +603,7 @@ export function LoadCalculator() {
         hasLiftingMachines: elevators.length > 0 || motors.length > 0,
       })
     } catch { /* Storage failure does not block calculator use. */ }
-  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, lga, lgaPowerMode, di, derivations, lineTouched, result])
+  }, [storageLoaded, housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, interiorConductor, lga, lgaPowerMode, di, derivations, lineTouched, result])
 
   // Recuento informativo: las plazas de los garajes no intervienen en P4.
   const garageParkingSpaces = garages.reduce((sum, row) => sum + Math.max(0, row.plazas || 0), 0)
@@ -631,6 +636,7 @@ export function LoadCalculator() {
         projectInfo,
         lga: project.lga,
         hasIrve: parking > 0,
+        conductorType: interiorConductor,
       }))
 
   useEffect(() => {
@@ -734,6 +740,7 @@ export function LoadCalculator() {
     setDocumentation(normalizeDocumentation(inputs.documentation))
     setParking(inputs.parking)
     setIrveOption(inputs.irveOption)
+    setInteriorConductor(inputs.interiorConductor ?? DEFAULT_INTERIOR_CONDUCTOR)
     if (inputs.lga) setLga(inputs.lga as LineState)
     if (inputs.lgaPowerMode) setLgaPowerMode(inputs.lgaPowerMode)
     if (inputs.di) setDi(inputs.di as LineState)
@@ -1020,7 +1027,7 @@ export function LoadCalculator() {
     const exportData = {
       exportedAt: new Date().toISOString(),
       projectInfo,
-      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, lga, lgaPowerMode, di, derivations },
+      inputs: { housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, interiorConductor, lga, lgaPowerMode, di, derivations },
       settings,
       calculations: result,
       lines: {
@@ -1485,7 +1492,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={() => openReferenceTable('T25-A')} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} interiorConductor={interiorConductor} onInteriorConductorChange={setInteriorConductor} onOpenConductorTable={() => openReferenceTable('BT26')} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={() => openReferenceTable('T25-A')} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
