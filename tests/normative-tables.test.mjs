@@ -29,7 +29,7 @@ const TABLES = [
   'BT15_D_AIR_SINGLE', 'BT15_D_AIR_THREE', 'BT15_D_BURIED_SINGLE', 'BT15_D_BURIED_THREE',
   'BT15_E_AIR_SINGLE', 'BT15_E_AIR_THREE', 'BT15_E_BURIED_SINGLE', 'BT15_E_BURIED_THREE',
   'BT14_NEUTRAL_ROWS', 'GUIDE_TABLES', 'LGA_NEUTRAL_SECTION',
-  'ITC_BT_10_COEFFICIENTS', 'ITA_POWER_KW',
+  'ITC_BT_10_COEFFICIENTS', 'ITA_POWER_KW', 'ITA_TYPES',
   'HOUSING_POWER_STEPS',
 ]
 
@@ -79,6 +79,48 @@ test('tabla A keeps the five power steps of a dwelling, with their IGA', () => {
     ['Elevada', 11500, 50],
     ['Elevada', 14490, 63],
   ])
+})
+
+/** Las tres tablas que vivían fuera del registro del panel (T6). */
+const PANEL_TABLE_KEYS = ['T25-A', 'T10-CS', 'ITA']
+
+test('T6 · el registro del panel reúne también las tablas de la previsión', () => {
+  const keys = normative.GUIDE_TABLES.map(table => table.key)
+  assert.deepEqual(keys.slice(0, 6), ['BT14-A', 'BT14-B', 'BT14-1', 'BT15-C', 'BT15-D', 'BT15-E'],
+    'las seis claves de línea siguen en el registro, y en su orden')
+  for (const key of PANEL_TABLE_KEYS) {
+    const table = normative.GUIDE_TABLES.find(entry => entry.key === key)
+    assert.ok(table, `el registro tiene una entrada para ${key}`)
+    for (const field of ['title', 'doc', 'head', 'rows']) {
+      assert.ok(table[field] != null, `${key} declara ${field}, como las demás entradas`)
+    }
+    assert.ok(table.title.length > 0 && table.doc.length > 0, `${key} se titula y cita su documento`)
+    assert.equal(table.head.length, table.rows[0].length, `${key} tiene tantas columnas como celdas por fila`)
+  }
+  assert.equal(normative.GUIDE_TABLES.find(table => table.key === 'T25-A').title, 'Tabla A · Escalones de potencia prevista · ITC-BT-25')
+  assert.equal(normative.GUIDE_TABLES.find(table => table.key === 'T10-CS').title, 'Coeficiente de simultaneidad · ITC-BT-10 §3.1')
+  assert.equal(normative.GUIDE_TABLES.find(table => table.key === 'ITA').title, 'Tipos de ascensor · ITA')
+})
+
+test('T6 · las tres tablas nuevas leen sus filas de las constantes, sin copiar cifras', () => {
+  const byKey = key => normative.GUIDE_TABLES.find(table => table.key === key)
+  assert.equal(byKey('T25-A').rows, normative.HOUSING_POWER_STEPS,
+    'la tabla A de la ITC-BT-25 es la lista de escalones que ya usa la previsión')
+  assert.deepEqual(byKey('T10-CS').rows, [
+    ...normative.ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => [index + 1, coefficient]),
+    ['n > 21', '15,3 + (n − 21) × 0,5'],
+  ], 'el coeficiente se lee de la tabla 1 y su continuación se escribe con las cifras publicadas')
+  assert.deepEqual(byKey('ITA').rows, normative.ITA_TYPES.map(ita => [ita.type, ita.carga, ita.personas, ita.velocidad, ita.potencia]),
+    'las filas del ITA salen de la constante, no de un literal paralelo')
+})
+
+test('T6 · los tipos ITA viven junto a su fuente de potencia, no en el componente', () => {
+  assert.deepEqual(normative.ITA_TYPES.map(ita => ita.type), ['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6'])
+  for (const ita of normative.ITA_TYPES) {
+    assert.equal(ita.potencia, normative.ITA_POWER_KW[ita.type], `${ita.type} toma su potencia de ITA_POWER_KW`)
+  }
+  assert.doesNotMatch(read('components/load-calculator.tsx'), /const ITA_TYPES = /,
+    'el componente no vuelve a declarar la tabla que ahora vive en el registro')
 })
 
 test('the neutral table keeps both shapes for the same table 1', () => {

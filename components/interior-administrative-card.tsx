@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, FileText, Info } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { TableButton } from '@/components/table-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -41,6 +42,11 @@ export type InteriorAdministrativeCardProps = {
   projectTitular?: string
   /** Abre la memoria ELEC-3 de la vivienda elegida; la card no arma el documento (A2). */
   onViewElec3?: (dwellingId: string) => void
+  /**
+   * Abre «Tablas y referencias», donde ya vive la tabla A que fija el IGA. La card
+   * no posee el diálogo: el botón de tabla sólo pide que se abra (S3, S5).
+   */
+  onOpenTables: () => void
 }
 
 /**
@@ -57,7 +63,7 @@ function EmptyAdministrativeCard() {
 }
 
 /** Datos administrativos de cada instalación, navegando la lista de viviendas. */
-export function InteriorAdministrativeCard({ dwellings, selectedId, onChange, onSelect, powerUnit, projectTitular = '', onViewElec3 }: InteriorAdministrativeCardProps) {
+export function InteriorAdministrativeCard({ dwellings, selectedId, onChange, onSelect, powerUnit, projectTitular = '', onViewElec3, onOpenTables }: InteriorAdministrativeCardProps) {
   if (dwellings.length === 0) return <EmptyAdministrativeCard />
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
@@ -96,7 +102,7 @@ export function InteriorAdministrativeCard({ dwellings, selectedId, onChange, on
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
-        <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">IGA (tabla A)</span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
+        <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="flex items-center justify-between gap-2 font-semibold text-ink-muted">IGA<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} /></span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
         <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
         <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span>{evaluation.differentials} × {evaluation.sensitivityMa} mA</span></div>
       </div>

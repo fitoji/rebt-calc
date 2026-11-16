@@ -119,3 +119,59 @@ test('the selected derivation label lives inside the DI card header', () => {
   assert.ok(calc.includes('editingLabel={selectedDerivation?.label}'), 'the calculator forwards the selected derivation')
   assert.doesNotMatch(calc, /<p className="mb-2 text-sm font-semibold text-ink">\{selectedDerivation/, 'the old label outside the card is gone')
 })
+
+/* ------------------------------------------------------------------ */
+/* T6/T7 · un solo panel: el registro crece y los diálogos ad hoc se van. */
+/* ------------------------------------------------------------------ */
+
+/** El cuerpo del panel único, desde su declaración hasta el final del archivo. */
+const dialog = modules.slice(modules.indexOf('export function LineTablesDialog'))
+
+test('T6 · las tres claves nuevas entran en `TableKey` y el panel las pinta desde el registro', () => {
+  for (const key of ['T25-A', 'T10-CS', 'ITA']) {
+    assert.ok(modules.includes(`'${key}'`), `TableKey declara ${key}`)
+  }
+  for (const key of ['BT14-A', 'BT14-B', 'BT14-1', 'BT15-C', 'BT15-D', 'BT15-E', 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I']) {
+    assert.ok(modules.includes(`'${key}'`), `la clave ${key} sigue declarada`)
+  }
+  assert.match(modules, /GUIDE_TABLES\.filter\(table => shows\(table\.key as TableKey\)\)/,
+    'el panel pinta el registro filtrado por el foco, así que sumar la entrada basta')
+})
+
+test('T7 · el panel único se titula «Tablas y referencias» y tiene el id que usan los disparadores', () => {
+  assert.ok(dialog.includes('>Tablas y referencias</DialogTitle>'), 'el título del panel es el nombre acordado')
+  assert.doesNotMatch(dialog, /Tablas de referencia · ITC-BT-14, BT-15 y BT-19/, 'el título del panel de líneas ya no es el de una sola pestaña')
+  assert.match(dialog, /<DialogContent id="line-tables-dialog"/, 'el panel tiene un id estable')
+  assert.equal([...calc.matchAll(/aria-controls="line-tables-dialog"/g)].length, 1,
+    'el disparador apunta al id del panel único')
+  assert.doesNotMatch(calc, /references-dialog|simultaneity-dialog/, 'no quedan ids de los diálogos retirados')
+})
+
+test('T7 · el panel único lleva los criterios de previsión, siempre visibles', () => {
+  const start = dialog.indexOf('Criterios de previsión')
+  assert.ok(start > 0, 'el panel declara los criterios de previsión')
+  const criteria = dialog.slice(start, dialog.indexOf('</section>', start))
+  for (const block of ['<b>Locales:</b>', '<b>Garajes:</b>', '<b>Alumbrado de zonas comunes:</b>', '<b>IRVE:</b>', '<b>Tarifa nocturna:</b>']) {
+    assert.ok(criteria.includes(block), `los criterios dicen «${block}»`)
+  }
+  assert.doesNotMatch(criteria, /shows\(/, 'los criterios no dependen del foco: un panel enfocado también los muestra')
+})
+
+test('T7 · la calculadora ya no guarda diálogos propios para tablas', () => {
+  assert.doesNotMatch(calc, /showReferences|setShowReferences/, '«Tablas y referencias» es el panel único, no un diálogo aparte')
+  assert.doesNotMatch(calc, /showSimultaneityTable/, 'la simultaneidad no tiene diálogo propio')
+  assert.doesNotMatch(calc, /showItaTable/, 'el ITA no tiene diálogo propio')
+  assert.doesNotMatch(calc, /ITC_BT_10_COEFFICIENTS/, 'la tabla de simultaneidad ya no se pinta —ni se duplica— en la calculadora')
+})
+
+test('T7 · los tres disparadores abren el panel único con su foco', () => {
+  assert.match(calc, /const openReferenceTable = \(key: TableKey\) => openLineTables\(\[key\]\)/,
+    'un helper con nombre abre una sola tabla, en vez de repetir el array')
+  assert.equal([...calc.matchAll(/openReferenceTable\('T25-A'\)/g)].length, 3, 'las tres cards con IGA abren la tabla A')
+  assert.match(calc, /<TableButton ariaLabel="Ver tabla del coeficiente de simultaneidad" onOpen=\{\(\) => openReferenceTable\('T10-CS'\)\} \/>/,
+    'el coeficiente de simultaneidad abre su tabla')
+  assert.match(calc, /<TableButton[^>]*ariaLabel="Ver tabla de tipos ITA"[^>]*onOpen=\{\(\) => openReferenceTable\('ITA'\)\}[^>]*\/>/,
+    'el ITA abre su tabla')
+  assert.match(calc, /onClick=\{\(\) => openLineTables\(\)\}/, 'el botón «Tablas y referencias» abre el panel sin foco')
+  assert.match(calc, /tables=\{lineTableFocus \?\? undefined\}/, 'el foco llega al panel como conjunto pedido')
+})

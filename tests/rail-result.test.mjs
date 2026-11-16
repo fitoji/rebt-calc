@@ -57,8 +57,8 @@ test('la tarjeta del rail sólo pinta cifras ya calculadas', () => {
   assert.match(source, /from '\.\.\/lib\/power-units\.mjs'/, 'power is formatted with the project helper')
   // Los conductores y sus colores se pintan con la pieza que ya existe en el
   // panel: la tarjeta no vuelve a declarar colores de cable.
-  assert.match(source, /import \{ ConductorList, type ResultElement \} from '\.\/line-modules'/,
-    'the conductor rows come from the panel module, not from a copy')
+  assert.match(source, /import \{ ConductorList, type ResultElement, type TableKey \} from '\.\/line-modules'/,
+    'the conductor rows and the table keys come from the panel module, not from a copy')
 })
 
 test('el rail renderiza la tarjeta de la pestaña activa', () => {
@@ -123,7 +123,7 @@ test('la tarjeta de la LGA lleva el desglose completo de la línea', () => {
     'Caída con In',
     'Momento eléctrico (M)',
     'Conductividad (γ)',
-    'Iz de tabla',
+    'label="Iz"',
     'Factor de agrupamiento',
     'Protección (In)',
   ]
@@ -155,13 +155,13 @@ test('la tarjeta de la DI lleva el desglose completo de la derivación', () => {
     'Sección por caída',
     'Momento eléctrico (M)',
     'Conductividad (γ)',
-    'Iz de tabla',
+    'label="Iz"',
     'Factor de agrupamiento',
     'Iz corregida',
     'Caída con Ib',
     'Caída con In',
     'Protección (In)',
-    'IGA (tabla A) · potencia máxima',
+    'IGA · potencia máxima',
     'Elementos de la instalación',
   ]
   for (const label of labels) assert.ok(card.includes(label), `la tarjeta de la DI muestra «${label}»`)
@@ -240,4 +240,60 @@ test('la tarjeta de la previsión no llama «proyecto» a lo que muestra', () =>
   assert.match(rail, /Resultado de la previsión/, 'it names the forecast it carries')
   assert.doesNotMatch(rail, /derivaciones del proyecto/i, 'the installation is not a document')
   assert.doesNotMatch(rail, /Potencia total del proyecto/, 'the total is the forecast total')
+})
+
+/* ------------------------------------------------------------------ */
+/* Tablas normativas (T1–T3): el valor lleva el botón, no el nombre.   */
+/* ------------------------------------------------------------------ */
+
+/** Las claves de `TableKey` que ya existen para las tablas de línea. */
+const LGA_TABLES = `['BT14-A', 'BT14-B']`
+const DI_TABLES = `['BT15-C', 'BT15-D', 'BT15-E']`
+
+/** Todos los rótulos literales de la tarjeta: ninguno puede nombrar una tabla (S5). */
+const literalLabels = source => [...source.matchAll(/label="([^"]*)"/g)].map(match => match[1])
+
+test('T2 · el IGA de la derivación lleva el botón de la tabla A y no la nombra', () => {
+  const card = cardBody('DiRailCard')
+  assert.ok(card.includes('label="IGA · potencia máxima"'), 'el rótulo dice el valor: «IGA · potencia máxima»')
+  assert.match(card, /<TableButton\s+ariaLabel="Ver tabla A · escalones de potencia"\s+onOpen=\{onOpenTables\}/,
+    'el IGA abre el panel compartido con su nombre accesible')
+  assert.doesNotMatch(card, /IGA \(tabla A\)/, 'la etiqueta ya no nombra la tabla A')
+  for (const label of literalLabels(card)) assert.doesNotMatch(label, /tabla/i, `el rótulo «${label}» no nombra una tabla`)
+})
+
+test('T3 · el Iz del rail abre las tablas de la línea que lo fija', () => {
+  const lgaCard = cardBody('LgaRailCard')
+  assert.ok(lgaCard.includes('label="Iz"'), 'el Iz de la LGA se rotula «Iz»')
+  assert.match(lgaCard, new RegExp(`<TableButton\\s+ariaLabel="[^"]*BT14-A[^"]*"\\s+onOpen=\\{\\(\\) => onOpenLineTables\\(${LGA_TABLES.replace(/[[\]]/g, '\\$&')}\\)\\}`),
+    'el Iz de la LGA pide las claves de la LGA, sin inventar ninguna')
+  assert.doesNotMatch(lgaCard, /Iz de tabla/, 'el rótulo del Iz ya no dice «de tabla»')
+
+  const diCard = cardBody('DiRailCard')
+  assert.ok(diCard.includes('label="Iz"'), 'el Iz de la DI se rotula «Iz»')
+  assert.match(diCard, new RegExp(`<TableButton\\s+ariaLabel="[^"]*BT15-C[^"]*"\\s+onOpen=\\{\\(\\) => onOpenLineTables\\(${DI_TABLES.replace(/[[\]]/g, '\\$&')}\\)\\}`),
+    'el Iz de la DI pide las claves de la derivación')
+  assert.doesNotMatch(diCard, /Iz de tabla/, 'el rótulo del Iz ya no dice «de tabla»')
+})
+
+test('el rail recibe el panel único y le pide la tabla del valor', () => {
+  assert.match(calc, /const openReferenceTable = \(key: TableKey\) => openLineTables\(\[key\]\)/, 'un solo helper nombra la tabla que se abre')
+  assert.match(rail, /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'el IGA abre la tabla A del panel único')
+  assert.match(rail, /onOpenLineTables=\{openLineTables\}/, 'el Iz reusa el foco de las tablas de línea')
+})
+
+test('T1 · el botón de tabla es una pieza reutilizable sin estado de diálogo', () => {
+  const file = 'components/table-button.tsx'
+  assert.ok(existsSync(path.join(root, file)), `${file} exists`)
+  const source = read(file)
+  assert.match(source, /export function TableButton\(/, 'exporta el botón')
+  assert.match(source, /from 'lucide-react'/, 'el icono viene de lucide-react')
+  assert.match(source, /\bTable2\b/, 'y es el icono de tabla')
+  assert.match(source, /type="button"/, 'no envía formularios')
+  assert.match(source, /variant="outline"/, 'usa la variante del disparador de simultaneidad')
+  assert.match(source, /size="icon"/, 'y su tamaño de icono')
+  assert.match(source, /aria-haspopup="dialog"/, 'anuncia que abre un diálogo')
+  assert.match(source, /aria-label=\{ariaLabel\}/, 'su nombre accesible es obligatorio y dice qué tabla abre')
+  assert.match(source, /const TABLE_BUTTON_CLASS = 'flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand'/, 'la clase se escribe una vez')
+  assert.doesNotMatch(source, /useState|useReducer|setOpen|<Dialog/, 'el botón no es dueño del diálogo: sólo llama a onOpen')
 })

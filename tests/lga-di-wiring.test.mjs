@@ -9,7 +9,8 @@ const card = readFileSync(new URL('../components/rail-result.tsx', import.meta.u
 const calculator = readFileSync(new URL('../components/load-calculator.tsx', import.meta.url), 'utf8')
 
 test('S1/S2/S4: the cards show the moment, the conductivity, both drops and the designation', () => {
-  for (const label of ['Momento eléctrico (M)', 'Conductividad (γ)', 'Caída con Ib', 'Caída con In', 'IGA (tabla A)']) {
+  // La etiqueta ya no nombra la tabla: el nombre vive en el panel y en la SourceNote.
+  for (const label of ['Momento eléctrico (M)', 'Conductividad (γ)', 'Caída con Ib', 'Caída con In', 'IGA · potencia máxima']) {
     assert.ok(card.includes(label), `the card names ${label}`)
   }
   assert.ok(modules.includes('${result.cableType}'), 'the conductor designation comes from the result, not from a literal')
@@ -25,4 +26,22 @@ test('S1/S4/S5: the memoria prints the same numbers as the card', () => {
   assert.equal((calculator.match(/diResult\.cableType/g) ?? []).length, 2, 'the DI conductors use the result too')
   assert.equal((calculator.match(/resultante con In/g) ?? []).length, 4, 'the In drop reaches the memoria')
   assert.match(calculator, /diResult\.housingIga/, 'the housing IGA reaches the memoria when the line has one')
+})
+
+test('T8/A4: las opciones de línea describen la condición, no la tabla', () => {
+  // El campo ya tiene su botón `Tablas`: repetir el nombre en la opción sobra.
+  for (const option of [
+    "{ value: 'air', label: 'Al aire' }",
+    "{ value: 'buried', label: 'Enterrada bajo tubo' }",
+    "{ value: 'tubes-air', label: 'Tubos en contacto al aire' }",
+  ]) {
+    assert.ok(modules.includes(option), `la opción se lee «${option}»`)
+  }
+  assert.match(modules, /Object\.entries\(GROUPING_LAYOUTS\)\.map\(\(\[value, entry\]\) => \(\{ value, label: entry\.label \}\)\)/,
+    'las disposiciones conservan su valor y pierden el «· Tabla E»')
+  assert.doesNotMatch(modules, /· Tabla [A-I]\b/, 'ninguna opción de la línea nombra la tabla que el botón ya abre')
+  // El valor guardado no cambia: sólo la etiqueta visible (A4).
+  assert.match(modules, /id={`\$\{idPrefix\}-installation`}/, 'el campo de instalación sigue siendo el mismo')
+  assert.match(modules, /onChange=\{value => onChange\(\{ installation: value as 'air' \| 'buried' \}\)\}/, 'la instalación sigue guardando air/buried')
+  assert.match(modules, /onOpenTables\(tables\)/, 'el botón de la tabla sigue pidiendo su conjunto')
 })

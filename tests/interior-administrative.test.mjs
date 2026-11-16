@@ -149,7 +149,7 @@ test('S3 · la card se navega por vivienda con el mismo armazón que la de Cuadr
 })
 
 test('S4 · la franja muestra la identidad de la instalación, calculada con los helpers de Cuadros', () => {
-  for (const label of ['Escalón de potencia', 'IGA (tabla A)', 'Potencia máxima admisible', 'Diferenciales exigidos']) {
+  for (const label of ['Escalón de potencia', 'IGA', 'Potencia máxima admisible', 'Diferenciales exigidos']) {
     assert.ok(identityStrip.includes(label), `la franja muestra «${label}»`)
   }
 
@@ -297,4 +297,46 @@ test('la card sigue guardando el interior de la vivienda como antes', () => {
   assert.match(calc, /onChange=\{updateDerivationInterior\}/, 'the interior patch keeps its own handler')
   assert.match(calc, /\{ \.\.\.derivation, interior: \{ \.\.\.resolveInterior\(derivation\.powerW, derivation\.interior\), \.\.\.patch \} \}/, 'the interior keeps resolving before merging')
   assert.match(calc, /interior: derivation\.interior,/, 'the dwelling still carries its interior block to the card')
+})
+
+/* ------------------------------------------------------------------ */
+/* T2 · «IGA (tabla A)» → «IGA» + botón de tabla (S5).                 */
+/* ------------------------------------------------------------------ */
+
+/** El botón de tabla, con su nombre accesible, montado junto al rótulo «IGA». */
+const IGA_BUTTON = /IGA<TableButton\s+ariaLabel="Ver tabla A · escalones de potencia"\s+onOpen=\{onOpenTables\}\s*\/>/
+
+test('T2 · la franja administrativa rotula «IGA» y le pone el botón de la tabla A', () => {
+  assert.match(identityStrip, IGA_BUTTON, 'el IGA de la franja abre la tabla A con su botón')
+  assert.doesNotMatch(identityStrip, /IGA \(tabla A\)/, 'el rótulo ya no nombra la tabla A')
+  assert.match(identityStrip, /evaluation\.igaA/, 'el valor del IGA no cambia')
+})
+
+test('T2 · la card de Cuadros rotula «IGA» y le pone el mismo botón', () => {
+  assert.match(panel, IGA_BUTTON, 'el IGA de la card del DGMP abre la tabla A con su botón')
+  assert.doesNotMatch(panel, /IGA \(tabla A\)/, 'el rótulo ya no nombra la tabla A')
+  assert.match(panel, /evaluation\.igaA/, 'el valor del IGA no cambia')
+  assert.match(panel, /Abre «Tablas y referencias», donde ya vive la tabla A/, 'la card dice qué panel abre y no lo posee')
+})
+
+test('T2 · las dos cards reciben el disparador y no son dueñas del diálogo', () => {
+  assert.match(panel, /onOpenTables: \(\) => void/, 'Cuadros recibe el disparador por props')
+  assert.match(card, /onOpenTables: \(\) => void/, 'la card administrativa también')
+  assert.doesNotMatch(panel, /showReferences|setShowReferences/, 'Cuadros no guarda el estado del panel')
+  assert.doesNotMatch(card, /useState|setShowReferences|<Dialog/, 'la card administrativa tampoco')
+})
+
+test('T2 · el panel que abre el botón es «Tablas y referencias», ya montado', () => {
+  assert.match(calc, /const openReferenceTable = \(key: TableKey\) => openLineTables\(\[key\]\)/, 'un solo helper abre el panel de tablas en la tabla que se le pide')
+  // `hasIrve={parking > 0}` lleva un `>`: el tag se acota por su cierre, no por ese símbolo.
+  const tagOf = name => calc.slice(calc.indexOf(`<${name} `), calc.indexOf('/>', calc.indexOf(`<${name} `)))
+  assert.match(tagOf('InteriorPanel'), /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'Cuadros lo recibe de la calculadora')
+  assert.match(tagOf('InteriorAdministrativeCard'), /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'la card administrativa también')
+  assert.match(calc, /<LineTablesDialog open=\{showLineTables\}/, 'el panel sigue siendo el mismo')
+  assert.match(read('lib/normative-tables.mjs'), /Tabla A · Escalones de potencia prevista/, 'y el registro sigue titulando la tabla A que el botón promete')
+})
+
+test('la nota de sección muestra el mínimo sin nombrar la tabla', () => {
+  assert.doesNotMatch(panel, /mín\. tabla/, 'la celda de sección ya no dice «mín. tabla 2,5»')
+  assert.match(panel, /mín\. \{sizing\.tableSection\}/, 'muestra el mínimo que fija la tabla, sin nombrarla')
 })

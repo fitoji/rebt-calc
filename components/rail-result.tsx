@@ -4,7 +4,8 @@ import type { ReactNode } from 'react'
 
 import { INSTALLATION_SCENARIOS, type InstallationType } from '../lib/installation-config.mjs'
 import { formatPower, formatPowerValue } from '../lib/power-units.mjs'
-import { ConductorList, type ResultElement } from './line-modules'
+import { ConductorList, type ResultElement, type TableKey } from './line-modules'
+import { TableButton } from './table-button'
 
 /**
  * Tarjeta de resultado del rail.
@@ -86,6 +87,17 @@ export type RailResultProps = {
   selectedDerivation: RailSelectedDerivation | null
   /** Vivienda seleccionada en Cuadros, si hay alguna. */
   dwelling: RailDwellingSummary | null
+  /**
+   * Abre «Tablas y referencias», el panel que ya contiene la tabla A del IGA. La
+   * tarjeta no posee ese diálogo: el botón de tabla sólo pide que se abra.
+   */
+  onOpenTables: () => void
+  /**
+   * Abre el panel de tablas de línea enfocado en las claves que se le pasan
+   * (`openLineTables`, el mecanismo que ya usa el panel de LGA y DI). La tarjeta
+   * no inventa claves: pide las mismas que el panel pide para cada línea.
+   */
+  onOpenLineTables: (tables: TableKey[]) => void
 }
 
 const fmt = (value: number, digits = 0) =>
@@ -124,10 +136,11 @@ function RailCard({ heading, figure, unit, caption, note, children }: {
   )
 }
 
-function RailRow({ label, value }: { label: string; value: string }) {
+/** Una fila del desglose: rótulo, valor y, si el valor sale de una tabla, su botón. */
+function RailRow({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
-      <span className="text-panel-muted">{label}</span>
+      <span className="flex items-center gap-1.5 text-panel-muted">{label}{action}</span>
       <span className="shrink-0 font-semibold tabular-nums">{value}</span>
     </div>
   )
@@ -177,7 +190,7 @@ function CargasRailCard({ unit, loadTotal, loadRows }: RailResultProps) {
 }
 
 /** Línea general: potencia, corrientes, sección, caída, protección y conductores. */
-function LgaRailCard({ unit, installationType, lgaPowerW, lga }: RailResultProps) {
+function LgaRailCard({ unit, installationType, lgaPowerW, lga, onOpenLineTables }: RailResultProps) {
   // Un único usuario no tiene línea general: enseñar sección, caída y
   // protección en cero describiría una línea que la instalación no tiene.
   const noLga = installationType === 'single-user'
@@ -205,7 +218,7 @@ function LgaRailCard({ unit, installationType, lgaPowerW, lga }: RailResultProps
         <RailRow label="Conductividad (γ)" value={`${fmt(lga.gamma)} m/(Ω·mm²)`} />
         <ConductorList elements={lga.elements} />
         <div className="my-2 h-px bg-panel-line" />
-        <RailRow label="Iz de tabla" value={lga.tableCurrent == null ? '—' : `${fmt(lga.tableCurrent)} A`} />
+        <RailRow label="Iz" action={<TableButton ariaLabel="Ver tablas BT14-A y BT14-B · intensidad admisible de la LGA" onOpen={() => onOpenLineTables(['BT14-A', 'BT14-B'])} />} value={lga.tableCurrent == null ? '—' : `${fmt(lga.tableCurrent)} A`} />
         <RailRow label="Factor de agrupamiento" value={fmt(lga.groupingFactor, 2)} />
         <RailRow label="Protección (In)" value={lga.protection == null ? '—' : `${fmt(lga.protection)} A`} />
         <RailProblems problems={lga.problems} />
@@ -215,7 +228,7 @@ function LgaRailCard({ unit, installationType, lgaPowerW, lga }: RailResultProps
 }
 
 /** Derivaciones: cuántas son, cuánta potencia mueven y la línea de la seleccionada. */
-function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivation }: RailResultProps) {
+function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivation, onOpenTables, onOpenLineTables }: RailResultProps) {
   const line = selectedDerivation
   return (
     <RailCard
@@ -234,7 +247,7 @@ function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivatio
         <RailRow label="Sección por caída" value={`${fmt(line.sectionByDrop, 2)} mm²`} />
         <RailRow label="Momento eléctrico (M)" value={`${fmt(line.momentKwM, 2)} kW·m`} />
         <RailRow label="Conductividad (γ)" value={`${fmt(line.gamma)} m/(Ω·mm²)`} />
-        <RailRow label="Iz de tabla" value={line.tableCurrent == null ? '—' : `${fmt(line.tableCurrent)} A`} />
+        <RailRow label="Iz" action={<TableButton ariaLabel="Ver tablas BT15-C, BT15-D y BT15-E · intensidad admisible de la DI" onOpen={() => onOpenLineTables(['BT15-C', 'BT15-D', 'BT15-E'])} />} value={line.tableCurrent == null ? '—' : `${fmt(line.tableCurrent)} A`} />
         <RailRow label="Factor de agrupamiento" value={fmt(line.groupingFactor, 2)} />
         <RailRow label="Iz corregida" value={line.correctedCurrent == null ? '—' : `${fmtTrim(line.correctedCurrent, 1)} A`} />
         <RailRow label="Caída con Ib" value={line.dropPercent == null ? '—' : `${fmt(line.dropPercent, 2)} %`} />
@@ -243,7 +256,7 @@ function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivatio
         )}
         <RailRow label="Protección (In)" value={line.protection == null ? '—' : `${fmt(line.protection)} A`} />
         {line.housingIga != null && <>
-          <RailRow label="IGA (tabla A) · potencia máxima" value={`${fmt(line.housingIga)} A · ${formatPower(line.maxAdmissiblePowerW ?? 0, unit)}`} />
+          <RailRow label="IGA · potencia máxima" action={<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} />} value={`${fmt(line.housingIga)} A · ${formatPower(line.maxAdmissiblePowerW ?? 0, unit)}`} />
           <p className="text-[11px] leading-4 text-panel-muted">El IGA no es el ICP ni la protección In: fija la potencia máxima admisible de la vivienda y va en el cuadro (DGMP). In es el dispositivo que protege la línea, con Ib ≤ In ≤ Iz.</p>
         </>}
         <RailBlock title="Elementos de la instalación" />

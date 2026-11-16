@@ -14,21 +14,21 @@ const dialog = read('components/ui/dialog.tsx')
 const button = read('components/ui/button.tsx')
 const globals = read('app/globals.css')
 
-test('S-dialog: all 6 calculator dialogs are controlled Base UI Dialog roots', () => {
+test('S-dialog: all 3 calculator dialogs are controlled Base UI Dialog roots', () => {
   const roots = calc.match(/<Dialog\s+open=\{[^}]+\}\s+onOpenChange=\{[^}]+\}>/g) ?? []
-  assert.equal(roots.length, 6, 'six <Dialog open= onOpenChange=> roots')
-  assert.equal(count(calc, /<DialogContent\b/g), 6, 'one DialogContent per dialog')
-  assert.equal(count(calc, /<DialogTitle\b/g), 6, 'DialogTitle per dialog (accessible name)')
-  assert.equal(count(calc, /<DialogDescription\b/g), 6, 'DialogDescription per dialog')
+  assert.equal(roots.length, 3, 'three <Dialog open= onOpenChange=> roots')
+  assert.equal(count(calc, /<DialogContent\b/g), 3, 'one DialogContent per dialog')
+  assert.equal(count(calc, /<DialogTitle\b/g), 3, 'DialogTitle per dialog (accessible name)')
+  assert.equal(count(calc, /<DialogDescription\b/g), 3, 'DialogDescription per dialog')
 })
 
 test('S-dialog: every dialog ships a custom DialogClose with a Spanish aria-label', () => {
   const closes = calc.match(/<DialogClose\b[^>]*>/g) ?? []
-  assert.equal(closes.length, 6, 'one custom close button per dialog')
+  assert.equal(closes.length, 3, 'one custom close button per dialog')
   for (const close of closes) {
     assert.match(close, /aria-label="Cerrar [^"]+"/, `close button keeps a Spanish aria-label: ${close.slice(0, 80)}`)
   }
-  assert.equal(count(calc, /showCloseButton=\{false\}/g), 6, 'default English close button disabled on every dialog')
+  assert.equal(count(calc, /showCloseButton=\{false\}/g), 3, 'default English close button disabled on every dialog')
 })
 
 test('S-dialog: no hand-rolled dialog scaffolding survives', () => {
@@ -51,7 +51,7 @@ test('S-button: every py-3 full-width action button cancels the base h-8', () =>
   assert.match(button, /default:\s*"h-8 /, 'base size still declares h-8 (so h-auto is required)')
   const buttons = calc.match(/<Button\b[^>]*>/g) ?? []
   const action = buttons.filter(tag => /w-full/.test(tag) && /py-3/.test(tag))
-  assert.equal(action.length, 15, 'fifteen full-width multiline action buttons: the four downloads, reset, clear, load project and the project dialogs')
+  assert.equal(action.length, 12, 'twelve full-width multiline action buttons: the four downloads, reset, clear, load project and the project dialogs')
   for (const tag of action) {
     assert.match(tag, /\bh-auto\b/, `action button needs h-auto so h-8 cannot squeeze py-3: ${tag.slice(0, 90)}`)
   }
@@ -94,8 +94,10 @@ test('S-css: legacy helper classes are gone and nothing still references them', 
   // Los campos del membrete salieron del diálogo al panel compartido: el rótulo
   // `.label` se sigue usando en los dos sitios, así que se cuentan juntos. El panel
   // declara una sola plantilla de campo, así que sus doce rótulos son dos usos.
+  // Los tres `<dt className="label">` del diálogo del ITA se fueron con él al panel
+  // de tablas, que rotula sus columnas en el encabezado de la tabla.
   const legacyLabelUses = count(calc, /className="label"/g) + count(administrativePanel, /className="label"/g)
-  assert.ok(legacyLabelUses >= 11, `.label still used by the migrated markup (${legacyLabelUses} sites)`)
+  assert.ok(legacyLabelUses >= 8, `.label still used by the migrated markup (${legacyLabelUses} sites)`)
 })
 
 test('S-theme: the OS color scheme never flips the app by itself', () => {
