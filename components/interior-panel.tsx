@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { explainHousingPoints, explainInterior } from '../lib/calculation-explanations.mjs'
+import { TableButton } from '@/components/table-button'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -136,6 +137,11 @@ export type InteriorPanelProps = {
   onChange: (id: string, patch: Partial<InteriorInputsState>) => void
   /** Abre la memoria ELEC-3 de la vivienda elegida; el panel no arma el documento. */
   onViewElec3?: (dwellingId: string) => void
+  /**
+   * Abre «Tablas y referencias», donde ya vive la tabla A que fija el IGA. El
+   * panel no posee ese diálogo: el botón de tabla sólo pide que se abra (S3, S5).
+   */
+  onOpenTables: () => void
   /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
   powerUnit: 'W' | 'kW'
   hasIrve?: boolean
@@ -162,7 +168,7 @@ export function InteriorPanel(props: InteriorPanelProps) {
   return <InteriorPanelBody {...props} />
 }
 
-function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
@@ -279,7 +285,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">IGA (tabla A)</span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
+          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="flex items-center justify-between gap-2 font-semibold text-ink-muted">IGA<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} /></span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span>{evaluation.differentials} × {evaluation.sensitivityMa} mA</span></div>
 

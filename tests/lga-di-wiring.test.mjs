@@ -9,7 +9,8 @@ const card = readFileSync(new URL('../components/rail-result.tsx', import.meta.u
 const calculator = readFileSync(new URL('../components/load-calculator.tsx', import.meta.url), 'utf8')
 
 test('S1/S2/S4: the cards show the moment, the conductivity, both drops and the designation', () => {
-  for (const label of ['Momento eléctrico (M)', 'Conductividad (γ)', 'Caída con Ib', 'Caída con In', 'IGA (tabla A)']) {
+  // La etiqueta ya no nombra la tabla: el nombre vive en el panel y en la SourceNote.
+  for (const label of ['Momento eléctrico (M)', 'Conductividad (γ)', 'Caída con Ib', 'Caída con In', 'IGA · potencia máxima']) {
     assert.ok(card.includes(label), `the card names ${label}`)
   }
   assert.ok(modules.includes('${result.cableType}'), 'the conductor designation comes from the result, not from a literal')

@@ -322,6 +322,9 @@ export function LoadCalculator() {
     setActiveTab(next)
   }
   const [showReferences, setShowReferences] = useState(false)
+  // El botón de tabla de un valor abre el panel que ya contiene su tabla (S3):
+  // un solo sitio decide cuál es, en vez de repetir el setter en cada card.
+  const openReferences = () => setShowReferences(true)
   const [showDownload, setShowDownload] = useState(false)
   const [elec3DwellingId, setElec3DwellingId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
@@ -1547,7 +1550,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={openReferences} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
@@ -1564,7 +1567,7 @@ export function LoadCalculator() {
             <AdministrativePanel info={projectInfo} onChange={updateProjectInfo} />
             {/* Los datos de cada instalación van después de la cabecera del documento
                 (A4) y se navegan por su propia vivienda (A1). */}
-            <InteriorAdministrativeCard dwellings={interiorDwellings} selectedId={effectiveAdministrativeDwellingId} onSelect={setSelectedAdministrativeDwellingId} onChange={updateDerivationAdministrative} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} onViewElec3={setElec3DwellingId} />
+            <InteriorAdministrativeCard dwellings={interiorDwellings} selectedId={effectiveAdministrativeDwellingId} onSelect={setSelectedAdministrativeDwellingId} onChange={updateDerivationAdministrative} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} onViewElec3={setElec3DwellingId} onOpenTables={openReferences} />
           </TabsContent>
 
             </div>
@@ -1587,6 +1590,8 @@ export function LoadCalculator() {
             derivationPowerW={railDerivationPowerW}
             selectedDerivation={railSelectedDerivation}
             dwelling={railDwelling}
+            onOpenTables={openReferences}
+            onOpenLineTables={openLineTables}
           />
                         <RailGroup title="Proyecto">
               <Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => projectFileInput.current?.click()}><FolderOpen data-icon="inline-start" /> Cargar proyecto</Button>
