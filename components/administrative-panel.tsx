@@ -17,7 +17,8 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
  *
  * Número, piso, puerta, superficie del local, resistencia de tierra y el titular
  * cuando difiere **no** están acá: son de cada instalación y viajan en su
- * derivación (S5). Tampoco se calcula nada: el panel es presentacional y
+ * derivación (S5); se editan en la card por vivienda de la pestaña Administrativos.
+ * Tampoco se calcula nada: el panel es presentacional y
  * devuelve el cambio de un campo, igual que el resto de los paneles.
  */
 
@@ -168,7 +169,7 @@ export function AdministrativePanel({ info, onChange }: { info: AdministrativeIn
             <span className="rounded-tab border border-brand-line bg-brand-soft px-1.5 py-0.5 font-mono text-[11px] leading-none tracking-[0.08em] text-brand-ink">Hoja 2</span>{' '}
             Datos del proyecto
           </h3>
-          <p className="mt-1 text-sm text-ink-faint">Lo que la hoja 2 imprime en común: el titular, el emplazamiento de la obra, la distribuidora y el tipo de instalación. El número, el piso, la puerta, la superficie del local y la tierra se declaran en cada vivienda, en Cuadros.</p>
+          <p className="mt-1 text-sm text-ink-faint">Lo que la hoja 2 imprime en común: el titular, el emplazamiento de la obra, la distribuidora y el tipo de instalación. El número, el piso, la puerta, la superficie del local y la tierra se declaran en la pestaña Administrativos, en la card que se navega por vivienda.</p>
         </div>
         <ProjectDataFields info={info} onChange={onChange} />
       </section>

@@ -19,6 +19,7 @@ import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } fro
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
 import { DocumentationPanel, DocumentationToggles } from '@/components/documentation-panel'
 import { InteriorPanel, EMPTY_INTERIOR_ADMINISTRATIVE, type InteriorAdministrative, type InteriorDwelling } from '@/components/interior-panel'
+import { InteriorAdministrativeCard } from '@/components/interior-administrative-card'
 import { AdministrativePanel, InstallerFields, ProjectDataFields } from '@/components/administrative-panel'
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
@@ -296,6 +297,9 @@ export function LoadCalculator() {
   const [selectedDerivationId, setSelectedDerivationId] = useState<string | null>(null)
   const [selectedDwellingId, setSelectedDwellingId] = useState<string | null>(null)
   const [selectedSupplyId, setSelectedSupplyId] = useState<string | null>(null)
+  // La card de datos administrativos navega su propia vivienda (A1): cambiar de
+  // pestaña no mueve la vivienda que estabas mirando en Cuadros.
+  const [selectedAdministrativeDwellingId, setSelectedAdministrativeDwellingId] = useState<string | null>(null)
   const [lgaPowerMode, setLgaPowerMode] = useState<'auto' | 'manual'>('auto')
   const openLineTables = (tables?: TableKey[]) => { setLineTableFocus(tables ?? null); setShowLineTables(true) }
   const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); if ('powerW' in patch) setLgaPowerMode('manual'); setLga(current => ({ ...current, ...patch })) }
@@ -503,6 +507,11 @@ export function LoadCalculator() {
     })),
     [dwellingDerivations],
   )
+  // La vivienda de esta card se resuelve igual que la del panel de circuitos:
+  // sin selección válida cae a la primera derivación de vivienda.
+  const effectiveAdministrativeDwellingId = selectedAdministrativeDwellingId != null && interiorDwellings.some(dwelling => dwelling.id === selectedAdministrativeDwellingId)
+    ? selectedAdministrativeDwellingId
+    : interiorDwellings[0]?.id ?? null
   const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean }>) => {
     setLineTouched(true)
     setDerivations(current => current.map(derivation => derivation.id === id
@@ -702,6 +711,7 @@ export function LoadCalculator() {
     setSelectedDerivationId(null)
     setSelectedDwellingId(null)
     setSelectedSupplyId(null)
+    setSelectedAdministrativeDwellingId(null)
     // The trimmed lines return to their defaults and leave the snapshot, so a
     // cleared project cannot reopen with the previous lengths and overrides.
     setLga(defaultLineState('lga'))
@@ -1537,7 +1547,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onAdministrativeChange={updateDerivationAdministrative} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
@@ -1552,6 +1562,9 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="administrativos" data-dir={tabDirection} className="tab-panel">
             <AdministrativePanel info={projectInfo} onChange={updateProjectInfo} />
+            {/* Los datos de cada instalación van después de la cabecera del documento
+                (A4) y se navegan por su propia vivienda (A1). */}
+            <InteriorAdministrativeCard dwellings={interiorDwellings} selectedId={effectiveAdministrativeDwellingId} onSelect={setSelectedAdministrativeDwellingId} onChange={updateDerivationAdministrative} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} onViewElec3={setElec3DwellingId} />
           </TabsContent>
 
             </div>
