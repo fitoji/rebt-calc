@@ -44,14 +44,16 @@ Se entrega por etapas. Slice 1 resuelve lo pedido sin refactorizar las superfici
 - [x] T4 · Skill del proyecto con la convención · S7 · commit `147c360`
 - [x] T5 · Tests del slice: botón presente y con `aria-label` por valor, etiquetas sin el nombre de la tabla, y que el panel abierto sigue mostrando la tabla A · S2, S4, S5 · commit `147c360`
 
-**Slice 2 · unificación (depende de decidir el alcance del panel)**
-- [ ] T6 · Registro único: `T25-A`, `T10-CS` e `ITA` se suman al registro `{key, title, doc, head, rows}` · S3, S6, A1 · commit `147c360`
-- [ ] T7 · Panel único con foco; se retiran `showReferences`, el dialog del ITA y el de simultaneidad · S3, S4, S6 · commit `147c360`
-- [ ] T8 · Etiquetas de opción de `line-modules.tsx` limpias del nombre de la tabla · S5, A4 · commit `147c360`
+**Slice 2 · unificación**
+- [x] T6 · Registro único: `T25-A`, `T10-CS` e `ITA` se suman al registro `{key, title, doc, head, rows}` · S3, S6, A1 · commit `09706ed`
+- [x] T7 · Panel único con foco; se retiran `showReferences`, el dialog del ITA y el de simultaneidad · S3, S4, S6 · commit `09706ed`
+- [x] T8 · Etiquetas de opción de `line-modules.tsx` limpias del nombre de la tabla · S5, A4 · commit `09706ed`
 
 ## Pendientes
 
-**P1 · Tabla 1 de la ITC-BT-25 como tabla consultable (A2).** Hoy vive inline en la card de Cuadros porque sus filas son los circuitos editables. Si se quiere el patrón también ahí, hay que decidir antes si la card conserva la tabla de trabajo y el botón abre una copia de consulta, o si la tabla de trabajo se separa de la de consulta.
+**P1 · `mín. tabla N` en las celdas de la tabla 1 de Cuadros.** Es una nota de celda que nombra la tabla; el patrón pediría dejarla en `mín. N`. No se tocó porque no es una etiqueta de opción y el alcance del slice 2 no la cubría.
+
+**P2 · Tabla 1 de la ITC-BT-25 como tabla consultable (A2).** Hoy vive inline en la card de Cuadros porque sus filas son los circuitos editables. Si se quiere el patrón también ahí, hay que decidir antes si la card conserva la tabla de trabajo y el botón abre una copia de consulta, o si la tabla de trabajo se separa de la de consulta.
 
 La automatización de la ITC-BT-25 §2.3.2 sigue anotada en `odd/tasks/aviso-electrificacion-elevada.md`, sección «Pendientes».
 
@@ -72,3 +74,15 @@ L6 — la skill vive en `.agents/skills/normative-tables-ui/SKILL.md` y **no ent
 L7 — `tests/lga-di-wiring.test.mjs:12` fijaba `'IGA (tabla A)'` sobre el fuente del rail, así que el rótulo nuevo rompía un pin fuera de las superficies del worker; lo actualicé el padre. El mismo archivo vigila cadenas de PDF que siguen diciendo `IGA (tabla A)` e `Iz de tabla` (`components/load-calculator.tsx:1181,1202,1207`): esas quedan por S8, y por eso el pin se actualizó sobre la etiqueta de la card y no sobre las del informe.
 
 L8 — evidencia de cierre del slice 1: `node --test "tests/*.test.mjs"` 666/666 (658 previos + 8 nuevos), `npx tsc --noEmit` sin diagnósticos. Queda el slice 2 pendiente: unificar las tres superficies de tablas y migrar el ITA y la simultaneidad al panel compartido (T6-T8).
+
+L9 — slice 2 entregado: `GUIDE_TABLES` pasa a 9 entradas (`T25-A`, `T10-CS`, `ITA` se suman a las seis de BT-14/BT-15), `TableKey` crece con esas tres claves, `LineTablesDialog` pasa a ser el panel único con `id="line-tables-dialog"` y título «Tablas y referencias», y se retiran `showReferences`, el dialog del ITA y el de la simultaneidad (`grep` da 0 ocurrencias de los tres estados). Los disparadores pasan por `openReferenceTable(key)`, que es `openLineTables([key])`. Las filas salen de las constantes existentes: `T25-A` usa `HOUSING_POWER_STEPS` por identidad y `T10-CS` deriva su fila de continuación de `ITC_BT_10_COEFFICIENTS` más `continuationStep`. `ITA_TYPES` se movió al lado de `ITA_POWER_KW` y el selector de ascensores ahora lee sus opciones de ahí, en lugar de repetir los seis nombres.
+
+L10 — hubo que actualizar **nueve pines estructurales** en cuatro archivos de test que no estaban en las superficies del worker: conteos de diálogos 6 → 3 en `tests/dialog-a11y-regression.test.mjs` y `tests/shadcn-migration.test.mjs`, botones de acción 15 → 12, sitios de `.label` ≥ 11 → ≥ 8, `<Button` ≥ 30 → ≥ 28, `<Table` ≥ 5 → ≥ 3, `aria-label="Cerrar` ≥ 5 → ≥ 3, las celdas ITA re-apuntadas de `calc` a `modules`, y los pines de `openReferences` re-apuntados a `openReferenceTable`/`openLineTables`. Ninguna aserción se borró: todas eran conteos, y cada uno conserva su intención con el número o el blanco que corresponde a la estructura nueva.
+
+L11 — consecuencias visibles que nadie pidió y se aceptan: `T25-A` imprime su columna de potencia siempre en W, sin seguir el ajuste W/kW, porque las filas del registro son agnósticas de unidad. Es coherente con la regla que el repo ya documenta —los vatios que la instrucción publica se quedan como están— pero es un cambio respecto del dialog anterior, que sí seguía el ajuste. Y las tarjetas móviles por tipo del ITA desaparecieron: la tabla del registro se lee con scroll horizontal.
+
+L12 — la skill se corrigió después del commit del slice 2: sus anclas apuntaban a `showReferences` y `openReferences`, que el slice 2 elimina, y una skill desactualizada es peor que ninguna. Ahora nombra el panel único, el helper de foco y las claves válidas, y prohíbe explícitamente crear un `useState` de apertura para una tabla nueva. Sigue fuera de git: `.agents/` está ignorado.
+
+L13 — evidencia de cierre del slice 2: `node --test "tests/*.test.mjs"` 675/675 (666 + 9 nuevos), `npx tsc --noEmit` sin diagnósticos, y `grep` confirma 0 ocurrencias de los tres estados de diálogo retirados en `components/load-calculator.tsx`.
+
+L14 — sigue pendiente `mín. tabla N` en las celdas de la tabla 1 de Cuadros (`components/interior-panel.tsx`), que T8 no cubría porque no es una etiqueta de opción. Queda anotado en «Pendientes».
