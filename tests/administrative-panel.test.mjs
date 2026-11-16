@@ -63,6 +63,23 @@ test('T3: el panel monta los dos grupos, cada uno con su título', () => {
   assert.match(panel, /Datos del proyecto/)
 })
 
+test('T4: la pestaña también monta la card de datos administrativos por vivienda', () => {
+  const body = calc.slice(contentAt('administrativos'), calc.indexOf('</TabsContent>', contentAt('administrativos')))
+
+  assert.match(body, /<InteriorAdministrativeCard\b/, 'la card por vivienda vive en esta pestaña')
+  assert.ok(body.indexOf('<AdministrativePanel') < body.indexOf('<InteriorAdministrativeCard'), 'va después de los bloques del proyecto (A4)')
+  assert.match(body, /dwellings=\{interiorDwellings\}/, 'recibe las mismas viviendas que Cuadros')
+  assert.match(body, /onChange=\{updateDerivationAdministrative\}/, 'escribe el bloque de la derivación, no ProjectInfo')
+  assert.match(body, /powerUnit=\{powerUnit\}/, 'lee las potencias en la unidad elegida')
+  assert.match(body, /projectTitular=\{projectInfo\.titularName \?\? ''\}/, 'sólo lee el titular del proyecto para explicar la herencia')
+  assert.match(body, /onViewElec3=\{setElec3DwellingId\}/, 'el atajo abre la hoja 2 de esa vivienda')
+})
+
+test('S7: el texto del panel manda a la pestaña Administrativos, no a Cuadros', () => {
+  assert.match(panel, /se declaran en la pestaña Administrativos/, 'el panel dice dónde están ahora los datos de cada instalación')
+  assert.doesNotMatch(panel, /en cada vivienda, en Cuadros/, 'la frase que mandaba a Cuadros ya no está')
+})
+
 test('S7: la empresa instaladora se edita una sola vez, con sus seis datos', () => {
   const installer = panel.slice(panel.indexOf('INSTALLER_FIELDS'), panel.indexOf('PROJECT_TEXT_FIELDS'))
 

@@ -10,6 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
 
 const panel = read('components/interior-panel.tsx')
+const card = read('components/interior-administrative-card.tsx')
 const calc = read('components/load-calculator.tsx')
 
 /** Los seis datos de una instalación, en el orden en que la card los pide. */
@@ -25,11 +26,11 @@ const LABELS = {
 }
 
 /**
- * El grupo administrativo de la card vive al final del archivo: su lista de
- * campos y su componente. Así el pin no depende de dónde lo monta la card ni del
- * resto de la tabla de circuitos.
+ * El grupo administrativo vive en su propio archivo, al final: su lista de campos
+ * y su componente. Así el pin no depende de dónde lo monta la card ni del resto
+ * de la tabla de circuitos.
  */
-const installationFields = panel.slice(panel.indexOf('const ADMINISTRATIVE_FIELDS'))
+const installationFields = card.slice(card.indexOf('const ADMINISTRATIVE_FIELDS'))
 
 test('los seis campos de la instalación existen y cada uno tiene su rótulo', () => {
   assert.ok(installationFields.length > 0, 'the card owns a component for the installation data')
@@ -47,7 +48,8 @@ test('los seis campos de la instalación existen y cada uno tiene su rótulo', (
 test('el grupo es un grupo accesible con su encabezado', () => {
   assert.match(installationFields, /role="group" aria-labelledby="interior-administrative-title"/, 'the group names itself')
   assert.match(installationFields, /<h4 id="interior-administrative-title"[\s\S]{0,120}?>Datos administrativos de la instalación/, 'the heading is a real heading')
-  assert.match(panel, /<InteriorAdministrativeFields/, 'the card mounts the group')
+  assert.match(card, /<InteriorAdministrativeFields/, 'the new card mounts the group')
+  assert.doesNotMatch(panel, /<InteriorAdministrativeFields/, 'Cuadros no la monta: los campos se mueven, no se duplican (S2)')
 })
 
 test('superficie y tierra son campos de texto: la coma decimal sobrevive', () => {
@@ -59,8 +61,8 @@ test('superficie y tierra son campos de texto: la coma decimal sobrevive', () =>
 })
 
 test('los campos escriben en la derivación y no en ProjectInfo', () => {
-  assert.match(panel, /const administrative = dwelling\.administrative \?\? \{\}/, 'the panel reads the block of the selected dwelling')
-  assert.doesNotMatch(panel, /projectInfo/, 'the card never reads ProjectInfo for these fields')
+  assert.match(card, /const administrative = dwelling\.administrative \?\? \{\}/, 'the card reads the block of the selected dwelling')
+  assert.doesNotMatch(card, /projectInfo/, 'the card never reads ProjectInfo for these fields')
 
   const handler = calc.slice(calc.indexOf('const updateDerivationAdministrative'), calc.indexOf('const circuitSupplies'))
   assert.ok(handler.length > 0, 'the calculator owns the write path of the administrative block')
@@ -70,7 +72,7 @@ test('los campos escriben en la derivación y no en ProjectInfo', () => {
 
   assert.match(calc, /administrative\?: InteriorAdministrative/, 'the derivation state carries its own administrative block')
   assert.match(calc, /administrative: derivation\.administrative,/, 'the dwelling handed to the card is the one of the derivation')
-  assert.match(calc, /onAdministrativeChange=\{updateDerivationAdministrative\}/, 'the panel persists through the derivation update')
+  assert.match(calc, /onChange=\{updateDerivationAdministrative\}/, 'the new card persists through the derivation update')
   assert.match(calc, /projectTitular=\{projectInfo\.titularName \?\? ''\}/, 'only the project titular is read, and only to explain the inheritance')
   assert.doesNotMatch(calc, /updateProjectInfo\('(numero|piso|puerta|superficieLocalM2|resistenciaTierraOhm)'/, 'none of the five installation fields touches ProjectInfo')
 })
@@ -80,6 +82,108 @@ test('el titular vacío se muestra heredado, o pendiente cuando el proyecto tamp
   assert.match(installationFields, /hereda el titular del proyecto/, 'an empty override says where the value comes from')
   assert.match(installationFields, /lo deja pendiente/, 'with no project titular either, the cell is pending, never copied')
   assert.doesNotMatch(installationFields, /value=\{projectTitular/, 'the project titular is printed as a hint, never stored as the value')
+})
+
+/* ------------------------------------------------------------------ */
+/* La card nueva: pestaña Administrativos, navegación y franja (S3, S4, S6). */
+/* ------------------------------------------------------------------ */
+
+const administrativeTab = calc.slice(contentAt('administrativos'), calc.indexOf('</TabsContent>', contentAt('administrativos')))
+
+function contentAt(value) {
+  return calc.indexOf(`<TabsContent value="${value}"`)
+}
+
+/** La card vacía, aislada del cuerpo, para no leerla junto a la franja. */
+const emptyCard = card.slice(card.indexOf('function EmptyAdministrativeCard'), card.indexOf('export function InteriorAdministrativeCard'))
+
+/** La franja de identidad de la instalación, entre el armazón y los campos. */
+const identityStrip = card.slice(card.indexOf('sm:grid-cols-2 lg:grid-cols-4'), card.indexOf('<InteriorAdministrativeFields'))
+
+/** El cuerpo renderizado de la card, sin sus comentarios de cabecera. */
+const cardBody = card.slice(card.indexOf('export function InteriorAdministrativeCard'))
+
+test('S2 · los campos ya no se renderizan en la card de Cuadros y no quedan props sin uso', () => {
+  assert.doesNotMatch(panel, /ADMINISTRATIVE_FIELDS/, 'la lista de campos vive sólo en la card nueva')
+  assert.doesNotMatch(panel, /InteriorAdministrativeFields/, 'Cuadros no monta el bloque')
+  assert.doesNotMatch(panel, /projectTitular/, 'el titular del proyecto se va con el bloque')
+  assert.doesNotMatch(panel, /onAdministrativeChange/, 'el handler administrativo se va con el bloque')
+  assert.match(panel, /onViewElec3\?: \(dwellingId: string\) => void/, 'Cuadros conserva su botón Ver ELEC-3')
+  assert.match(panel, /Potencia contratada \(/, 'Potencia contratada, ICP y sobretensiones siguen en Cuadros')
+  assert.match(panel, /evaluation\.icpRatingA/, 'el ICP sigue en Cuadros')
+  assert.match(panel, /id="interior-surge"/, 'la protección contra sobretensiones sigue en Cuadros')
+})
+
+test('S8 · una sola definición de los campos: el bloque se extrae y lo consume la card nueva', () => {
+  assert.match(card, /export function InteriorAdministrativeFields/, 'el bloque se exporta desde su archivo')
+  assert.match(card, /^const ADMINISTRATIVE_FIELDS/m, 'la lista de campos vive en el archivo del bloque')
+  assert.match(card, /import type \{ InteriorAdministrative, InteriorDwelling \} from '@\/components\/interior-panel'/, 'los tipos se importan, no se mueven')
+  assert.match(card, /import \{ resolveInteriorInputs, stepLabel \} from '@\/components\/interior-panel'/, 'el rótulo del escalón y los insumos se reusan en vez de copiarse')
+})
+
+test('T4 · la card se monta en la pestaña Administrativos, después de los datos del proyecto', () => {
+  assert.ok(administrativeTab.length > 0, 'la pestaña Administrativos tiene cuerpo')
+  assert.match(administrativeTab, /<AdministrativePanel\b/, 'los datos del proyecto siguen en la pestaña')
+  assert.match(administrativeTab, /<InteriorAdministrativeCard\b/, 'la card por vivienda vive en esta pestaña')
+  assert.ok(administrativeTab.indexOf('<AdministrativePanel') < administrativeTab.indexOf('<InteriorAdministrativeCard'), 'va después de los bloques del proyecto (A4)')
+  assert.match(calc, /import \{ InteriorAdministrativeCard \} from '@\/components\/interior-administrative-card'/, 'la pestaña importa la card nueva')
+})
+
+test('A1 · la navegación de la card nueva es independiente de la de Cuadros', () => {
+  assert.match(calc, /const \[selectedAdministrativeDwellingId, setSelectedAdministrativeDwellingId\] = useState<string \| null>\(null\)/, 'la card nueva tiene su propia vivienda seleccionada')
+  assert.match(calc, /selectedAdministrativeDwellingId != null && interiorDwellings\.some\(dwelling => dwelling\.id === selectedAdministrativeDwellingId\)/, 'la selección cae a la primera vivienda, como en InteriorCircuitsPanel')
+  assert.match(calc, /onSelect=\{setSelectedAdministrativeDwellingId\}/, 'la card mueve sólo su propia selección')
+  assert.match(calc, /selectedId=\{effectiveDwellingId\} onSelect=\{setSelectedDwellingId\}/, 'Cuadros conserva la suya, intacta')
+})
+
+test('S3 · la card se navega por vivienda con el mismo armazón que la de Cuadros', () => {
+  assert.match(card, /className="rounded-card border border-line bg-paper p-5 shadow-card"/, 'usa el lenguaje visual de la card de Cuadros')
+  assert.match(card, /<Select value=\{dwelling\.id\}/, 'tiene selector de vivienda')
+  assert.match(card, /id="interior-admin-dwelling"/, 'el selector tiene su id y su rótulo')
+  assert.match(card, /aria-label="Vivienda anterior"/, 'botón anterior, con su nombre accesible')
+  assert.match(card, /aria-label="Vivienda siguiente"/, 'botón siguiente, con su nombre accesible')
+  assert.match(card, /disabled=\{currentIndex <= 0\}/, 'la primera vivienda desactiva «anterior»')
+  assert.match(card, /disabled=\{currentIndex >= dwellings\.length - 1\}/, 'la última desactiva «siguiente»')
+  assert.match(card, /dwellings\[currentIndex \+ delta\]/, 'los botones recorren la lista de viviendas')
+  assert.match(card, /\.label \?\? dwelling\.label/, 'el nombre de la vivienda elegida queda a la vista')
+})
+
+test('S4 · la franja muestra la identidad de la instalación, calculada con los helpers de Cuadros', () => {
+  for (const label of ['Escalón de potencia', 'IGA (tabla A)', 'Potencia máxima admisible', 'Diferenciales exigidos']) {
+    assert.ok(identityStrip.includes(label), `la franja muestra «${label}»`)
+  }
+
+  assert.match(card, /resolveInteriorInputs\(dwelling\)/, 'los insumos se resuelven con el mismo helper')
+  assert.match(card, /evaluateInterior\(\{ igaA: dwelling\.housingIgaA \?\? null, powerW: dwelling\.powerW, \.\.\.inputs, circuits: defaultCircuitsFor\(dwelling\.powerW\) \}\)/, 'la evaluación es la de Cuadros')
+  assert.match(card, /housingGradeFor\(dwelling\.powerW\)/, 'el grado sale del escalón, no se escribe a mano')
+  assert.match(card, /stepLabel\(dwelling\.powerW, powerUnit\)/, 'el escalón se rotula con el helper compartido')
+  assert.match(identityStrip, /evaluation\.igaA/, 'el IGA de la tabla A')
+  assert.match(identityStrip, /evaluation\.maxPowerW/, 'la potencia máxima admisible')
+  assert.match(identityStrip, /evaluation\.differentials/, 'los diferenciales exigidos')
+  assert.match(identityStrip, /rounded-control bg-surface-muted p-3 text-xs/, 'las celdas usan el estilo de la franja de Cuadros')
+  assert.match(identityStrip, /text-ink-muted/, 'los rótulos usan el estilo de la franja de Cuadros')
+})
+
+test('S4 · la franja no lleva potencia contratada, ICP ni sobretensiones', () => {
+  assert.doesNotMatch(cardBody, /Potencia contratada/, 'la potencia contratada sigue en Cuadros: es una decisión de diseño')
+  assert.doesNotMatch(cardBody, /ICP/, 'el ICP sigue en Cuadros')
+  assert.doesNotMatch(cardBody, /contra sobretensiones/, 'la protección contra sobretensiones sigue en Cuadros')
+})
+
+test('A2 · la card lleva el atajo «Ver ELEC-3» de la vivienda elegida', () => {
+  assert.match(card, /onViewElec3\?: \(dwellingId: string\) => void/, 'la card recibe el callback y no importa el modelo')
+  assert.match(card, /onViewElec3 && <Button/, 'el botón sólo aparece cuando hay callback')
+  assert.match(card, /aria-label=\{`Ver ELEC-3 de \$\{dwelling\.label\}`\}/, 'su nombre accesible dice qué vivienda abre')
+  assert.match(card, /onClick=\{\(\) => onViewElec3\(dwelling\.id\)\}/, 'abre la vivienda seleccionada')
+  assert.doesNotMatch(card, /elec3\.mjs|buildDwellingDocument/, 'la card nunca arma el documento')
+  assert.match(calc, /onViewElec3=\{setElec3DwellingId\}/, 'es el mismo diálogo que abre Cuadros')
+})
+
+test('S6 · sin viviendas la card explica por qué está vacía', () => {
+  assert.match(card, /if \(dwellings\.length === 0\) return <EmptyAdministrativeCard \/>/, 'la card vacía vive fuera del cuerpo, como la de Cuadros')
+  assert.match(emptyCard, /Todavía no hay viviendas/, 'dice qué falta')
+  assert.match(emptyCard, /pestaña DI/, 'y dónde se generan las derivaciones')
+  assert.match(emptyCard, /rounded-card border border-line bg-paper p-5 shadow-card/, 'con el mismo marco que la card vacía de Cuadros')
 })
 
 /* ------------------------------------------------------------------ */

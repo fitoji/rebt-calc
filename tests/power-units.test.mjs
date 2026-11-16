@@ -61,7 +61,7 @@ test('no power of the interface keeps a hardcoded W', () => {
 })
 
 test('the line panels and the didactic steps receive the unit', () => {
-  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 6, 'the line panels, the two Cuadros panels and the two documentation groups that declare a power')
+  assert.equal((calc.match(/powerUnit=\{powerUnit\}/g) ?? []).length, 7, 'the line panels, the three Cuadros/Administrativos panels and the two documentation groups that declare a power')
   assert.match(modules, /powerUnit\?: 'W' \| 'kW'/, 'the panels accept the unit')
   assert.match(explanations, /formatPower\(state\.powerW, powerUnit\)/, 'the didactic data follows the unit')
   assert.match(explanations, /const unit = settings\.powerUnit \?\? 'W'/, 'the load forecast follows it too')
@@ -70,6 +70,7 @@ test('the line panels and the didactic steps receive the unit', () => {
 /** Components that show or ask for a power, and therefore own the unit switch. */
 const UI_POWER_FILES = [
   'components/documentation-panel.tsx',
+  'components/interior-administrative-card.tsx',
   'components/interior-panel.tsx',
   'components/interior-circuits-panel.tsx',
   'components/line-modules.tsx',

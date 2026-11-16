@@ -84,7 +84,7 @@ export type InteriorInputsState = {
   circuitPowerOverride: Record<string, number>
 }
 
-function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
+export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
   const resolved = resolveInterior(dwelling.powerW, dwelling.interior) as unknown as Partial<InteriorInputsState>
   return {
     contractedPowerW: resolved.contractedPowerW ?? 0,
@@ -117,7 +117,7 @@ function roomLabel(type: string) {
   return ROOM_LABELS[type as keyof typeof ROOM_LABELS] ?? type
 }
 
-function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
+export function stepLabel(powerW: number, powerUnit: 'W' | 'kW') {
   const step = HOUSING_POWER_STEPS.find(([, watts]) => Number(watts) === powerW)
   return step ? `${step[0]} · ${formatPower(Number(step[1]), powerUnit)}` : `${formatPower(powerW, powerUnit)} · fuera de tabla`
 }
@@ -134,14 +134,10 @@ export type InteriorPanelProps = {
   selectedId: string | null
   onSelect: (id: string) => void
   onChange: (id: string, patch: Partial<InteriorInputsState>) => void
-  /** Guarda un dato administrativo en la derivación de la vivienda; el panel no sabe dónde vive. */
-  onAdministrativeChange?: (id: string, patch: Partial<InteriorAdministrative>) => void
   /** Abre la memoria ELEC-3 de la vivienda elegida; el panel no arma el documento. */
   onViewElec3?: (dwellingId: string) => void
   /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
   powerUnit: 'W' | 'kW'
-  /** Titular declarado en el proyecto: sólo se usa para explicar la herencia de un campo vacío (S5). */
-  projectTitular?: string
   hasIrve?: boolean
   explanationMode?: 'calculation' | 'didactic'
   showSourceNotes?: boolean
@@ -166,7 +162,7 @@ export function InteriorPanel(props: InteriorPanelProps) {
   return <InteriorPanelBody {...props} />
 }
 
-function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdministrativeChange, onViewElec3, powerUnit, projectTitular = '', hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
@@ -182,7 +178,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdmini
   })
 
   const setInput = (patch: Partial<typeof inputs>) => onChange(dwelling.id, patch)
-  const setAdministrative = (key: keyof InteriorAdministrative, value: string) => onAdministrativeChange?.(dwelling.id, { [key]: value })
   const setLength = (id: string, value: number) => onChange(dwelling.id, { lengths: { ...(inputs.lengths ?? {}), [id]: Math.max(0, value) } })
   const grade = housingGradeFor(dwelling.powerW)
   const circuits = housingCircuitsFor(dwelling.powerW, { hasIrve })
@@ -303,10 +298,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdmini
               ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
               : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
         </div>
-
-        {/* Va justo debajo del cuadro del DGMP: es la identidad de la instalación
-            que el resto de la card protege, y no corta la tabla de circuitos. */}
-        <InteriorAdministrativeFields dwelling={dwelling} projectTitular={projectTitular} onChange={setAdministrative} />
 
         <div className="mt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -532,65 +523,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onAdmini
 
         {showSourceNotes && <SourceNote label="ITC-BT-25 §2.1">ITC-BT-25 §2.1: el DGMP lleva un IGA omnipolar independiente del ICP y uno o varios diferenciales de 30 mA con intensidad asignada igual o superior a la del IGA, como mínimo uno por cada cinco circuitos; la protección contra sobretensiones se añade cuando la ITC-BT-23 lo exige. El ICP va en envolvente precintable y su calibre depende de la potencia contratada (ITC-BT-17): es el menor de la serie normalizada de potencias de contratación por ICP ({ICP_SERIES_TEXT}), sin la serie antigua del ICP-M de la UNE 20-317. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-    </div>
-  )
-}
-
-/** Un dato administrativo de la instalación: clave del bloque, rótulo y ejemplo de escritura. */
-type AdministrativeFieldSpec = {
-  key: keyof InteriorAdministrative
-  label: string
-  placeholder: string
-}
-
-/**
- * Los seis datos que la hoja 2 imprime distinto en cada instalación. La superficie
- * y la tierra se escriben como texto porque el usuario español escribe `84,6`: la
- * conversión de la coma decimal vive en `lib/administrative.mjs`, no en la card.
- */
-const ADMINISTRATIVE_FIELDS: ReadonlyArray<AdministrativeFieldSpec> = [
-  { key: 'numero', label: 'Número', placeholder: '12' },
-  { key: 'piso', label: 'Piso', placeholder: '3' },
-  { key: 'puerta', label: 'Puerta', placeholder: 'B' },
-  { key: 'superficieLocalM2', label: 'Superficie del local (m²)', placeholder: '84,6' },
-  { key: 'resistenciaTierraOhm', label: 'Resistencia de tierra (Ω)', placeholder: '12,5' },
-  { key: 'titularName', label: 'Titular de esta instalación', placeholder: 'Nombre y NIF, sólo si difiere del proyecto' },
-]
-
-/**
- * Datos administrativos de la vivienda elegida (S5): se declaran acá y no en
- * `ProjectInfo`, porque el número, el piso, la puerta, la superficie y la tierra
- * cambian en cada instalación. Un campo vacío nunca se copia: número, piso y
- * puerta quedan pendientes, y el titular hereda el del proyecto, que se nombra en
- * la ayuda para que la herencia se vea y no parezca un dato olvidado.
- */
-function InteriorAdministrativeFields({ dwelling, projectTitular, onChange }: {
-  dwelling: InteriorDwelling
-  projectTitular: string
-  onChange: (key: keyof InteriorAdministrative, value: string) => void
-}) {
-  const administrative = dwelling.administrative ?? {}
-  const inheritedTitular = projectTitular.trim()
-  const declaredTitular = (administrative.titularName ?? '').trim()
-  const titularHint = declaredTitular !== ''
-    ? 'Esta instalación usa su propio titular y sustituye al del proyecto en la hoja 2.'
-    : inheritedTitular === ''
-      ? 'Vacío hereda: el proyecto tampoco declara titular, así que la hoja 2 lo deja pendiente.'
-      : `Vacío hereda el titular del proyecto (${inheritedTitular}).`
-
-  return (
-    <div className="mt-5" role="group" aria-labelledby="interior-administrative-title">
-      <h4 id="interior-administrative-title" className="text-xs font-semibold text-ink-muted">Datos administrativos de la instalación · hoja 2 del ELEC-3</h4>
-      <p className="mt-1 text-[11px] leading-4 text-ink-faint">Son de esta instalación y se guardan con ella. El número, el piso y la puerta no se heredan: si quedan vacíos, la hoja 2 los deja pendientes. La superficie y la tierra se escriben como texto, con coma decimal si hace falta.</p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ADMINISTRATIVE_FIELDS.map(field => (
-          <div key={field.key} className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor={`interior-admin-${field.key}`} className="text-xs font-semibold text-ink-muted">{field.label}</Label>
-            <Input id={`interior-admin-${field.key}`} type="text" className="w-full" value={administrative[field.key] ?? ''} placeholder={field.placeholder} onChange={event => onChange(field.key, event.target.value)} />
-            {field.key === 'titularName' && <span className="text-[11px] leading-4 text-ink-faint">{titularHint}</span>}
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
