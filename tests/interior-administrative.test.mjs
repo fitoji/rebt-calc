@@ -327,11 +327,11 @@ test('T2 · las dos cards reciben el disparador y no son dueñas del diálogo', 
 })
 
 test('T2 · el panel que abre el botón es «Tablas y referencias», ya montado', () => {
-  assert.match(calc, /const openReferences = \(\) => setShowReferences\(true\)/, 'un solo sitio abre el panel de tablas')
+  assert.match(calc, /const openReferenceTable = \(key: TableKey\) => openLineTables\(\[key\]\)/, 'un solo helper abre el panel de tablas en la tabla que se le pide')
   // `hasIrve={parking > 0}` lleva un `>`: el tag se acota por su cierre, no por ese símbolo.
   const tagOf = name => calc.slice(calc.indexOf(`<${name} `), calc.indexOf('/>', calc.indexOf(`<${name} `)))
-  assert.match(tagOf('InteriorPanel'), /onOpenTables=\{openReferences\}/, 'Cuadros lo recibe de la calculadora')
-  assert.match(tagOf('InteriorAdministrativeCard'), /onOpenTables=\{openReferences\}/, 'la card administrativa también')
-  assert.match(calc, /<Dialog open=\{showReferences\}/, 'el panel sigue siendo el mismo')
-  assert.match(calc, /Tabla A · Escalones de potencia prevista/, 'y sigue mostrando la tabla A que el botón promete')
+  assert.match(tagOf('InteriorPanel'), /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'Cuadros lo recibe de la calculadora')
+  assert.match(tagOf('InteriorAdministrativeCard'), /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'la card administrativa también')
+  assert.match(calc, /<LineTablesDialog open=\{showLineTables\}/, 'el panel sigue siendo el mismo')
+  assert.match(read('lib/normative-tables.mjs'), /Tabla A · Escalones de potencia prevista/, 'y el registro sigue titulando la tabla A que el botón promete')
 })

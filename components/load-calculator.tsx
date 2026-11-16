@@ -6,17 +6,18 @@ import autoTable from 'jspdf-autotable'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Check, ChevronRight, Download, FolderOpen, Info, Plus, RotateCcw, Trash2, Building2, X, Table2, SlidersHorizontal, FileText, FileJson, FileCode2, FileType, HelpCircle, ClipboardCheck, Moon, Sun, TriangleAlert } from 'lucide-react'
-import { getSimultaneityCoefficient, ITC_BT_10_COEFFICIENTS } from '../lib/simultaneity.mjs'
-import { HOUSING_POWER_STEPS, NORMATIVE_REGISTRY } from '../lib/normative-tables.mjs'
+import { getSimultaneityCoefficient } from '../lib/simultaneity.mjs'
+import { HOUSING_POWER_STEPS, ITA_TYPES, NORMATIVE_REGISTRY } from '../lib/normative-tables.mjs'
 import { METHODS } from '../lib/cable-tables.mjs'
 import { clearProjectData, loadCalculatorInputs, opensWithExample, readProjectExport, saveCalculatorInputs, saveDocumentationSnapshot, setClearedProjectMark } from '../lib/calculator-storage.mjs'
 import { previewGaragePower, previewLightingPower, previewLocalPower, sumGaragePowers, sumLightingPowers, sumLocalPowers } from '../lib/load-previews.mjs'
-import { ITA_POWER_KW, itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
+import { itaPowerW, largestMotorIncrement, sumServiceGeneralPowers } from '../lib/service-loads.mjs'
 import { buildMarkdownReport, buildPlainTextReport } from '../lib/export-formats.mjs'
 import { limitsForInstallation, type InstallationType } from '../lib/installation-config.mjs'
 import { DEFAULT_METER_CENTER, ASSEMBLY_LABELS, CABINET_LABELS, FLOOR_LABELS, PLACEMENT_LABELS, evaluateMeterCenter, installationTypeFor, meterCenterFromInstallationType, suggestMeterCount } from '../lib/meter-center.mjs'
 import { DEFAULT_DOCUMENTATION, normalizeDocumentation, type Documentation } from '../lib/project-documentation.mjs'
 import { MeterCenterCard, type MeterCenterState } from '@/components/meter-center-card'
+import { TableButton } from '@/components/table-button'
 import { DocumentationPanel, DocumentationToggles } from '@/components/documentation-panel'
 import { InteriorPanel, EMPTY_INTERIOR_ADMINISTRATIVE, type InteriorAdministrative, type InteriorDwelling } from '@/components/interior-panel'
 import { InteriorAdministrativeCard } from '@/components/interior-administrative-card'
@@ -108,15 +109,8 @@ type LocalRow = { name: string; type: 'Comercial/oficina' | 'Industria'; area: n
 type GarageRow = { name: string; ventilation: 'Forzada' | 'Natural'; area: number; plazas: number }
 type ElevatorRow = { name: string; ita: 'ITA-1' | 'ITA-2' | 'ITA-3' | 'ITA-4' | 'ITA-5' | 'ITA-6'; power: number; unit: 'W' | 'CV' }
 
-// ITA types from ITC-BT 10 table
-const ITA_TYPES = [
-  { type: 'ITA-1', carga: 400, personas: 5, velocidad: 0.63, potencia: ITA_POWER_KW['ITA-1'] },
-  { type: 'ITA-2', carga: 400, personas: 5, velocidad: 1, potencia: ITA_POWER_KW['ITA-2'] },
-  { type: 'ITA-3', carga: 630, personas: 8, velocidad: 1, potencia: ITA_POWER_KW['ITA-3'] },
-  { type: 'ITA-4', carga: 630, personas: 8, velocidad: 1.6, potencia: ITA_POWER_KW['ITA-4'] },
-  { type: 'ITA-5', carga: 1000, personas: 13, velocidad: 1.6, potencia: ITA_POWER_KW['ITA-5'] },
-  { type: 'ITA-6', carga: 1000, personas: 13, velocidad: 2.5, potencia: ITA_POWER_KW['ITA-6'] },
-] as const
+// La tabla ITA y su potencia viven en `lib/normative-tables.mjs`, junto a la
+// fuente que las fija: el panel de tablas la pinta desde ahí.
 type MotorRow = { name: string; power: number; unit: 'W' | 'CV' }
 type OtherLoadRow = { name: string; power: number }
 type LightingId = 'portal' | 'stair' | 'known'
@@ -302,6 +296,9 @@ export function LoadCalculator() {
   const [selectedAdministrativeDwellingId, setSelectedAdministrativeDwellingId] = useState<string | null>(null)
   const [lgaPowerMode, setLgaPowerMode] = useState<'auto' | 'manual'>('auto')
   const openLineTables = (tables?: TableKey[]) => { setLineTableFocus(tables ?? null); setShowLineTables(true) }
+  // El botón de tabla de un valor abre el panel único enfocado en su tabla (S3, S4):
+  // un solo sitio decide qué tabla se pide, en vez de repetir el array en cada card.
+  const openReferenceTable = (key: TableKey) => openLineTables([key])
   const updateLga = (patch: Partial<LineState>) => { setLineTouched(true); if ('powerW' in patch) setLgaPowerMode('manual'); setLga(current => ({ ...current, ...patch })) }
   const changeLgaPowerMode = (mode: 'auto' | 'manual') => { setLgaPowerMode(mode); setLineTouched(true) }
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
@@ -321,16 +318,10 @@ export function LoadCalculator() {
     setTabDirection(TAB_ORDER.indexOf(next) >= TAB_ORDER.indexOf(activeTab) ? 'forward' : 'back')
     setActiveTab(next)
   }
-  const [showReferences, setShowReferences] = useState(false)
-  // El botón de tabla de un valor abre el panel que ya contiene su tabla (S3):
-  // un solo sitio decide cuál es, en vez de repetir el setter en cada card.
-  const openReferences = () => setShowReferences(true)
   const [showDownload, setShowDownload] = useState(false)
   const [elec3DwellingId, setElec3DwellingId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showProjectInfo, setShowProjectInfo] = useState(false)
-  const [showItaTable, setShowItaTable] = useState(false)
-  const [showSimultaneityTable, setShowSimultaneityTable] = useState(false)
   const [settings, setSettings] = useState<CalculationSettings>(defaultSettings)
   const [projectInfo, setProjectInfo] = useState<ProjectInfo>({ ...emptyProjectInfo })
   const [storageLoaded, setStorageLoaded] = useState(false)
@@ -1347,62 +1338,6 @@ export function LoadCalculator() {
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}><Check data-icon="inline-start" /> Guardar datos</Button></div>
           </DialogContent>
         </Dialog>
-        <Dialog open={showSimultaneityTable} onOpenChange={setShowSimultaneityTable}>
-          <DialogContent id="simultaneity-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
-            <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="simultaneity-title" className="text-xl font-bold text-ink">Coeficiente de simultaneidad</DialogTitle><DialogDescription id="simultaneity-description" className="mt-1 text-sm text-ink-faint">Tabla 1 de la ITC-BT-10 según el número de viviendas.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tabla de simultaneidad" />}><X /></DialogClose></div>
-            <div className="max-h-[55vh] overflow-y-auto rounded-lg border border-line">
-              <Table className="w-full text-left text-sm">
-                <TableHeader className="sticky top-0 z-10 bg-table-cs-head text-xs uppercase tracking-wide text-table-cs-head-text"><TableRow className="border-table-cs-head"><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">Coeficiente</TableHead></TableRow></TableHeader>
-                <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-line-soft text-table-cs-row-text ${index % 2 === 0 ? 'bg-table-cs-row-odd' : 'bg-table-cs-row-even'}`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-line bg-table-cs-row-even text-table-cs-row-text"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
-              </Table>
-            </div>
-            <p className="mt-4 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-            <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowSimultaneityTable(false)}>Cerrar</Button></div>
-          </DialogContent>
-        </Dialog>
-        <Dialog open={showItaTable} onOpenChange={setShowItaTable}>
-          <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-3xl">
-              <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="ita-table-title" className="text-xl font-bold text-ink">Tipos de ascensores · Tabla ITA</DialogTitle><DialogDescription className="mt-1 text-sm text-ink-faint">Clasificación según ITC-BT 10 (REBT). Selecciona el tipo de aparato elevador en función de las características del ascensor.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar diálogo" />}><X /></DialogClose></div>
-              <div className="grid gap-3 md:hidden">
-                {ITA_TYPES.map(ita => <article key={`mobile-${ita.type}`} className="rounded-control border border-line bg-paper p-4">
-                  <div className="mb-3 flex items-center justify-between"><h4 className="font-semibold text-brand">{ita.type}</h4><span className="text-sm font-semibold tabular-nums">{fmtDec(ita.potencia)} kW</span></div>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                    <div><dt className="label">Carga</dt><dd className="mt-1 tabular-nums">{ita.carga} kg</dd></div>
-                    <div><dt className="label">Personas</dt><dd className="mt-1 tabular-nums">{ita.personas}</dd></div>
-                    <div className="col-span-2"><dt className="label">Velocidad</dt><dd className="mt-1 tabular-nums">{fmtDec(ita.velocidad)} m/s</dd></div>
-                  </dl>
-                </article>)}
-              </div>
-              <div className="hidden min-w-0 overflow-x-auto md:block">
-                <Table className="w-full text-left text-sm">
-                  <TableHeader>
-                    <TableRow className="border-b border-table-head bg-table-head text-xs uppercase tracking-wide text-table-head-text">
-                      <TableHead scope="col" className="px-4 py-3 text-table-head-text">Tipo</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Carga (kg)</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Personas</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Velocidad (m/s)</TableHead>
-                      <TableHead scope="col" className="px-4 py-3 text-right text-table-head-text">Potencia (kW)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {ITA_TYPES.map((ita, idx) => (
-                      <TableRow key={ita.type} className={`border-b border-line-soft text-table-row-text ${idx % 2 === 0 ? 'bg-table-row-odd' : 'bg-table-row-even'}`}>
-                        <TableCell className="px-4 py-3 font-semibold text-table-row-text">{ita.type}</TableCell>
-                        <TableCell className="px-4 py-3 text-right tabular-nums">{ita.carga}</TableCell>
-                        <TableCell className="px-4 py-3 text-right tabular-nums">{ita.personas}</TableCell>
-                        <TableCell className="px-4 py-3 text-right tabular-nums">{fmtDec(ita.velocidad)}</TableCell>
-                        <TableCell className="px-4 py-3 text-right font-medium tabular-nums">{ita.potencia}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="mt-5 rounded-lg bg-warning-soft p-4 text-xs leading-5 text-warning-ink">
-                <p className="flex items-start gap-2"><Info data-icon="inline-start" className="mt-0.5 shrink-0" /><span>Esta tabla es informativa. Al elegir un ITA se precarga su potencia orientativa en Potencia real; si el fabricante declara otra potencia, editá Potencia real. Los valores de la tabla ITC-BT 10 son orientativos.</span></p>
-              </div>
-              <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowItaTable(false)}>Cerrar</Button></div>
-          </DialogContent>
-        </Dialog>
         <Tabs value={activeTabValue} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
           <TabsList data-active-tab={activeTabValue} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
@@ -1469,11 +1404,11 @@ export function LoadCalculator() {
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setHousing(current => [...current, { level: 'Básica', power: settings.basicHousingPower, homes: 1, area: 0 }])}><Plus data-icon="inline-start" /> Añadir vivienda</Button><Metric label="P1 · Viviendas" value={`${power(result.p1)}`} accent /></div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Total viviendas" value={`${result.homes} uds.`} /><Metric label="Potencia media" value={`${power(result.average)}`} /><Metric label="Superficie construida · informativo" value={`${fmt(dwellingArea)} m²`} /><div className="rounded-control bg-surface-muted p-3">
               <p className="text-xs text-ink-faint">Coeficiente de simultaneidad</p>
-              <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold tabular-nums">{fmtDec(result.cs)}</p><Button type="button" variant="outline" size="icon" aria-label="Ver tabla del coeficiente de simultaneidad" aria-haspopup="dialog" aria-controls="simultaneity-dialog" className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand" onClick={() => setShowSimultaneityTable(true)}><Table2 className="size-4" aria-hidden="true" /></Button></div>
+              <div className="mt-1 flex items-center justify-between gap-2"><p className="font-bold tabular-nums">{fmtDec(result.cs)}</p><TableButton ariaLabel="Ver tabla del coeficiente de simultaneidad" onOpen={() => openReferenceTable('T10-CS')} /></div>
             </div></div>
             {settings.showSourceNotes && <SourceNote label="ITC-BT-25 tabla A e ITC-BT-10 §3.1">ITC-BT-25 tabla A (escalones de 5.750 y 7.360 W en electrificación básica; 9.200, 11.500 y 14.490 W en elevada) e ITC-BT-10 §3.1, que aplica la tabla 1 de coeficientes de simultaneidad sobre la potencia media por vivienda. La superficie por vivienda no interviene en la potencia de P1, pero la ITC-BT-25 §2.3.2 la usa para exigir electrificación elevada por encima de 160 m², y lo mismo hace con la calefacción eléctrica, el aire acondicionado y la secadora: el aviso lo muestra y no bloquea el dato. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
             </section>
-            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P2" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia ITA', 'Potencia real', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={value => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: value as ElevatorRow['ita'], power: itaPowerW(value as ElevatorRow['ita']), unit: 'W' } : x))} items={['ITA-1', 'ITA-2', 'ITA-3', 'ITA-4', 'ITA-5', 'ITA-6']} /><Button key="ita-info" type="button" variant="outline" size="icon" className="flex size-8 items-center justify-center rounded-lg border border-line bg-transparent text-ink-faint transition-colors hover:border-brand-mark hover:bg-brand-soft hover:text-brand-strong" aria-label="Ver tabla de tipos ITA" onClick={() => setShowItaTable(true)}><Table2 className="size-4" /></Button></div>, <span key="ita-power" className="tabular-nums text-sm">{fmtDec(itaPowerW(row.ita) / 1000)} kW</span>, <Input key="power" aria-label={`Potencia real · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', `Potencia (${powerUnit})`, '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia (${powerUnit}) · ${row.name}`} className="w-28" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.power, powerUnit) || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: storePower(Number(e.target.value), powerUnit) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${power(result.p2)}`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {power(result.motorIncrement)}. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}<DocumentationToggles group="p2" documentation={documentation} onChange={patch => setDocumentation(current => ({ ...current, ...patch }))} powerUnit={powerUnit} /></section>
+            <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P2" title="Servicios generales" subtitle="Ascensores, motores, otras cargas y alumbrado de zonas comunes" /><div className="flex flex-col gap-4"><ServiceTable title="Ascensores" addLabel="Añadir ascensor" onAdd={() => setElevators(es => [...es, { name: `Ascensor ${es.length + 1}`, ita: 'ITA-1', power: itaPowerW('ITA-1'), unit: 'W' }])} headers={['Descripción', 'ITA', 'Potencia ITA', 'Potencia real', 'Unidad', '']} rows={elevators.map((row, i) => [<Input key="name" aria-label={`Descripción · Ascensor ${i + 1}`} className="w-32" value={row.name} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <div key="ita-group" className="flex items-center gap-1"><ChoiceSelect key="ita" label={`Tipo ITA · ${row.name}`} value={row.ita} onChange={value => setElevators(es => es.map((x, j) => j === i ? { ...x, ita: value as ElevatorRow['ita'], power: itaPowerW(value as ElevatorRow['ita']), unit: 'W' } : x))} items={ITA_TYPES.map(ita => ita.type)} /><TableButton key="ita-info" ariaLabel="Ver tabla de tipos ITA" onOpen={() => openReferenceTable('ITA')} /></div>, <span key="ita-power" className="tabular-nums text-sm">{fmtDec(itaPowerW(row.ita) / 1000)} kW</span>, <Input key="power" aria-label={`Potencia real · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setElevators(es => es.map((x, j) => j === i ? { ...x, unit: e as ElevatorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setElevators(es => es.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Motores" addLabel="Añadir motor" onAdd={() => setMotors(ms => [...ms, { name: `Motor ${ms.length + 1}`, power: 0, unit: 'W' }])} headers={['Descripción', 'Potencia', 'Unidad', '']} rows={motors.map((row, i) => [<Input key="name" aria-label={`Descripción · Motor ${i + 1}`} className="w-36" value={row.name} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia · ${row.name}`} className="w-24" type="number" min="0" value={row.power || ''} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, power: Number(e.target.value) } : x))} />, <ChoiceSelect key="unit" label={`Unidad · ${row.name}`} value={row.unit} onChange={e => setMotors(ms => ms.map((x, j) => j === i ? { ...x, unit: e as MotorRow['unit'] } : x))} items={['W', 'CV']} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setMotors(ms => ms.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><ServiceTable title="Otras cargas" addLabel="Añadir carga" onAdd={() => setOtherLoads(ls => [...ls, { name: `Carga ${ls.length + 1}`, power: 0 }])} headers={['Descripción', `Potencia (${powerUnit})`, '']} rows={otherLoads.map((row, i) => [<Input key="name" aria-label={`Descripción · Carga ${i + 1}`} className="w-44" value={row.name} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />, <Input key="power" aria-label={`Potencia (${powerUnit}) · ${row.name}`} className="w-28" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.power, powerUnit) || ''} onChange={e => setOtherLoads(ls => ls.map((x, j) => j === i ? { ...x, power: storePower(Number(e.target.value), powerUnit) } : x))} />, <Button key="remove" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setOtherLoads(ls => ls.filter((_, j) => j !== i))}><Trash2 /></Button>])} /><LightingTable rows={lighting} settings={settings} onChange={setLighting} /></div><Metric label="P2 · Servicios generales" value={`${power(result.p2)}`} accent /><p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" /> ITA permite distinguir la potencia del ascensor. Coeficientes actuales: ascensores ×{fmtDec(settings.elevatorCoefficient)}, motor de mayor potencia ×{fmtDec(settings.motorCoefficient)} y lámparas de descarga ×{fmtDec(settings.dischargeLampCoefficient)}. Motores y otras cargas se suman a valor nominal; el incremento del motor mayor es {power(result.motorIncrement)}. Conversión para potencias expresadas en CV: {fmtDec(settings.cvToWatts)} W/CV. Los cambios en Parámetros de cálculo se aplican automáticamente a P2.</p>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.2">ITC-BT-10 §3.2: los servicios generales se suman sin factor de reducción por simultaneidad (CS = 1). La instrucción no fija coeficientes de mayoración: el 1,3 de ascensores, el 25 % del motor mayor y el 1,8 de lámparas de descarga son criterios de proyecto, editables en Parámetros de cálculo. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}<DocumentationToggles group="p2" documentation={documentation} onChange={patch => setDocumentation(current => ({ ...current, ...patch }))} powerUnit={powerUnit} /></section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P3" title="Locales, oficinas e industrias" subtitle="Comercial/oficina o industria: se toma el mayor valor entre previsión real, superficie y mínimo por abonado" /><EditableTable headers={['Descripción', 'Tipo', 'Superficie (m²)', `Previsión real (${powerUnit})`, `P prevista (${powerUnit})`, '']} rows={locals.map((row, i) => [row.name, <ChoiceSelect key="type" label={`Tipo · ${row.name}`} value={row.type} onChange={value => setLocals(ls => ls.map((x, j) => j === i ? { ...x, type: value as LocalRow['type'] } : x))} items={['Comercial/oficina', 'Industria']} />, <Input key="a" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Previsión real (${powerUnit}) · ${row.name}`} className="w-28" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(row.real, powerUnit) || ''} onChange={e => setLocals(ls => ls.map((x, j) => j === i ? { ...x, real: storePower(Number(e.target.value), powerUnit) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewLocalPower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setLocals(ls => ls.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{locals.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay locales añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setLocals(ls => [...ls, { name: `Local ${ls.length + 1}`, type: 'Comercial/oficina', area: 0, real: 0 }])}><Plus data-icon="inline-start" /> Añadir local</Button><Metric label="P3 · Locales y oficinas" value={`${power(result.p3)}`} accent /></div><DocumentationToggles group="p3" documentation={documentation} onChange={patch => setDocumentation(current => ({ ...current, ...patch }))} powerUnit={powerUnit} />
             {settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.3 y §4.2">ITC-BT-10 §3.3 para locales comerciales y oficinas (100 W/m² y planta, mínimo 3.450 W por local) y §4.2 «Edificios destinados a concentración de industrias» (125 W/m² y planta, mínimo 10.350 W), ambos con CS = 1. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
             <section className="rounded-card border border-line bg-paper p-5 shadow-card"><SectionTitle code="P4" title="Garajes" subtitle="Previsión según ventilación y superficie · plazas informativas" /><EditableTable headers={['Descripción', 'Ventilación', 'Plazas', 'Superficie (m²)', `P prevista (${powerUnit})`, '']} rows={garages.map((row, i) => [row.name, <ChoiceSelect key="a" label={`Ventilación · ${row.name}`} value={row.ventilation} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, ventilation: e as GarageRow['ventilation'] } : x))} items={['Forzada', 'Natural']} />, <Input key="p" aria-label={`Plazas · ${row.name}`} className="w-20" type="number" min="0" step="1" value={row.plazas || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, plazas: Number(e.target.value) } : x))} />, <Input key="b" aria-label={`Superficie (m²) · ${row.name}`} className="w-24" type="number" min="0" value={row.area || ''} onChange={e => setGarages(gs => gs.map((x, j) => j === i ? { ...x, area: Number(e.target.value) } : x))} />, <strong key="c" className="tabular-nums">{powerValue(previewGaragePower(row, settings))}</strong>, <Button key="d" type="button" variant="ghost" size="icon" aria-label={`Eliminar ${row.name}`} onClick={() => setGarages(gs => gs.filter((_, j) => j !== i))}><Trash2 data-icon="inline-start" /></Button>])} />{garages.length === 0 && <p className="py-4 text-center text-sm text-ink-faint">No hay garajes añadidos.</p>}<div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto sm:flex-1" onClick={() => setGarages(gs => [...gs, { name: `Garaje ${gs.length + 1}`, ventilation: 'Forzada', area: 0, plazas: 0 }])}><Plus data-icon="inline-start" /> Añadir garaje</Button><div className="flex flex-wrap items-end gap-3"><Metric label="Plazas en estacionamientos · informativo" value={fmt(garageParkingSpaces)} /><Metric label="P4 · Garajes" value={`${power(result.p4)}`} accent /></div></div>{settings.showSourceNotes && <SourceNote label="ITC-BT-10 §3.4">ITC-BT-10 §3.4: 10 W/m² y planta con ventilación natural y 20 W/m² con ventilación forzada, con un mínimo de 3.450 W por garaje y CS = 1. El número de plazas de cada garaje es informativo: no interviene en P4, que se calcula por superficie; su total es el que la Guía-BT-52 (Anexo 2) usa en el mínimo del 10 % de IRVE. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}</section>
@@ -1550,7 +1485,7 @@ export function LoadCalculator() {
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">
-              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={openReferences} />
+              <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={() => openReferenceTable('T25-A')} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
@@ -1567,7 +1502,7 @@ export function LoadCalculator() {
             <AdministrativePanel info={projectInfo} onChange={updateProjectInfo} />
             {/* Los datos de cada instalación van después de la cabecera del documento
                 (A4) y se navegan por su propia vivienda (A1). */}
-            <InteriorAdministrativeCard dwellings={interiorDwellings} selectedId={effectiveAdministrativeDwellingId} onSelect={setSelectedAdministrativeDwellingId} onChange={updateDerivationAdministrative} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} onViewElec3={setElec3DwellingId} onOpenTables={openReferences} />
+            <InteriorAdministrativeCard dwellings={interiorDwellings} selectedId={effectiveAdministrativeDwellingId} onSelect={setSelectedAdministrativeDwellingId} onChange={updateDerivationAdministrative} powerUnit={powerUnit} projectTitular={projectInfo.titularName ?? ''} onViewElec3={setElec3DwellingId} onOpenTables={() => openReferenceTable('T25-A')} />
           </TabsContent>
 
             </div>
@@ -1590,7 +1525,7 @@ export function LoadCalculator() {
             derivationPowerW={railDerivationPowerW}
             selectedDerivation={railSelectedDerivation}
             dwelling={railDwelling}
-            onOpenTables={openReferences}
+            onOpenTables={() => openReferenceTable('T25-A')}
             onOpenLineTables={openLineTables}
           />
                         <RailGroup title="Proyecto">
@@ -1613,36 +1548,6 @@ export function LoadCalculator() {
             </RailGroup>
 
             
-            <Dialog open={showReferences} onOpenChange={setShowReferences}>
-              <DialogContent id="references-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-2xl">
-                <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="references-title" className="text-xl font-bold text-ink">Tablas y referencias</DialogTitle><DialogDescription id="references-description" className="mt-1 text-sm text-ink-faint">Criterios de previsión de cargas según ITC-BT-10 e ITC-BT-25.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas y referencias" />}><X /></DialogClose></div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
-                  <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
-                </div>
-                <h3 className="mt-6 font-bold text-ink-soft">Tabla A · Escalones de potencia prevista · ITC-BT-25</h3>
-                <p className="mt-1 text-xs text-ink-faint">Suministros monofásicos a 230 V. El escalón fija el calibre del interruptor general automático (IGA).</p>
-                <div className="mt-2 overflow-hidden rounded-lg border border-line">
-                  <Table className="w-full text-left text-sm">
-                    <TableHeader><TableRow className="border-b border-line text-xs uppercase tracking-wide text-ink-faint"><TableHead scope="col" className="px-4 py-3 text-center">Electrificación</TableHead><TableHead scope="col" className="px-4 py-3 text-center">Potencia ({powerUnit})</TableHead><TableHead scope="col" className="px-4 py-3 text-center">IGA (A)</TableHead></TableRow></TableHeader>
-                    <TableBody>{HOUSING_POWER_STEPS.map(([grade, watts, iga]) => <TableRow key={`${grade}-${watts}`} className="border-b border-line-soft"><TableCell className="px-4 py-2 text-center">{grade}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{formatPowerValue(Number(watts), powerUnit)}</TableCell><TableCell className="px-4 py-2 text-center tabular-nums">{iga}</TableCell></TableRow>)}</TableBody>
-                  </Table>
-                </div>
-                <h3 className="mt-6 font-bold text-ink-soft">Coeficiente de simultaneidad · ITC-BT-10</h3>
-                <div className="mt-2 max-h-[45vh] overflow-y-auto rounded-lg border border-line">
-                  <Table className="w-full text-left text-sm">
-                    <TableHeader className="sticky top-0 z-10 bg-table-cs-head text-xs uppercase tracking-wide text-table-cs-head-text">
-                      <TableRow className="border-table-cs-head"><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">N.º viviendas (n)</TableHead><TableHead scope="col" className="px-4 py-3 text-center text-table-cs-head-text">Coeficiente de simultaneidad</TableHead></TableRow>
-                    </TableHeader>
-                    <TableBody>{ITC_BT_10_COEFFICIENTS.slice(1).map((coefficient, index) => <TableRow key={index + 1} className={`border-b border-line-soft text-table-cs-row-text ${index % 2 === 0 ? 'bg-table-cs-row-odd' : 'bg-table-cs-row-even'}`}><TableCell className="px-4 py-2 text-center tabular-nums">{index + 1}</TableCell><TableCell className="px-4 py-2 text-center font-medium tabular-nums">{fmtDec(coefficient)}</TableCell></TableRow>)}<TableRow className="border-t border-line bg-table-cs-row-even text-table-cs-row-text"><TableCell className="px-4 py-3 text-center font-semibold">n &gt; 21</TableCell><TableCell className="px-4 py-3 text-center font-semibold">15,3 + (n − 21) × 0,5</TableCell></TableRow></TableBody>
-                  </Table>
-                </div>
-                <p className="mt-4 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-                <div className="mt-6 flex justify-end"><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowReferences(false)}>Cerrar</Button></div>
-              </DialogContent>
-            </Dialog>
             <Dialog open={showDownload} onOpenChange={setShowDownload}>
               <DialogContent id="download-dialog" showCloseButton={false} className="max-h-[85dvh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-xl">
                 <div className="mb-5 flex items-start justify-between gap-4"><div><DialogTitle id="download-title" className="text-xl font-bold text-ink">Descargar datos</DialogTitle><DialogDescription id="download-description" className="mt-1 text-sm text-ink-faint">Los cuatro formatos incluyen los mismos datos del proyecto, el desglose P1–P5 y el dimensionado de LGA y DI.</DialogDescription></div><DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar descarga de datos" />}><X /></DialogClose></div>
@@ -1657,7 +1562,7 @@ export function LoadCalculator() {
               <Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold" onClick={() => setShowDownload(true)}><Download data-icon="inline-start" /> Descargar datos</Button>
             </RailGroup>
             <RailGroup title="Referencias">
-<button type="button" aria-haspopup="dialog" aria-controls="references-dialog" className="flex w-full items-center justify-between rounded-control border border-line bg-paper px-4 py-3 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => setShowReferences(true)}>
+<button type="button" aria-haspopup="dialog" aria-controls="line-tables-dialog" className="flex w-full items-center justify-between rounded-control border border-line bg-paper px-4 py-3 text-left text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" onClick={() => openLineTables()}>
         <span>Tablas y referencias</span><span className="flex items-center gap-2 text-brand"><span className="text-xs">Ver tablas</span><Table2 className="size-4" /></span>
       </button>
             </RailGroup>

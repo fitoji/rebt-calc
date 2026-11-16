@@ -27,3 +27,21 @@ test('S1/S4/S5: the memoria prints the same numbers as the card', () => {
   assert.equal((calculator.match(/resultante con In/g) ?? []).length, 4, 'the In drop reaches the memoria')
   assert.match(calculator, /diResult\.housingIga/, 'the housing IGA reaches the memoria when the line has one')
 })
+
+test('T8/A4: las opciones de línea describen la condición, no la tabla', () => {
+  // El campo ya tiene su botón `Tablas`: repetir el nombre en la opción sobra.
+  for (const option of [
+    "{ value: 'air', label: 'Al aire' }",
+    "{ value: 'buried', label: 'Enterrada bajo tubo' }",
+    "{ value: 'tubes-air', label: 'Tubos en contacto al aire' }",
+  ]) {
+    assert.ok(modules.includes(option), `la opción se lee «${option}»`)
+  }
+  assert.match(modules, /Object\.entries\(GROUPING_LAYOUTS\)\.map\(\(\[value, entry\]\) => \(\{ value, label: entry\.label \}\)\)/,
+    'las disposiciones conservan su valor y pierden el «· Tabla E»')
+  assert.doesNotMatch(modules, /· Tabla [A-I]\b/, 'ninguna opción de la línea nombra la tabla que el botón ya abre')
+  // El valor guardado no cambia: sólo la etiqueta visible (A4).
+  assert.match(modules, /id={`\$\{idPrefix\}-installation`}/, 'el campo de instalación sigue siendo el mismo')
+  assert.match(modules, /onChange=\{value => onChange\(\{ installation: value as 'air' \| 'buried' \}\)\}/, 'la instalación sigue guardando air/buried')
+  assert.match(modules, /onOpenTables\(tables\)/, 'el botón de la tabla sigue pidiendo su conjunto')
+})

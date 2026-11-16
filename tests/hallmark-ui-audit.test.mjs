@@ -64,7 +64,7 @@ test('numeric readouts use tabular figures while form fields stay out of scope',
   assert.ok(calc.includes('mt-1 font-bold tabular-nums'), 'Metric values use tabular figures')
   assert.ok(railResultCard.includes('text-4xl font-bold tabular-nums'), 'results total uses tabular figures')
   assert.ok(calc.includes('font-semibold tabular-nums'), 'result rows use tabular figures')
-  assert.ok(calc.includes('px-4 py-3 text-right tabular-nums'), 'ITA desktop cells use tabular figures')
+  assert.ok(modules.includes('whitespace-nowrap px-2 py-1.5 tabular-nums'), 'las celdas del panel de tablas usan cifras tabulares')
   assert.doesNotMatch(globals, /\.field\s*\{[^}]*tabular-nums/, 'form fields deliberately out of scope')
 })
 

@@ -276,9 +276,9 @@ test('T3 · el Iz del rail abre las tablas de la línea que lo fija', () => {
   assert.doesNotMatch(diCard, /Iz de tabla/, 'el rótulo del Iz ya no dice «de tabla»')
 })
 
-test('el rail recibe los dos paneles de tablas que ya existen', () => {
-  assert.match(calc, /const openReferences = \(\) => setShowReferences\(true\)/, 'un solo sitio abre «Tablas y referencias»')
-  assert.match(rail, /onOpenTables=\{openReferences\}/, 'el IGA abre el panel que ya contiene la tabla A')
+test('el rail recibe el panel único y le pide la tabla del valor', () => {
+  assert.match(calc, /const openReferenceTable = \(key: TableKey\) => openLineTables\(\[key\]\)/, 'un solo helper nombra la tabla que se abre')
+  assert.match(rail, /onOpenTables=\{\(\) => openReferenceTable\('T25-A'\)\}/, 'el IGA abre la tabla A del panel único')
   assert.match(rail, /onOpenLineTables=\{openLineTables\}/, 'el Iz reusa el foco de las tablas de línea')
 })
 

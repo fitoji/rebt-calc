@@ -101,10 +101,11 @@ export type LineState = {
 
 export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
 
-/** Reference tables a control can open: ITC-BT-19 plus the LGA and DI guides. */
+/** Reference tables a control can open: ITC-BT-19, the LGA and DI guides and the load forecast. */
 export type TableKey =
   | 'A' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I'
   | 'BT14-A' | 'BT14-B' | 'BT14-1' | 'BT15-C' | 'BT15-D' | 'BT15-E'
+  | 'T25-A' | 'T10-CS' | 'ITA'
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
@@ -339,8 +340,8 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
         label="Tipo de instalación"
         value={state.installation}
         options={[
-          { value: 'air', label: 'Al aire · Tabla A' },
-          { value: 'buried', label: 'Enterrada bajo tubo · Tabla D' },
+          { value: 'air', label: 'Al aire' },
+          { value: 'buried', label: 'Enterrada bajo tubo' },
         ]}
         onChange={value => onChange({ installation: value as 'air' | 'buried' })}
         tables={role === 'lga' ? ['BT14-A', 'BT14-B'] : ['BT15-C', 'BT15-D', 'BT15-E']}
@@ -351,8 +352,8 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
         label="Disposición de los circuitos"
         value={state.layout}
         options={[
-          ...Object.entries(GROUPING_LAYOUTS).map(([value, entry]) => ({ value, label: `${entry.label} · Tabla E` })),
-          { value: 'tubes-air', label: 'Tubos en contacto al aire · Tabla G' },
+          ...Object.entries(GROUPING_LAYOUTS).map(([value, entry]) => ({ value, label: entry.label })),
+          { value: 'tubes-air', label: 'Tubos en contacto al aire' },
         ]}
         onChange={value => onChange({ layout: value as GroupingLayout })}
         tables={['E', 'G']}
@@ -571,7 +572,7 @@ function SimpleTable({ head, rows, minWidth = 0 }: {
             <TableRow key={rowIndex}>
               {row.map((cell, cellIndex) => (
                 <TableCell key={cellIndex} className="whitespace-nowrap px-2 py-1.5 tabular-nums">
-                  {cell == null ? '—' : cell}
+                  {cell == null ? '—' : typeof cell === 'number' ? fmt(cell, Number.isInteger(cell) ? 0 : 2) : cell}
                 </TableCell>
               ))}
             </TableRow>
@@ -607,12 +608,12 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-5xl">
+      <DialogContent id="line-tables-dialog" showCloseButton={false} className="max-h-[90vh] w-full overflow-y-auto rounded-panel bg-paper p-6 shadow-panel ring-0 gap-0 sm:max-w-5xl">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <DialogTitle className="text-xl font-bold text-ink">Tablas de referencia · ITC-BT-14, BT-15 y BT-19</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-ink">Tablas y referencias</DialogTitle>
             <DialogDescription className="mt-1 text-sm text-ink-faint">
-              Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; la conductividad, del anexo 2 de la misma guía (sep 03, rev. 1), y la sección del conductor de protección, de la guía BT-18 (oct 05, rev. 1), también en esa carpeta; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
+              El panel único de la aplicación: las tablas de la previsión de cargas, las de la LGA y de la derivación individual, las del dimensionado y los criterios con los que se prevé cada carga. Guías del Ministerio de Industria, Turismo y Comercio. Las tablas de la LGA y de la derivación individual se transcriben de las guías BT-14 (sep 03, rev. 1) y BT-15 (sep 03, rev. 1), que están en <code className="text-ink-muted">data/documentacion</code>; la conductividad, del anexo 2 de la misma guía (sep 03, rev. 1), y la sección del conductor de protección, de la guía BT-18 (oct 05, rev. 1), también en esa carpeta; las de agrupamiento y métodos, de la guía BT-19 (feb 09, rev. 2), que reproduce la UNE 20460-5-523:2004.
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar tablas de referencia" />}><X /></DialogClose>
@@ -730,6 +731,20 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
         <p className="mt-5 text-xs leading-5 text-ink-faint">
           La LGA y la derivación individual se dimensionan con las tablas de su propia instrucción cuando la combinación está publicada; el resto de los casos, y cualquier método distinto del B, usan la Tabla A de la ITC-BT-19. Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
         </p>
+
+        {/* Los criterios no son tablas, pero necesitan un hogar: viven acá y se
+            muestran siempre, también cuando el panel se abre enfocado en una
+            tabla concreta (S3, S4). */}
+        <section className="mt-6">
+          <h4 className="mb-2 text-sm font-semibold text-ink-muted">Criterios de previsión · ITC-BT-10 e ITC-BT-25</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
+            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
+            <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
+            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
+          </div>
+          <p className="mt-3 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
+        </section>
       </DialogContent>
     </Dialog>
   )
