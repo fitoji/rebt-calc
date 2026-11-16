@@ -196,6 +196,13 @@
   --ink-faint: oklch(54% 0.046 257.417);
   --ink-ghost: oklch(70.4% 0.04 256.788);
 
+  /* Tabla de conductores · Guía-BT-26: paleta celeste generada (AA verificado). */
+  --conductor-head: #0369a1;
+  --conductor-head-text: #ffffff;
+  --conductor-row-odd: #d6e3ef;
+  --conductor-row-even: #e8f0f6;
+  --conductor-row-text: #000000;
+
   /*
    * Velo de hover: 10 % de tinta sobre lo que haya debajo. Sirve igual sobre
    * tarjeta, fila teñida o panel, y en modo noche —donde la tinta es clara—
@@ -355,6 +362,13 @@
   --ink-subtle: oklch(76% 0.014 250);
   --ink-faint: oklch(70% 0.015 250);
   --ink-ghost: oklch(58% 0.015 250);
+
+  /* La misma tabla sobre superficie oscura: el tono se mezcla con el fondo. */
+  --conductor-head: #0369a1;
+  --conductor-head-text: #ffffff;
+  --conductor-row-odd: #2c3b53;
+  --conductor-row-even: #2c364a;
+  --conductor-row-text: #ffffff;
   --brand: oklch(78.9% 0.154 211.53);
   --brand-strong: oklch(86.5% 0.127 207.078);
   --brand-ink: oklch(88% 0.1 205);
@@ -1051,3 +1065,8 @@ html.dark[data-explanation-mode="calculation"] {
     transition-duration: 1ms;
   }
 }
+
+.table-conductor thead th { background: var(--conductor-head); color: var(--conductor-head-text); }
+.table-conductor tbody tr:nth-child(odd) { background: var(--conductor-row-odd); }
+.table-conductor tbody tr:nth-child(even) { background: var(--conductor-row-even); }
+.table-conductor tbody td { color: var(--conductor-row-text); }

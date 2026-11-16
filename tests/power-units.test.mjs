@@ -123,6 +123,6 @@ test('ningún componente de la interfaz fija el vatio fuera del selector', () =>
 })
 
 test('the export keeps the watt as the unit of record', () => {
-  assert.match(calc, /inputs: \{ housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, lga, lgaPowerMode, di, derivations \}/, 'the JSON carries the raw inputs in watts')
+  assert.match(calc, /inputs: \{ housing, locals, garages, elevators, motors, otherLoads, lighting, installationType, meterCenter, documentation, parking, irveOption, interiorConductor, lga, lgaPowerMode, di, derivations \}/, 'the JSON carries the raw inputs in watts')
   assert.match(calc, /momentKwM/, 'the moment stays in kW·m whatever the preference')
 })

@@ -21,6 +21,7 @@ import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYP
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
+import { INTERIOR_CONDUCTORS, type InteriorConductor } from '../lib/interior-conductors.mjs'
 
 /**
  * Los datos administrativos de una instalación (S5): número, piso, puerta,
@@ -142,6 +143,11 @@ export type InteriorPanelProps = {
    * panel no posee ese diálogo: el botón de tabla sólo pide que se abra (S3, S5).
    */
   onOpenTables: () => void
+  /** Tipo de conductor de los circuitos interiores (ITC-BT-26), declarado en Cuadros. */
+  interiorConductor: InteriorConductor
+  onInteriorConductorChange: (value: InteriorConductor) => void
+  /** Abre el panel único en la tabla de la guía BT-26. */
+  onOpenConductorTable: () => void
   /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
   powerUnit: 'W' | 'kW'
   hasIrve?: boolean
@@ -149,26 +155,49 @@ export type InteriorPanelProps = {
   showSourceNotes?: boolean
 }
 
+/** Selector del tipo de conductor de los circuitos interiores (ITC-BT-26). */
+function InteriorConductorField({ value, onChange, onOpenConductorTable }: { value: InteriorConductor; onChange: (value: InteriorConductor) => void; onOpenConductorTable: () => void }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3 rounded-control bg-surface-muted p-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-ink-muted">Tipo de conductor de los circuitos interiores</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-ink-faint">ITC-BT-26 · se imprime en el campo «Tipo de conductor» del ELEC-3.</p>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label htmlFor="interior-conductor" className="text-xs font-semibold text-ink-muted">Conductor</Label>
+        <div className="flex items-center gap-2">
+          <Select value={value} onValueChange={next => { if (next != null) onChange(next as InteriorConductor) }}>
+            <SelectTrigger id="interior-conductor" className="h-9 w-full min-w-0 text-sm sm:min-w-[12rem]"><SelectValue>{(selected: string | null) => selected ?? value}</SelectValue></SelectTrigger>
+            <SelectContent alignItemWithTrigger={false}><SelectGroup>{INTERIOR_CONDUCTORS.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectGroup></SelectContent>
+          </Select>
+          <TableButton ariaLabel="Ver tabla de conductores · Guía-BT-26" onOpen={onOpenConductorTable} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /**
  * La card completa cuando el proyecto todavía no tiene viviendas. Vive fuera del
  * cuerpo para que sus hooks (el aviso por puntos de la ITC-BT-25 §2.3.2) no queden
  * detrás de un retorno temprano y cambien de orden al generar derivaciones.
  */
-function EmptyInteriorPanel() {
+function EmptyInteriorPanel({ interiorConductor, onInteriorConductorChange, onOpenConductorTable }: Pick<InteriorPanelProps, 'interiorConductor' | 'onInteriorConductorChange' | 'onOpenConductorTable'>) {
   return (
     <section className="rounded-card border border-line bg-paper p-5 shadow-card">
       <h3 className="font-bold">Instalaciones interiores</h3>
       <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
+      <div className="mt-3"><InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} /></div>
     </section>
   )
 }
 
 export function InteriorPanel(props: InteriorPanelProps) {
-  if (props.dwellings.length === 0) return <EmptyInteriorPanel />
+  if (props.dwellings.length === 0) return <EmptyInteriorPanel {...props} />
   return <InteriorPanelBody {...props} />
 }
 
-function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, interiorConductor, onInteriorConductorChange, onOpenConductorTable, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
@@ -303,6 +332,10 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             : evaluation.icpRatingA == null
               ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
               : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
+        </div>
+
+        <div className="mt-5">
+          <InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} />
         </div>
 
         <div className="mt-5">

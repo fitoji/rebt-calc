@@ -147,14 +147,25 @@ test('T7 · el panel único se titula «Tablas y referencias» y tiene el id que
   assert.doesNotMatch(calc, /references-dialog|simultaneity-dialog/, 'no quedan ids de los diálogos retirados')
 })
 
-test('T7 · el panel único lleva los criterios de previsión, siempre visibles', () => {
+test('T7 · el panel único lleva los criterios de previsión', () => {
   const start = dialog.indexOf('Criterios de previsión')
   assert.ok(start > 0, 'el panel declara los criterios de previsión')
   const criteria = dialog.slice(start, dialog.indexOf('</section>', start))
   for (const block of ['<b>Locales:</b>', '<b>Garajes:</b>', '<b>Alumbrado de zonas comunes:</b>', '<b>IRVE:</b>', '<b>Tarifa nocturna:</b>']) {
     assert.ok(criteria.includes(block), `los criterios dicen «${block}»`)
   }
-  assert.doesNotMatch(criteria, /shows\(/, 'los criterios no dependen del foco: un panel enfocado también los muestra')
+})
+
+test('T7 · la vista enfocada en BT-26 no arrastra la Tabla A ni los criterios de previsión', () => {
+  assert.match(dialog, /const conductorOnly = tables != null && tables\.length === 1 && tables\[0\] === 'BT26'/,
+    'el panel reconoce la vista de conductores por su foco')
+  const guard = dialog.indexOf('{!conductorOnly && (')
+  assert.ok(guard > -1, 'el texto ajeno a los conductores vive tras un guard')
+  for (const fragment of ['La LGA y la derivación individual se dimensionan', 'Criterios de previsión · ITC-BT-10 e ITC-BT-25']) {
+    const at = dialog.indexOf(fragment)
+    assert.ok(at > guard, `«${fragment}» queda dentro del guard que excluye BT-26`)
+    assert.ok(at < dialog.indexOf('</DialogContent>'), 'y sigue en el panel para el resto de tablas')
+  }
 })
 
 test('T7 · la calculadora ya no guarda diálogos propios para tablas', () => {
