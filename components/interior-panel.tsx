@@ -343,7 +343,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.breakerA == null ? '—' : `${circuit.breakerA} A`}</TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">
                         {sizing.section == null ? '—' : `${sizing.section} mm²`}
-                        {sizing.section != null && sizing.tableSection != null && sizing.section > sizing.tableSection && <span className="block text-[11px] text-ink-faint">mín. tabla {sizing.tableSection}</span>}
+                        {sizing.section != null && sizing.tableSection != null && sizing.section > sizing.tableSection && <span className="block text-[11px] text-ink-faint">mín. {sizing.tableSection}</span>}
                       </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.tube == null ? '—' : `${circuit.tube} mm`}</TableCell>
                       <TableCell className="py-2 pr-2">

@@ -335,3 +335,8 @@ test('T2 · el panel que abre el botón es «Tablas y referencias», ya montado'
   assert.match(calc, /<LineTablesDialog open=\{showLineTables\}/, 'el panel sigue siendo el mismo')
   assert.match(read('lib/normative-tables.mjs'), /Tabla A · Escalones de potencia prevista/, 'y el registro sigue titulando la tabla A que el botón promete')
 })
+
+test('la nota de sección muestra el mínimo sin nombrar la tabla', () => {
+  assert.doesNotMatch(panel, /mín\. tabla/, 'la celda de sección ya no dice «mín. tabla 2,5»')
+  assert.match(panel, /mín\. \{sizing\.tableSection\}/, 'muestra el mínimo que fija la tabla, sin nombrarla')
+})
