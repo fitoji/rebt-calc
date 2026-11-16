@@ -47,11 +47,12 @@ Se entrega por etapas. Slice 1 resuelve lo pedido sin refactorizar las superfici
 **Slice 2 · unificación**
 - [x] T6 · Registro único: `T25-A`, `T10-CS` e `ITA` se suman al registro `{key, title, doc, head, rows}` · S3, S6, A1 · commit `09706ed`
 - [x] T7 · Panel único con foco; se retiran `showReferences`, el dialog del ITA y el de simultaneidad · S3, S4, S6 · commit `09706ed`
+- [x] T9 · `mín. tabla N` → `mín. N` en la celda de Sección de la tabla 1 · S5 · commit `1e33dab`
 - [x] T8 · Etiquetas de opción de `line-modules.tsx` limpias del nombre de la tabla · S5, A4 · commit `09706ed`
 
 ## Pendientes
 
-**P1 · `mín. tabla N` en las celdas de la tabla 1 de Cuadros.** Es una nota de celda que nombra la tabla; el patrón pediría dejarla en `mín. N`. No se tocó porque no es una etiqueta de opción y el alcance del slice 2 no la cubría.
+**P1 · `mín. tabla N` → `mín. N` — CERRADO (T9, commit `1e33dab`).** La celda de Sección mostraba la sección adoptada arriba y `mín. tabla 2,5` abajo; ahora dice `mín. 2,5`, sin nombrar la tabla. Queda pinneado en `tests/interior-administrative.test.mjs`.
 
 **P2 · El diálogo de la tabla 1 de Cuadros queda como está — CERRADO por decisión del usuario (L15).** Esta nota reemplaza una formulación equivocada: acá se había planteado como pendiente «decidir si la card conserva la tabla de trabajo y el botón abre una copia de consulta, o si se separan», y esa decisión **ya estaba tomada en el código**. La card tiene la tabla de trabajo (`components/interior-panel.tsx:310-322`, filas editables: longitud, PIA, sección adoptada, caída, puntos) y el botón «Tabla» (`:311`) abre el dialog `housing-circuits-dialog` (`:467-509`) con la tabla 1 publicada. Lo único que quedaba era migrar ese dialog al panel unificado, y el usuario decidió no hacerlo. Queda como **excepción documentada** a la convención.
 
@@ -92,3 +93,5 @@ L15 — consulta del usuario «a que tabla te referes?» y decisión «el 2. dej
 L16 — la decisión de L15 obliga a tocar la skill: la convención prohíbe los diálogos por tabla, y `housing-circuits-dialog` es exactamente eso, ahora tolerado. Se agregó a `.agents/skills/normative-tables-ui/SKILL.md` como excepción documentada con su motivo, para que una sesión futura no la «arregle» contra la decisión del usuario. Sin ese registro, la propia skill habría empujado a deshacerla.
 
 L17 — sigue abierto P1 (`mín. tabla N` en la celda de Sección, `components/interior-panel.tsx:346`): la tabla fija un mínimo y la caída obliga a subir, así que la celda muestra la sección adoptada arriba y `mín. tabla 2,5` abajo. El patrón pediría `mín. 2,5`, sin nombrar la tabla. No se tocó: el usuario resolvió sobre P2 y no sobre P1.
+
+L18 — cierre de P1 (commit `1e33dab`): la nota de la celda de Sección pasa de `mín. tabla 2,5` a `mín. 2,5`. El valor que manda sigue siendo la sección adoptada de arriba; la nota queda como el mínimo que fija la tabla, sin nombrarla. Se agregó un pin en `tests/interior-administrative.test.mjs` porque era la única etiqueta de la convención sin cobertura. Verificado con `node --test "tests/*.test.mjs"` 676/676, `npx tsc --noEmit` limpio y `pnpm build` exit 0.
