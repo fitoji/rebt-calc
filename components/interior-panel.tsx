@@ -68,6 +68,7 @@ export type InteriorDwelling = {
 
 const fmt = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value)
 const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(value)
+const fmtDrop = (value: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
 /** La serie sale del registro normativo: aquí solo se formatea para el texto. */
 const ICP_SERIES_TEXT = `${ICP_RATINGS.map(rating => fmtDec(rating)).join(' · ')} A`
 
@@ -410,7 +411,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                           ? <span className="text-ink-faint">—</span>
                           : <span className={sizing.over ? 'inline-flex items-center gap-1 font-semibold text-danger' : ''} title={sizing.over ? `Supera la caída máxima permitida de ${HOUSING_CIRCUIT_MAX_DROP} %` : `Caída máxima permitida: ${HOUSING_CIRCUIT_MAX_DROP} %`}>
                             {sizing.over && <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />}
-                            {fmt(sizing.dropPercent)} %
+                            {fmtDrop(sizing.dropPercent)} %
                             {sizing.over && <span className="sr-only">. Supera la caída máxima permitida de {HOUSING_CIRCUIT_MAX_DROP} %</span>}
                           </span>}
                       </TableCell>
