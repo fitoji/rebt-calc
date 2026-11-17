@@ -24,7 +24,7 @@ export function SiteHeader({ titleAs = 'p', children }: {
           </div>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Electro-cálculos</p>
-            <BrandTitle className="text-lg font-bold tracking-tight">Previsión de cargas</BrandTitle>
+            <BrandTitle className="text-lg font-bold tracking-tight">Previsión y dimensionado REBT</BrandTitle>
           </div>
         </div>
         {children}
