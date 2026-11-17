@@ -67,7 +67,7 @@ const projectInfo = {
 }
 
 const circuits = housingCircuitsFor(9200, { hasIrve: false }).slice(0, 3)
-const interior = { lengths: { C1: 12, C2: 18, C3: 9 }, circuitPowerOverride: {}, pointsOverride: { C1: 10, C2: 20, C3: 2 } }
+const interior = { lengths: { C1: 12, C2: 18, C3: 9 }, circuitPowerOverride: {}, pointsOverride: { C1: 10, C2: 20, C3: 2 }, installationType: 'tuboEncastrado' }
 
 function documentFor(overrides = {}) {
   return buildDwellingDocument(dwellingDocumentInput({
@@ -114,7 +114,7 @@ test('la fila de la DI toma la sección, la caída y el momento que ya calculó 
   assert.equal(row.caigudaParcial, 0.906)
   assert.equal(row.conductor, 'RZ1-K')
   assert.equal(row.tensio, '0,6/1 kV')
-  assert.equal(row.canalitzacio, 'Bajo tubo · Ø 40 mm')
+  assert.equal(row.tubEncastrat, 40)
   assert.equal(row.neutre, 16)
   assert.equal(row.proteccio, 16)
 })
@@ -128,7 +128,7 @@ test('la fila de un circuito usa la tabla 1 y la caída del motor de vivienda', 
   assert.equal(c1.longitud, 12)
   close(c1.moment, 24, 'el momento es kW · m de la potencia instalada')
   close(c1.caigudaParcial, (2 * 10 * 12 * 100) / (48 * 1.5 * 230), 'la caída del motor de vivienda')
-  assert.equal(c1.canalitzacio, 'Bajo tubo · Ø 16 mm')
+  assert.equal(c1.tubEncastrat, 16)
 
   assert.equal(c2.potencia, 69, 'los 20 puntos de C2 por los 3 450 W por toma')
   assert.equal(c2.intensitat, 16)
@@ -197,7 +197,8 @@ test('una vivienda sin resultado ni datos opcionales deja nulls y no rompe', () 
   const [di, ...rows] = document.files
 
   assert.equal(di.potencia, 5.75, 'la potencia de la vivienda sí la trae el estado')
-  for (const key of ['cosPhi', 'intensitat', 'seccio', 'longitud', 'moment', 'caigudaParcial', 'conductor', 'tensio', 'canalitzacio', 'neutre', 'proteccio']) {
+  assert.equal(di.cosPhi, 1, 'cos φ se imprime siempre, incluso sin resultado')
+  for (const key of ['intensitat', 'seccio', 'longitud', 'moment', 'caigudaParcial', 'conductor', 'tensio', 'neutre', 'proteccio']) {
     assert.equal(di[key], null, `la DI sin resultado deja ${key} pendiente`)
   }
   for (const row of rows) {
@@ -359,21 +360,61 @@ test('más de doce circuitos reporta los que no caben en el modelo', () => {
   assert.equal(document.circuitsBeyondModel, 1, 'el que no cabe se declara, no se inventa una fila')
 })
 
-test('las celdas que la app no puede rellenar quedan pendientes y se declaran acá', () => {
+test('la carga simultánea del ELEC-3 es fs · fu · 100 en los circuitos, no en la DI', () => {
+  const document = documentFor()
+
+  assert.equal(document.files[0].simultaneitat, 100, 'la DI alimenta una vivienda: coeficiente 1 de la tabla ITC-BT-10')
+  assert.equal(document.files[1].simultaneitat, 37.5, 'C1: 0,75 · 0,5 · 100')
+  assert.equal(document.files[2].simultaneitat, 5, 'C2: 0,2 · 0,25 · 100')
+  assert.equal(document.files[3].simultaneitat, 37.5, 'C3: 0,5 · 0,75 · 100')
+})
+
+test('el aislamiento declarado se imprime igual en todas las filas de la vivienda', () => {
+  const withInsulation = documentFor({ interior: { ...interior, insulationKohm: 0.5 } })
+  for (const row of withInsulation.files) {
+    assert.equal(row.aillament, 0.5, `${row.nom} comparte el aislamiento de la vivienda`)
+  }
+
+  const withoutInsulation = documentFor()
+  for (const row of withoutInsulation.files) {
+    assert.equal(row.aillament, null, `${row.nom} lo deja pendiente si no se declaró`)
+  }
+})
+
+test('la caída total acumula la parcial con la de la línea de aguas arriba', () => {
+  const document = documentFor()
+  const di = document.files[0]
+
+  close(di.caigudaTotal, di.caigudaParcial + 0.461, 'la DI suma la caída de la LGA')
+  for (const row of document.files.slice(1)) {
+    close(row.caigudaTotal, row.caigudaParcial + di.caigudaParcial, `${row.id} suma la caída de la DI`)
+  }
+})
+
+test('los circuitos imprimen neutro igual a la fase y protección según su sección', () => {
+  const document = documentFor()
+  const circuitRows = document.files.slice(1)
+
+  assert.deepEqual(circuitRows.map(row => row.neutre), [1.5, 2.5, 6], 'el neutro de un circuito interior iguala la fase')
+  assert.deepEqual(circuitRows.map(row => row.proteccio), [1.5, 2.5, 6], 'hasta 16 mm² el PE también la iguala')
+})
+
+test('las celdas que la app todavía no puede rellenar quedan pendientes y se declaran acá', () => {
   const document = documentFor()
 
   for (const row of document.files) {
-    for (const pending of PENDING_CELLS) {
+    for (const pending of PENDING_CELLS.filter(cell => !['simultaneitat', 'caigudaTotal'].includes(cell.key))) {
       assert.equal(row[pending.key], null, `${row.nom} · ${pending.label} sigue pendiente`)
     }
   }
 
+  const c8Simultaneity = documentFor({ circuits: housingCircuitsFor(9200).filter(circuit => circuit.id === 'C8') })
+  assert.equal(c8Simultaneity.files[1].simultaneitat, 100, 'sin fs ni fu publicados el coeficiente es 1')
+
   for (const row of document.files.slice(1)) {
-    assert.equal(row.cosPhi, null, 'un circuito no declara cos φ: no se asume 1')
+    assert.equal(row.cosPhi, 1, 'la hoja de vivienda imprime cos φ = 1')
     assert.equal(row.conductor, null, 'el motor de vivienda no expone el tipo de cable')
     assert.equal(row.tensio, null, 'ni su tensión nominal de aislamiento')
-    assert.equal(row.neutre, null, 'ni la sección del neutro')
-    assert.equal(row.proteccio, null, 'ni la del conductor de protección')
   }
 
   const c8 = buildDwellingDocument(dwellingDocumentInput({

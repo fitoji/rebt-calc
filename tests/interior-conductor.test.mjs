@@ -44,7 +44,14 @@ test('el tipo elegido se imprime en los circuitos del ELEC-3, no en la derivaci�
 
   assert.equal(document.files[0].conductor, 'RZ1-K', 'la DI conserva el cable del motor')
   assert.deepEqual(document.files.slice(1).map(row => row.conductor), ['H07V-U', 'H07V-U', 'H07V-U'])
-  assert.deepEqual(document.files.slice(1).map(row => row.tensio), [null, null, null], 'no se estima la tensión de aislamiento')
+  assert.deepEqual(document.files.slice(1).map(row => row.tensio), ['450/750 V', '450/750 V', '450/750 V'], 'la tensión sale del tipo de conductor')
+})
+
+test('el H07V-K imprime su tensión nominal de aislamiento de 450/750 V', () => {
+  const document = documentFor({ conductorType: 'H07V-K' })
+
+  assert.equal(document.files[1].conductor, 'H07V-K')
+  assert.equal(document.files[1].tensio, '450/750 V')
 })
 
 test('sin declarar el tipo, los circuitos siguen pendientes', () => {

@@ -7,6 +7,10 @@ import {
   BASIC_CIRCUIT_IDS,
   ELEVATED_CIRCUIT_IDS,
   HOUSING_CIRCUIT_MAX_DROP,
+  housingCircuitFactor,
+  housingCircuitForecastW,
+  housingCircuitIb,
+  housingCircuitSimultaneityPercent,
   housingCircuitSizing,
   housingCircuitsFor,
   housingGradeFor,
@@ -77,6 +81,42 @@ test('C13 appears only when the project foresees EV charging', () => {
 
 test('the housing circuits keep the 3 % drop limit of ITC-BT-25', () => {
   assert.equal(HOUSING_CIRCUIT_MAX_DROP, 3)
+})
+
+test('the forecast power multiplies P/toma, points, fs and fu', () => {
+  assert.equal(housingCircuitForecastW({ powerPerPointW: 200, points: 20, fs: 0.75, fu: 0.5 }), 1500)
+  assert.equal(housingCircuitForecastW({ powerPerPointW: 3450, points: 10, fs: 0.2, fu: 0.25 }), 1725)
+})
+
+test('an unpublished simultaneity or use factor counts as one', () => {
+  assert.equal(housingCircuitFactor(null), 1)
+  assert.equal(housingCircuitFactor(undefined), 1)
+  assert.equal(housingCircuitFactor(0.75), 0.75)
+  assert.equal(housingCircuitForecastW({ powerPerPointW: 5750, points: 1, fs: null, fu: null }), 5750)
+  assert.equal(housingCircuitForecastW({ powerPerPointW: null, points: 1, fs: null, fu: null }), null, 'without P/toma there is still no forecast')
+})
+
+test('simultaneity is fs · fu as a percentage, with unpublished factors at one', () => {
+  assert.equal(housingCircuitSimultaneityPercent({ fs: 0.75, fu: 0.5 }), 37.5)
+  assert.equal(housingCircuitSimultaneityPercent({ fs: 0.2, fu: 0.25 }), 5)
+  assert.equal(housingCircuitSimultaneityPercent({ fs: null, fu: null }), 100)
+})
+
+test('Ib is the forecast power at the housing voltage', () => {
+  assert.equal(housingCircuitIb(1500), 1500 / 230)
+  assert.equal(housingCircuitIb(null), null)
+})
+
+test('the editable housing circuit table shows forecast power and Ib', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, />Potencia prevista \(\{powerUnit\}\)</, 'the forecast column carries the active power unit')
+  assert.match(panel, />Ib \(A\)</, 'Ib is labelled with its unit')
+  assert.match(panel, /formatPowerValue\(forecastW, powerUnit\)/, 'the forecast uses the shared power formatter')
+  assert.match(panel, /fmt2\(ibA\)/, 'Ib is shown with two decimals')
+  assert.match(panel, /housingCircuitFactor\(circuit\.fs\)/, 'Fs shows 1 when the table does not publish it')
+  assert.match(panel, /housingCircuitFactor\(circuit\.fu\)/, 'Fu shows 1 when the table does not publish it')
+  assert.match(panel, />Carga simultánea \(%\)<\/TableHead>/, 'the simultaneity column is in the editable table')
+  assert.match(panel, /housingCircuitSimultaneityPercent\(\{ fs: circuit\.fs, fu: circuit\.fu \}\)/, 'the column uses the shared formula')
 })
 
 test('the drop grows the table section when the length demands it', () => {

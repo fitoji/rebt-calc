@@ -62,15 +62,17 @@ test('every column maps to a value the export carries, in kW and mm²', () => {
   assert.equal(dwelling.caigudaParcial, 0.97)
   assert.equal(dwelling.conductor, 'ES07Z1-K', 'the cable type splits into type and rated voltage')
   assert.equal(dwelling.tensio, '450/750 V')
-  assert.equal(dwelling.canalitzacio, 'Bajo tubo · Ø 32 mm')
+  assert.equal(dwelling.tubEncastrat, 32)
   assert.equal(dwelling.neutre, 10)
   assert.equal(dwelling.proteccio, 10)
 })
 
-test('buried lines say the depth is pending instead of inventing it', () => {
+test('buried lines leave the depth pending instead of inventing it', () => {
   const parsed = readCalculatorExport(JSON.stringify(exportFixture))
   assert.equal(parsed.ok, true)
-  assert.equal(parsed.document.files[2].canalitzacio, 'Enterrado · profundidad pendiente')
+  const buried = parsed.document.files[2]
+  assert.equal(buried.enterratProfunditat, null)
+  assert.equal(buried.tubEncastrat, null)
 })
 
 test('the three cells the export does not carry stay null and are listed', () => {
@@ -85,7 +87,7 @@ test('the three cells the export does not carry stay null and are listed', () =>
 test('every column of the model has a value in every row, so the table cannot drift', () => {
   const document = buildDocument(exportFixture)
 
-  assert.equal(ELEC3_COLUMNS.length, 16, 'the legal model has sixteen columns')
+  assert.equal(ELEC3_COLUMNS.length, 19, 'sixteen columns plus the four canalización cells')
   assert.equal(ELEC3_COLUMNS[0].key, 'nom', 'the row label comes first')
   for (const column of ELEC3_COLUMNS) {
     for (const row of document.files) {
@@ -120,9 +122,9 @@ test('el botón vive en la card «Instalaciones interiores», junto al selector 
 
   assert.doesNotMatch(preview, /readCalculatorExport|FileReader|handleFile|type="file"/, 'the dialog no longer reads a JSON file')
   assert.match(preview, /document: Elec3Document \| null/, 'it renders the document it is given')
-  assert.match(preview, /no tiene líneas que documentar/, 'an empty document says so instead of asking for a file')
+  assert.match(preview, /\{text\.emptyTitle\}/, 'an empty document says so instead of asking for a file')
 
-  assert.match(preview, /<Sheet2 administrative=\{document\?\.administrative\} \/>/, 'la hoja 2 administrativa viaja con el documento')
+  assert.match(preview, /<Sheet2 administrative=\{document\?\.administrative\} text=\{text\} \/>/, 'la hoja 2 administrativa viaja con el documento y su idioma')
   assert.ok(
     preview.indexOf('<Sheet2 administrative=') > preview.indexOf('<table'),
     'la hoja 2 se pinta debajo de la tabla de la hoja 1, en el mismo diálogo',

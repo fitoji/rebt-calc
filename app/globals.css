@@ -129,6 +129,16 @@
   --color-tab-di-soft: var(--tab-di-soft);
   --color-tab-di-ink: var(--tab-di-ink);
   --color-tab-esquema: var(--tab-esquema);
+  /* Filas de circuitos de vivienda: un tinte por familia de circuito. */
+  --color-circuit-yellow: var(--circuit-yellow);
+  --color-circuit-red: var(--circuit-red);
+  --color-circuit-gray: var(--circuit-gray);
+  --color-circuit-gray-soft: var(--circuit-gray-soft);
+  --color-circuit-orange: var(--circuit-orange);
+  --color-circuit-sky: var(--circuit-sky);
+  --color-circuit-green-soft: var(--circuit-green-soft);
+  --color-circuit-lilac: var(--circuit-lilac);
+  --color-circuit-green: var(--circuit-green);
 }
 
 :root {
@@ -271,6 +281,22 @@
   --kind-custom-ink: #155e75;
 
   /*
+   * Circuitos de vivienda (ITC-BT-25): cada familia lleva su tinte de fila.
+   * Generados con table-color sobre blanco: texto negro entre 16,59:1 y 19,6:1.
+   * C3 y C12 comparten gris; C1/C6 y C2/C7 comparten amarillo y rojo.
+   * C5 queda sin tinte: la tabla normativa no lo asigna en este cuadro.
+   */
+  --circuit-yellow: #fcf2dd;
+  --circuit-red: #ffddd8;
+  --circuit-gray: #e1e5e9;
+  --circuit-gray-soft: #f6f7fa;
+  --circuit-orange: #ffe3d8;
+  --circuit-sky: #d9e9f6;
+  --circuit-green-soft: #e9f7dd;
+  --circuit-lilac: #efe3ff;
+  --circuit-green: #dbefde;
+
+  /*
    * Forma y relieve por defecto (= modo cálculo).
    * Radios deliberadamente cortos: la app dibuja planos, no burbujas.
    */
@@ -409,6 +435,18 @@
   --kind-irve-ink: #c4b5fd;
   --kind-custom: #22d3ee;
   --kind-custom-ink: #67e8f9;
+
+  /* Mismos circuitos sobre papel de noche: mezcla al 35 % con el fondo
+     oklch(16% 0.02 258); texto blanco entre 6,84:1 y 10,92:1. */
+  --circuit-yellow: #5d523c;
+  --circuit-red: #5d2f35;
+  --circuit-gray: #343d4f;
+  --circuit-gray-soft: #535b6a;
+  --circuit-orange: #603935;
+  --circuit-sky: #214261;
+  --circuit-green-soft: #3c593c;
+  --circuit-lilac: #4a3670;
+  --circuit-green: #244d3e;
 }
 
 /*

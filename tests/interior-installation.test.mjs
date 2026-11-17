@@ -21,6 +21,42 @@ import { explainInterior } from '../lib/calculation-explanations.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
 
+test('el tipo de diferencial general se elige solo con el checkbox activo', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /\{inputs\.hasDifferential && \(/, 'el select está condicionado al checkbox')
+  assert.match(panel, /id="interior-differential-type"/, 'el selector existe')
+  assert.match(panel, /value=\{inputs\.differentialType \?\? ''\}/, 'el Select siempre recibe un valor definido')
+  assert.match(panel, /differentialType: checked === true \? inputs\.differentialType : undefined/, 'al desactivar se limpia el tipo')
+  for (const type of ['AC', 'A', 'F', 'B']) assert.match(panel, new RegExp(`'${type}'`), `el tipo ${type} está disponible`)
+})
+
+test('el tipo de protector aparece solo con la protección contra sobretensiones activa', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /\{inputs\.hasSurge && \(/, 'el select está condicionado al checkbox')
+  assert.match(panel, /id="interior-surge-type"/, 'el selector existe')
+  assert.match(panel, /value=\{inputs\.surgeType \?\? ''\}/, 'el Select siempre recibe un valor definido')
+  assert.match(panel, /surgeType: checked === true \? inputs\.surgeType : undefined/, 'al desactivar el checkbox se limpia el tipo')
+  assert.match(panel, /Tipo 1/, 'la clasificación por tipos está disponible')
+})
+
+test('la previsión de C8, C9 y C10 sale de los puntos de la tabla, no de checkboxes', () => {
+  const panel = read('components/interior-panel.tsx')
+  for (const id of ['interior-heating', 'interior-cooling', 'interior-dryer']) {
+    assert.doesNotMatch(panel, new RegExp(id), `${id} ya no se dibuja`)
+  }
+  assert.match(panel, /pointsOverride\?\.\[circuitId\]/, 'el punto declarado manda sobre la previsión')
+  assert.match(panel, /foreseen\('C8', inputs\.hasHeating\)/, 'C8 rige la calefacción')
+  assert.match(panel, /foreseen\('C9', inputs\.hasCooling\)/, 'C9 rige el aire acondicionado')
+  assert.match(panel, /foreseen\('C10', inputs\.hasDryer\)/, 'C10 rige la secadora')
+})
+
+test('la card permite declarar el aislamiento de toda la vivienda', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /Aislamiento de la instalación \(kΩ\)/, 'la etiqueta explica la unidad')
+  assert.match(panel, /id="interior-insulation"/, 'un solo campo para la vivienda seleccionada')
+  assert.match(panel, /insulationKohm/, 'el valor viaja en el estado del interior')
+})
+
 test('the default circuit count follows the electrification grade', () => {
   assert.equal(DEFAULT_CIRCUITS.basic, 5)
   assert.equal(DEFAULT_CIRCUITS.elevated, 10)
