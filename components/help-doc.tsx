@@ -150,7 +150,7 @@ export function HelpDoc() {
             <p className="mb-2 text-xs font-bold uppercase tracking-[0.22em] text-brand">Guía de uso</p>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Cómo usar Electro-cálculos</h1>
             <p className="mt-4 text-base leading-7 text-ink-subtle">
-              Esta guía recorre la app de principio a fin: qué calcula, cómo se rellena cada bloque de la previsión de cargas, cómo se dimensionan la LGA y las derivaciones individuales, y qué hace cada control de la cabecera.
+              Esta guía recorre la app de principio a fin: qué calcula, cómo se rellena cada bloque de la previsión de cargas, cómo se dimensionan la LGA y las derivaciones, cómo se declaran los cuadros interiores, cómo se lee el esquema unifilar y cómo se genera la memoria ELEC-3.
             </p>
             <p className="mt-3 text-sm leading-6 text-ink-faint">
               Todas las imágenes son capturas de la propia aplicación, tomadas del edificio de ejemplo. Nada de lo que ves está dibujado a mano.
@@ -171,7 +171,7 @@ export function HelpDoc() {
             <div className="max-w-3xl space-y-12">
               <Section id="que-es" title="Qué calcula la app">
                 <p>
-                  Electro-cálculos es una calculadora de previsión de cargas para edificios de viviendas según el Reglamento Electrotécnico de Baja Tensión (RD 842/2002). Trabaja en tres pasos encadenados: primero suma la potencia prevista del edificio, después dimensiona la línea general y por último cada derivación individual.
+                  Electro-cálculos es una calculadora para edificios de viviendas según el Reglamento Electrotécnico de Baja Tensión (RD 842/2002). Recorre la instalación completa: suma la potencia prevista del edificio (ITC-BT-10), dimensiona la línea general (ITC-BT-14) y cada derivación individual (ITC-BT-15), resuelve los cuadros de las viviendas (ITC-BT-25), dibuja el esquema unifilar y genera la memoria técnica ELEC-3.
                 </p>
                 <SubHeading>Lo que sí hace</SubHeading>
                 <Bullets items={[

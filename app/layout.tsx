@@ -10,9 +10,8 @@ const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-dm-sans', display
 const spaceMono = Space_Mono({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-space-mono', display: 'swap' })
 
 export const metadata: Metadata = {
-  title: 'Electro-cálculos | Previsión de cargas ITC-BT-10',
-  description: 'Calculadora web de previsión de cargas para suministros en baja tensión conforme a la ITC-BT-10.',
-  generator: 'v0.app',
+  title: 'Electro-cálculos | Previsión y dimensionado REBT',
+  description: 'Calculadora web para edificios de viviendas según el REBT: previsión de cargas, dimensionado de la LGA y las derivaciones, cuadros interiores, esquema unifilar y memoria ELEC-3.',
   icons: {
     icon: [
       {

@@ -84,6 +84,16 @@ test('the guide page carries its own metadata', () => {
   assert.match(helpPage, /canonical: '\/ayuda'/, 'the guide declares its canonical path')
 })
 
+test('the app title and description cover the whole REBT workflow', () => {
+  const layout = read('app/layout.tsx')
+
+  assert.match(layout, /title: 'Electro-cálculos \| Previsión y dimensionado REBT'/, 'the site title names more than the load forecast')
+  assert.match(layout, /description: '[^']*cuadros interiores[^']*esquema unifilar[^']*ELEC-3/, 'the description lists the interior boards, diagram and ELEC-3')
+  assert.doesNotMatch(layout, /generator: 'v0\.app'/, 'no stale v0 scaffold credit')
+  assert.match(siteHeader, /Previsión y dimensionado REBT/, 'the visible masthead agrees with the metadata')
+  assert.match(helpDoc, /esquema unifilar y genera la memoria técnica ELEC-3/, 'the guide introduction matches the current scope')
+})
+
 test('the guide is accessible: one h1, a skip link and labelled navigation', () => {
   assert.equal([...helpDoc.matchAll(/<h1[\s>]/g)].length, 1, 'exactly one h1')
   assert.match(helpDoc, /<a href="#contenido" className="sr-only focus:not-sr-only/, 'the skip link is visible on focus')
