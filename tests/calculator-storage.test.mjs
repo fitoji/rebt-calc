@@ -320,6 +320,30 @@ test('persists the circuit lengths of a dwelling', () => {
   assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the lengths survive a reload')
 })
 
+test('persists the insulation resistance declared for a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, insulationKohm: 0.5 }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the insulation value survives a reload')
+})
+
+test('persists the general differential type declared for a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, hasDifferential: true, differentialType: 'A' }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the differential type survives a reload')
+})
+
+test('persists the surge protector type declared for a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: true, surgeType: 'tipo2' }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the surge type survives a reload')
+})
+
 test('persists the dwelling rooms and their systems', () => {
   const interior = {
     contractedPowerW: 5750,

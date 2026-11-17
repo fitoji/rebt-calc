@@ -8,6 +8,7 @@ const dwellingInput = {
   obra: 'Carrer Major 12, Girona',
   data: '15/11/2026',
   totalKw: 9.2,
+  installationType: 'tuboEncastrado',
   lga: { potencia: 9.2, seccio: 16, proteccio: 40, neutre: 16, terra: 16, tub: 40, caiguda: 0.4 },
   derivation: {
     label: 'Derivación individual',
@@ -55,9 +56,10 @@ test('the derivación row fills every column from the sized derivation', () => {
   assert.equal(row.longitud, 20)
   assert.equal(row.moment, 184)
   assert.equal(row.caigudaParcial, 0.906)
+  assert.ok(Math.abs(row.caigudaTotal - 1.306) < 1e-9, 'DI total adds the LGA drop')
   assert.equal(row.conductor, 'RZ1-K', 'the cable type splits into type and rated voltage')
   assert.equal(row.tensio, '0,6/1 kV')
-  assert.equal(row.canalitzacio, 'Bajo tubo · Ø 40 mm')
+  assert.equal(row.tubEncastrat, 40)
   assert.equal(row.neutre, 16)
   assert.equal(row.proteccio, 16)
 })
@@ -71,25 +73,24 @@ test('a circuit row fills every column from the circuit it belongs to', () => {
   assert.equal(row.longitud, 12)
   assert.equal(row.moment, 13.8)
   assert.equal(row.caigudaParcial, 0.86)
+  assert.ok(Math.abs(row.caigudaTotal - 1.766) < 1e-9, 'a circuit total adds the DI drop')
   assert.equal(row.conductor, 'ES07Z1-K')
   assert.equal(row.tensio, '450/750 V')
-  assert.equal(row.canalitzacio, 'Bajo tubo · Ø 16 mm')
+  assert.equal(row.tubEncastrat, 16)
   assert.equal(row.neutre, 1.5)
   assert.equal(row.proteccio, 1.5)
-  assert.equal(row.cosPhi, null, 'a circuit carries no cos φ, so it is not assumed to be 1')
-  assert.equal(buildDwellingDocument(dwellingInput).files[3].canalitzacio, 'Enterrado · profundidad pendiente')
+  assert.equal(row.cosPhi, 1, 'cos φ is 1 in every dwelling row, DI included')
+  assert.equal(buildDwellingDocument(dwellingInput).files[3].tubEncastrat, 25, 'el tipo de vivienda manda, no el installation de la fila')
 })
 
-test('the three cells the model does not carry stay null, and the grid stays 16 columns', () => {
+test('the cell the model cannot carry stays null, and the grid keeps its column count', () => {
   const document = buildDwellingDocument(dwellingInput)
 
-  assert.equal(ELEC3_COLUMNS.length, 16, 'the legal model keeps its sixteen columns')
+  assert.equal(ELEC3_COLUMNS.length, 19, 'the model keeps its sixteen columns plus the four canalización cells')
   assert.equal(ELEC3_COLUMNS.some(column => ['simultaneitat', 'caigudaTotal', 'aillament'].includes(column.key)), true)
   assert.deepEqual(PENDING_CELLS.map(pending => pending.key), ['simultaneitat', 'caigudaTotal', 'aillament'])
   for (const row of document.files) {
-    for (const pending of PENDING_CELLS) {
-      assert.equal(row[pending.key], null, `${row.nom} · ${pending.key} is pending, never estimated`)
-    }
+    assert.equal(row.aillament, null, `${row.nom} · aillament is pending, never estimated`)
   }
 })
 
@@ -101,7 +102,7 @@ test('an input that is absent leaves a null cell, never a zero and never a guess
 
   const [di, circuit] = document.files
   for (const row of [di, circuit]) {
-    for (const key of ['potencia', 'cosPhi', 'intensitat', 'seccio', 'longitud', 'moment', 'caigudaParcial', 'conductor', 'tensio', 'canalitzacio', 'neutre', 'proteccio']) {
+    for (const key of ['potencia', 'intensitat', 'seccio', 'longitud', 'moment', 'caigudaParcial', 'conductor', 'tensio', 'senseTub', 'tubEncastrat', 'tubSenseEncastrar', 'enterratProfunditat', 'neutre', 'proteccio']) {
       assert.equal(row[key], null, `${row.nom} · ${key} is absent, so it is null`)
     }
   }

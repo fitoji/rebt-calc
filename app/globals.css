@@ -129,6 +129,16 @@
   --color-tab-di-soft: var(--tab-di-soft);
   --color-tab-di-ink: var(--tab-di-ink);
   --color-tab-esquema: var(--tab-esquema);
+  /* Filas de circuitos de vivienda: un tinte por familia de circuito. */
+  --color-circuit-yellow: var(--circuit-yellow);
+  --color-circuit-red: var(--circuit-red);
+  --color-circuit-gray: var(--circuit-gray);
+  --color-circuit-gray-soft: var(--circuit-gray-soft);
+  --color-circuit-orange: var(--circuit-orange);
+  --color-circuit-sky: var(--circuit-sky);
+  --color-circuit-green-soft: var(--circuit-green-soft);
+  --color-circuit-lilac: var(--circuit-lilac);
+  --color-circuit-green: var(--circuit-green);
 }
 
 :root {
@@ -196,6 +206,13 @@
   --ink-faint: oklch(54% 0.046 257.417);
   --ink-ghost: oklch(70.4% 0.04 256.788);
 
+  /* Tabla de conductores · Guía-BT-26: paleta celeste generada (AA verificado). */
+  --conductor-head: #0369a1;
+  --conductor-head-text: #ffffff;
+  --conductor-row-odd: #d6e3ef;
+  --conductor-row-even: #e8f0f6;
+  --conductor-row-text: #000000;
+
   /*
    * Velo de hover: 10 % de tinta sobre lo que haya debajo. Sirve igual sobre
    * tarjeta, fila teñida o panel, y en modo noche —donde la tinta es clara—
@@ -262,6 +279,22 @@
   --kind-irve-ink: #6d28d9;
   --kind-custom: #0e7490;
   --kind-custom-ink: #155e75;
+
+  /*
+   * Circuitos de vivienda (ITC-BT-25): cada familia lleva su tinte de fila.
+   * Generados con table-color sobre blanco: texto negro entre 16,59:1 y 19,6:1.
+   * C3 y C12 comparten gris; C1/C6 y C2/C7 comparten amarillo y rojo.
+   * C5 queda sin tinte: la tabla normativa no lo asigna en este cuadro.
+   */
+  --circuit-yellow: #fcf2dd;
+  --circuit-red: #ffddd8;
+  --circuit-gray: #e1e5e9;
+  --circuit-gray-soft: #f6f7fa;
+  --circuit-orange: #ffe3d8;
+  --circuit-sky: #d9e9f6;
+  --circuit-green-soft: #e9f7dd;
+  --circuit-lilac: #efe3ff;
+  --circuit-green: #dbefde;
 
   /*
    * Forma y relieve por defecto (= modo cálculo).
@@ -355,6 +388,13 @@
   --ink-subtle: oklch(76% 0.014 250);
   --ink-faint: oklch(70% 0.015 250);
   --ink-ghost: oklch(58% 0.015 250);
+
+  /* La misma tabla sobre superficie oscura: el tono se mezcla con el fondo. */
+  --conductor-head: #0369a1;
+  --conductor-head-text: #ffffff;
+  --conductor-row-odd: #2c3b53;
+  --conductor-row-even: #2c364a;
+  --conductor-row-text: #ffffff;
   --brand: oklch(78.9% 0.154 211.53);
   --brand-strong: oklch(86.5% 0.127 207.078);
   --brand-ink: oklch(88% 0.1 205);
@@ -395,6 +435,18 @@
   --kind-irve-ink: #c4b5fd;
   --kind-custom: #22d3ee;
   --kind-custom-ink: #67e8f9;
+
+  /* Mismos circuitos sobre papel de noche: mezcla al 35 % con el fondo
+     oklch(16% 0.02 258); texto blanco entre 6,84:1 y 10,92:1. */
+  --circuit-yellow: #5d523c;
+  --circuit-red: #5d2f35;
+  --circuit-gray: #343d4f;
+  --circuit-gray-soft: #535b6a;
+  --circuit-orange: #603935;
+  --circuit-sky: #214261;
+  --circuit-green-soft: #3c593c;
+  --circuit-lilac: #4a3670;
+  --circuit-green: #244d3e;
 }
 
 /*
@@ -1051,3 +1103,8 @@ html.dark[data-explanation-mode="calculation"] {
     transition-duration: 1ms;
   }
 }
+
+.table-conductor thead th { background: var(--conductor-head); color: var(--conductor-head-text); }
+.table-conductor tbody tr:nth-child(odd) { background: var(--conductor-row-odd); }
+.table-conductor tbody tr:nth-child(even) { background: var(--conductor-row-even); }
+.table-conductor tbody td { color: var(--conductor-row-text); }

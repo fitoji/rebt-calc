@@ -169,7 +169,7 @@ test('sheet 1 of the dwelling is untouched by the administrative block', () => {
     administrative: administrativeInput,
   })
 
-  assert.deepEqual(Object.keys(withAdmin).sort(), ['administrative', 'circuitsBeyondModel', 'data', 'files', 'lga', 'obra', 'totalKw'])
+  assert.deepEqual(Object.keys(withAdmin).sort(), ['administrative', 'circuitsBeyondModel', 'data', 'files', 'ip', 'lga', 'num', 'obra', 'totalKw'])
   assert.deepEqual(withAdmin.files, baseline.files, 'the rows of the derivación individual are identical')
   assert.equal(withAdmin.circuitsBeyondModel, 0)
   assert.equal(withAdmin.totalKw, baseline.totalKw)

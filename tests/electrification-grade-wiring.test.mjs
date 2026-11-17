@@ -48,10 +48,11 @@ test('S6: syncDerivationPowers refreshes the declared level with the forecast', 
 
 test('S7: the interior panel passes the declared points of every circuit into the rule', () => {
   const panel = read('components/interior-panel.tsx')
-  // Una sola lectura para los dos avisos: el persistente y el toast de una previsión.
+  // Un solo aviso: la previsión ya no tiene checkboxes, sale de los puntos declarados.
   const calls = panel.match(/pointsByCircuit: effectivePoints\.totals/g) ?? []
-  assert.ok(calls.length >= 2, 'both electrificationGradeWarning calls must pass pointsByCircuit: effectivePoints.totals')
+  assert.equal(calls.length, 1, 'the single warning reads the declared points')
   assert.match(panel, /const effectivePoints = applyPointOverrides\(points, inputs\.pointsOverride\)/, 'the declared points still come from applyPointOverrides')
+  assert.match(panel, /hasHeating: pointFlags\.hasHeating/, 'the warning sees the prevision derived from C8/C9/C10')
 })
 
 test('S7: no consumer reimplements the table-1 point maxima', () => {

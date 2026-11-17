@@ -105,7 +105,7 @@ export type GroupingLayout = keyof typeof GROUPING_LAYOUTS | 'tubes-air'
 export type TableKey =
   | 'A' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I'
   | 'BT14-A' | 'BT14-B' | 'BT14-1' | 'BT15-C' | 'BT15-D' | 'BT15-E'
-  | 'T25-A' | 'T10-CS' | 'ITA'
+  | 'T25-A' | 'T10-CS' | 'ITA' | 'BT26'
 
 const fmt = (value: number, digits = 0) =>
   new Intl.NumberFormat('es-ES', { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
@@ -554,14 +554,15 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   )
 }
 
-function SimpleTable({ head, rows, minWidth = 0 }: {
+function SimpleTable({ head, rows, minWidth = 0, tone }: {
   head: (string | number)[]
   rows: (string | number | null)[][]
   minWidth?: number
+  tone?: 'conductor'
 }) {
   return (
     <div className="overflow-x-auto">
-      <Table className="text-xs" style={minWidth ? { minWidth } : undefined}>
+      <Table className={tone === 'conductor' ? 'text-xs table-conductor' : 'text-xs'} style={minWidth ? { minWidth } : undefined}>
         <TableHeader>
           <TableRow>
             {head.map((cell, index) => <TableHead scope="col" key={index} className="whitespace-nowrap px-2 py-2">{cell}</TableHead>)}
@@ -589,6 +590,9 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
   tables?: TableKey[]
 }) {
   const shows = (key: TableKey) => !tables || tables.includes(key)
+  // La tabla de conductores no comparte contexto con la Tabla A ni con la
+  // previsión de cargas: abierta en solitario, el panel se queda en su tabla.
+  const conductorOnly = tables != null && tables.length === 1 && tables[0] === 'BT26'
   const columnValues = COLUMN_VALUES as Record<number, (number | null)[]>
   const columns = Object.keys(COLUMN_VALUES).map(Number)
 
@@ -622,7 +626,7 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
         {GUIDE_TABLES.filter(table => shows(table.key as TableKey)).map(table => (
           <section key={table.key} className="mt-6 first:mt-0">
             <h4 className="mb-2 text-sm font-semibold text-ink-muted">{table.title}</h4>
-            <SimpleTable head={table.head} rows={table.rows} minWidth={860} />
+            <SimpleTable head={table.head} rows={table.rows} minWidth={860} tone={table.key === 'BT26' ? 'conductor' : undefined} />
             <SourceNote label={table.doc.split('.')[0]}>{table.doc} <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>
           </section>
         ))}
@@ -728,23 +732,27 @@ export function LineTablesDialog({ open, onOpenChange, tables }: {
           </>
         )}
 
-        <p className="mt-5 text-xs leading-5 text-ink-faint">
-          La LGA y la derivación individual se dimensionan con las tablas de su propia instrucción cuando la combinación está publicada; el resto de los casos, y cualquier método distinto del B, usan la Tabla A de la ITC-BT-19. Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
-        </p>
+        {!conductorOnly && (
+          <>
+            <p className="mt-5 text-xs leading-5 text-ink-faint">
+              La LGA y la derivación individual se dimensionan con las tablas de su propia instrucción cuando la combinación está publicada; el resto de los casos, y cualquier método distinto del B, usan la Tabla A de la ITC-BT-19. Los valores de la Tabla A son para 40 °C de temperatura ambiente. La corrección por temperatura distinta de 40 °C no está incluida en la guía: remite a la UNE 20460-5-523. En la fila de 400 mm² los valores publicados de las columnas 9 y 10 rompen la progresión y se muestran tal cual aparecen en el documento oficial.
+            </p>
 
-        {/* Los criterios no son tablas, pero necesitan un hogar: viven acá y se
-            muestran siempre, también cuando el panel se abre enfocado en una
-            tabla concreta (S3, S4). */}
-        <section className="mt-6">
-          <h4 className="mb-2 text-sm font-semibold text-ink-muted">Criterios de previsión · ITC-BT-10 e ITC-BT-25</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
-            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
-            <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
-            <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
-          </div>
-          <p className="mt-3 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
-        </section>
+            {/* Los criterios no son tablas, pero necesitan un hogar: viven acá.
+                La vista de conductores no los muestra: no tienen que ver con la
+                Tabla A ni con la previsión de cargas. */}
+            <section className="mt-6">
+              <h4 className="mb-2 text-sm font-semibold text-ink-muted">Criterios de previsión · ITC-BT-10 e ITC-BT-25</h4>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Locales:</b> mínimo 3.450 W por abonado; industria 10.350 W y 125 W/m².</p>
+                <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>Garajes:</b> 20 W/m² con ventilación forzada y 10 W/m² con ventilación natural.</p>
+                <p className="rounded-lg bg-surface-muted p-3 text-sm sm:col-span-2"><b>Alumbrado de zonas comunes:</b> portal 15 W/m² (incandescencia) u 8 W/m² (fluorescencia/LED); escalera 7 u 4 W/m². Las lámparas de descarga se mayoran ×1,8.</p>
+                <p className="rounded-lg bg-surface-muted p-3 text-sm"><b>IRVE:</b> 3.680 W por plaza.</p>
+              </div>
+              <p className="mt-3 rounded-lg bg-warning-soft p-4 text-sm leading-5 text-warning-ink"><b>Tarifa nocturna:</b> el coeficiente de simultaneidad es igual al número de viviendas (n).</p>
+            </section>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

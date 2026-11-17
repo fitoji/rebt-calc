@@ -5,7 +5,10 @@ import { X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { ELEC3_COLUMNS, PENDING_CELLS } from '@/lib/elec3.mjs'
+import { ELEC3_COLUMNS, ELEC3_HEADER_GROUPS, PENDING_CELLS } from '@/lib/elec3.mjs'
+import { DEFAULT_ELEC3_LOCALE, ELEC3_TEXT } from '@/lib/elec3-i18n.mjs'
+
+type Elec3Locale = keyof typeof ELEC3_TEXT
 
 /**
  * Vista de la memoria ELEC-3 de una vivienda.
@@ -55,6 +58,8 @@ type Elec3Document = {
   data: string
   totalKw: number | null
   lga: Record<string, number | null> | null
+  num?: string | null
+  ip?: string | null
   files: Elec3Row[]
   circuitsBeyondModel?: number
   administrative?: AdministrativeBlock | null
@@ -89,13 +94,16 @@ function Cell({ row, column }: { row: Elec3Row; column: (typeof ELEC3_COLUMNS)[n
   return <Value value={row[column.key]} />
 }
 
-export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel }: {
+export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel, locale = DEFAULT_ELEC3_LOCALE }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   document: Elec3Document | null
   /** El nombre de la vivienda a la que pertenece el documento. */
   dwellingLabel?: string | null
+  /** Idioma del impreso: castellano por defecto, catalán disponible para futuras descargas. */
+  locale?: Elec3Locale
 }) {
+  const text = ELEC3_TEXT[locale]
   const label = dwellingLabel?.trim() || null
   const rows = document?.files ?? []
   const beyondModel = document?.circuitsBeyondModel ?? 0
@@ -114,13 +122,13 @@ export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <DialogTitle id="elec3-title" className="text-xl font-bold text-ink">Memoria técnica ELEC-3</DialogTitle>
+              <DialogTitle id="elec3-title" className="text-xl font-bold text-ink">{text.title}</DialogTitle>
               {label && <span className="rounded-control bg-brand-soft px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-brand-ink">{label}</span>}
             </div>
             <DialogDescription id="elec3-description" className="mt-1 max-w-[80ch] text-sm text-ink-faint">
               {label
-                ? `Documento de ${label}: su derivación individual y sus circuitos, tomados del proyecto abierto. Las celdas que la calculadora no calcula quedan pendientes, nunca se estiman.`
-                : 'La derivación individual y los circuitos de la vivienda, tomados del proyecto abierto. Las celdas que la calculadora no calcula quedan pendientes, nunca se estiman.'}
+                ? text.dialogDescription.replace('{dwelling}', label)
+                : text.dialogDescriptionNoDwelling}
             </DialogDescription>
           </div>
           <DialogClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Cerrar vista ELEC-3" />}><X /></DialogClose>
@@ -128,62 +136,43 @@ export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel
 
         {rows.length === 0 ? (
           <div className="rounded-card border border-dashed border-line bg-surface-muted/50 p-6">
-            <p className="text-sm font-semibold text-ink">Esta vivienda todavía no tiene líneas que documentar</p>
-            <p className="mt-1 max-w-[70ch] text-sm leading-6 text-ink-subtle">
-              El documento se arma con la derivación individual de la vivienda y sus circuitos de la ITC-BT-25. Revisá los datos de la vivienda en «Instalaciones interiores» y volvé a abrirlo.
-            </p>
+            <p className="text-sm font-semibold text-ink">{text.emptyTitle}</p>
+            <p className="mt-1 max-w-[70ch] text-sm leading-6 text-ink-subtle">{text.emptyText}</p>
           </div>
         ) : (
           <>
-            <section className="mb-4 flex flex-wrap items-end gap-x-10 gap-y-3 border-y border-line py-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Emplazamiento</p>
-                <p className="mt-0.5 text-sm font-medium text-ink">{document?.obra || '—'}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Fecha</p>
-                <p className="mt-0.5 text-sm tabular-nums text-ink">{document?.data || '—'}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Potencia total prevista</p>
-                <p className="mt-0.5 text-sm tabular-nums text-ink">{document?.totalKw == null ? '—' : `${number.format(document.totalKw)} kW`}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Línea general · contexto del edificio</p>
-                <p className="mt-0.5 text-sm tabular-nums text-ink">
-                  {[
-                    document?.lga?.seccio == null ? null : `${number.format(document.lga.seccio)} mm²`,
-                    document?.lga?.proteccio == null ? null : `In ${number.format(document.lga.proteccio)} A`,
-                    document?.lga?.neutre == null ? null : `N ${number.format(document.lga.neutre)} mm²`,
-                    document?.lga?.terra == null ? null : `PE ${number.format(document.lga.terra)} mm²`,
-                    document?.lga?.tub == null ? null : `Ø ${number.format(document.lga.tub)} mm`,
-                  ].filter(Boolean).join(' · ') || '—'}
-                </p>
+            <section className="mb-4 border-y border-line py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{text.modelTitle}</p>
+                  <h3 className="text-base font-bold text-ink">{text.heading}{label ? ` · ${label}` : ''}</h3>
+                </div>
+                <p className="text-sm text-ink">{text.num} <span className="tabular-nums"><Value value={document?.num ?? null} /></span></p>
               </div>
             </section>
 
             <div className="overflow-x-auto rounded-card border border-line">
               <table className="w-full min-w-max border-collapse text-xs leading-tight">
-                <caption className="sr-only">Memoria técnica ELEC-3{label ? ` de ${label}` : ''}: {rows.length} líneas con las columnas del modelo oficial</caption>
+                <caption className="sr-only">{text.caption.replace('{dwelling}', label ? ` de ${label}` : '').replace('{count}', String(rows.length))}</caption>
                 <thead>
+                  <tr className="bg-surface-muted text-left align-middle">
+                    {ELEC3_HEADER_GROUPS.map(group => group.keys.length === 1
+                      ? <th key={group.key} scope="col" rowSpan={2} className="whitespace-nowrap border-b border-line px-3 py-2 text-left font-semibold text-ink-soft">{text.groups[group.key as keyof typeof text.groups]}</th>
+                      : <th key={group.key} scope="colgroup" colSpan={group.keys.length} className="whitespace-nowrap border-b border-line px-3 py-1.5 text-center font-semibold text-ink-soft">{text.groups[group.key as keyof typeof text.groups]}</th>)}
+                  </tr>
                   <tr className="bg-surface-muted text-left align-bottom">
-                    {ELEC3_COLUMNS.map(column => (
-                      <th
-                        key={column.key}
-                        scope="col"
-                        className={`whitespace-nowrap px-3 py-2 font-semibold text-ink-soft ${column.numeric ? 'text-right' : ''}`}
-                      >
-                        {column.header}
-                      </th>
-                    ))}
+                    {ELEC3_HEADER_GROUPS.filter(group => group.keys.length > 1).flatMap(group => group.keys.map(key => {
+                      const column = ELEC3_COLUMNS.find(entry => entry.key === key)
+                      return <th key={key} scope="col" className={`whitespace-nowrap px-3 py-2 font-semibold text-ink-soft ${column?.numeric ? 'text-right' : ''}`}>{text.columns[key as keyof typeof text.columns] ?? key}</th>
+                    }))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
-                  {rows.map(row => (
+                  {rows.map((row, index) => (
                     <tr key={String(row.id)} className="transition-colors hover:bg-surface-muted/60">
                       <th scope="row" className="px-3 py-2 text-left font-medium text-ink">
-                        <span className="block truncate">{String(row.nom ?? '—')}</span>
-                        <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-ink-faint">{String(row.tipus ?? '')}</span>
+                        {index === 1 && <span className="mb-0.5 block text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{text.derivacions}</span>}
+                        <span className="block truncate">{text.rowLabels[index] ?? String(row.nom ?? '—')}</span>
                       </th>
                       {ELEC3_COLUMNS.slice(1).map(column => (
                         <td key={column.key} className={`whitespace-nowrap px-3 py-2 ${column.numeric ? 'text-right tabular-nums' : ''} text-ink-subtle`}>
@@ -200,22 +189,24 @@ export function Elec3PreviewDialog({ open, onOpenChange, document, dwellingLabel
               <p>{rows.length} {rows.length === 1 ? 'línea' : 'líneas'}</p>
               <p>
                 {pendingInRows.length === 0
-                  ? 'Ninguna celda pendiente.'
-                  : `Pendiente en todas las filas: ${pendingInRows.map(pending => pending.label).join(', ')}.`}
+                  ? text.noPending
+                  : text.pending.replace('{labels}', pendingInRows.map(pending => pending.label).join(', '))}
               </p>
             </div>
             {beyondModel > 0 && (
               <p className="mt-2 text-xs leading-5 text-warning-ink">
-                {beyondModel === 1 ? 'Un circuito no cabe' : `${beyondModel} circuitos no caben`} en las doce filas de circuitos del modelo y queda{beyondModel === 1 ? '' : 'n'} fuera de la hoja.
+                {beyondModel === 1 ? text.beyondOne : text.beyondMany.replace('{count}', String(beyondModel))}
               </p>
             )}
-            <p className="mt-3 border-t border-line pt-3 text-[11px] leading-4 text-ink-faint">
-              Modelo ELEC-3 (G146NSIN-157-00) · las celdas con guion quedan pendientes y la memoria no las estima. Vista de pantalla: no descarga Excel ni CSV; la descarga vive en <code>data/memoria_tecnica</code>.
-            </p>
+            <div className="mt-4 border-t border-line pt-3">
+              <p className="text-[11px] font-semibold text-ink">{text.observacions}</p>
+              <p className="mt-1 text-xs text-ink-subtle">{text.ip} <span className="tabular-nums"><Value value={document?.ip ?? null} /></span></p>
+            </div>
+            <p className="mt-3 border-t border-line pt-3 text-[11px] leading-4 text-ink-faint">{text.footer}</p>
           </>
         )}
 
-        <Sheet2 administrative={document?.administrative} />
+        <Sheet2 administrative={document?.administrative} text={text} />
       </DialogContent>
     </Dialog>
   )
@@ -251,10 +242,10 @@ function Sheet2Group({ title, children }: { title: string; children: ReactNode }
 
 /** Columnas de la fila de diferencial, en el orden del impreso. */
 const DIFFERENTIAL_COLUMNS = [
-  { key: 'circuito', label: 'Circuito', numeric: false },
-  { key: 'nombre', label: 'Nombre', numeric: false },
-  { key: 'inA', label: 'In (A)', numeric: true },
-  { key: 'sensibilidadMa', label: 'Sensibilidad (mA)', numeric: true },
+  { key: 'circuito', numeric: false },
+  { key: 'nombre', numeric: false },
+  { key: 'inA', numeric: true },
+  { key: 'sensibilidadMa', numeric: true },
 ] as const
 
 /**
@@ -262,8 +253,12 @@ const DIFFERENTIAL_COLUMNS = [
  * diferencial. La app declara lo que sabe y deja pendiente lo que solo completa el
  * instalador; sin bloque administrativo la hoja se pinta igual, toda pendiente.
  */
-function Sheet2({ administrative }: { administrative?: AdministrativeBlock | null }) {
+function Sheet2({ administrative, text }: { administrative?: AdministrativeBlock | null; text: (typeof ELEC3_TEXT)['es'] }) {
+  const sheet = text.sheet2
   const emplazamiento = administrative?.emplazamiento
+  const instalacionLabel = administrative?.instalacion == null
+    ? null
+    : sheet.modalitat[administrative.instalacion as keyof typeof sheet.modalitat] ?? null
   // El impreso tiene tres filas de diferencial: las que la app no declara se pintan
   // pendientes en vez de desaparecer.
   const diferenciales = Array.from({ length: MODEL_DIFFERENTIAL_ROWS }, (_, index) => administrative?.diferenciales?.[index] ?? null)
@@ -271,63 +266,67 @@ function Sheet2({ administrative }: { administrative?: AdministrativeBlock | nul
   return (
     <section className="mt-4 print:break-before-page">
       <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-sm font-bold text-ink">Hoja 2 · Datos administrativos</h2>
-        <p className="text-[11px] text-ink-faint">Los datos que declara el proyecto; ninguna celda se estima.</p>
+        <h2 className="text-sm font-bold text-ink">{sheet.heading}</h2>
+        <p className="text-[11px] text-ink-faint">{sheet.formCode}</p>
       </div>
 
       <div className="grid gap-3">
-        <Sheet2Group title="Titular y uso">
+        <Sheet2Group title={sheet.groups.titular}>
           <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-            <Field label="Titular" value={administrative?.titular} />
-            <Field label="Uso" value={administrative?.uso} />
+            <Field label={sheet.fields.titular} value={administrative?.titular} />
+            <Field label={sheet.fields.us} value={administrative?.uso} />
           </dl>
         </Sheet2Group>
 
-        <Sheet2Group title="Emplazamiento">
+        <Sheet2Group title={sheet.groups.segell}>
+          <p className="mt-2 text-xs text-ink-subtle">{sheet.segellText}</p>
+        </Sheet2Group>
+
+        <Sheet2Group title={sheet.groups.emplacament}>
           <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Calle" value={emplazamiento?.calle} />
-            <Field label="Número" value={emplazamiento?.numero} />
-            <Field label="Piso" value={emplazamiento?.piso} />
-            <Field label="Puerta" value={emplazamiento?.puerta} />
-            <Field label="Localidad" value={emplazamiento?.localidad} />
-            <Field label="Código postal" value={emplazamiento?.codigoPostal} />
+            <Field label={sheet.fields.carrer} value={emplazamiento?.calle} />
+            <Field label={sheet.fields.numero} value={emplazamiento?.numero} />
+            <Field label={sheet.fields.pis} value={emplazamiento?.piso} />
+            <Field label={sheet.fields.porta} value={emplazamiento?.puerta} />
+            <Field label={sheet.fields.localitat} value={emplazamiento?.localidad} />
+            <Field label={sheet.fields.codiPostal} value={emplazamiento?.codigoPostal} />
           </dl>
         </Sheet2Group>
 
-        <Sheet2Group title="Instalación">
-          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Tipo" value={administrative?.instalacion} />
-            <Field label="Empresa distribuidora" value={administrative?.distribuidora} />
-            <Field label="Resistencia de tierra (Ω)" value={administrative?.resistenciaTierraOhm} />
-            <Field label="Superficie del local (m²)" value={administrative?.superficieLocalM2} />
-          </dl>
-        </Sheet2Group>
-
-        <Sheet2Group title="Características">
+        <Sheet2Group title={sheet.groups.instalacio}>
+          <p className="mt-2 text-xs font-semibold text-ink-soft">{sheet.modalitats}</p>
           <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Sección de la derivación individual (mm²)" value={administrative?.seccionDi} />
-            <Field label="Potencia máxima admisible (kW)" value={administrative?.potenciaMaximaAdmisibleKw} />
-            <Field label="Tensión (V)" value={administrative?.tensionV} />
-            <Field label="Potencia a instalar (kW)" value={administrative?.potenciaInstalarKw} />
-            <Field label="IGA (A)" value={administrative?.igaA} />
+            <Field label={sheet.fields.modalitat} value={instalacionLabel} />
+            <Field label={sheet.fields.distribuidora} value={administrative?.distribuidora} />
+            <Field label={sheet.fields.terra} value={administrative?.resistenciaTierraOhm} />
           </dl>
         </Sheet2Group>
 
-        <Sheet2Group title="Interruptor diferencial">
+        <Sheet2Group title={sheet.groups.caracteristiques}>
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+            <Field label={sheet.fields.superficie} value={administrative?.superficieLocalM2} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title={sheet.groups.dades}>
+          <dl className="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label={sheet.fields.seccioDi} value={administrative?.seccionDi} />
+            <Field label={sheet.fields.potenciaMax} value={administrative?.potenciaMaximaAdmisibleKw} />
+            <Field label={sheet.fields.tensio} value={administrative?.tensionV} />
+            <Field label={sheet.fields.potenciaInstalar} value={administrative?.potenciaInstalarKw} />
+            <Field label={sheet.fields.iga} value={administrative?.igaA} />
+          </dl>
+        </Sheet2Group>
+
+        <Sheet2Group title={sheet.groups.diferencial}>
           <div className="mt-2 overflow-x-auto rounded-control border border-line">
             <table className="w-full min-w-max border-collapse text-xs leading-tight">
-              <caption className="sr-only">
-                Interruptores diferenciales de la hoja 2: el circuito, el nombre y el calibre los completa el instalador; la app solo declara la sensibilidad.
-              </caption>
+              <caption className="sr-only">{sheet.differentialCaption}</caption>
               <thead>
                 <tr className="bg-surface-muted text-left align-bottom">
                   {DIFFERENTIAL_COLUMNS.map(column => (
-                    <th
-                      key={column.key}
-                      scope="col"
-                      className={`whitespace-nowrap px-3 py-2 font-semibold text-ink-soft ${column.numeric ? 'text-right' : ''}`}
-                    >
-                      {column.label}
+                    <th key={column.key} scope="col" className={`whitespace-nowrap px-3 py-2 font-semibold text-ink-soft ${column.numeric ? 'text-right' : ''}`}>
+                      {sheet.differential[column.key as keyof typeof sheet.differential]}
                     </th>
                   ))}
                 </tr>
@@ -336,10 +335,7 @@ function Sheet2({ administrative }: { administrative?: AdministrativeBlock | nul
                 {diferenciales.map((differential, index) => (
                   <tr key={`diferencial-${index + 1}`}>
                     {DIFFERENTIAL_COLUMNS.map(column => (
-                      <td
-                        key={column.key}
-                        className={`px-3 py-2 text-ink-subtle ${column.numeric ? 'whitespace-nowrap text-right tabular-nums' : ''}`}
-                      >
+                      <td key={column.key} className={`px-3 py-2 text-ink-subtle ${column.numeric ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
                         <Value value={differential?.[column.key] ?? null} />
                       </td>
                     ))}
@@ -350,16 +346,12 @@ function Sheet2({ administrative }: { administrative?: AdministrativeBlock | nul
           </div>
         </Sheet2Group>
 
-        <Sheet2Group title="Firma y sello">
-          <p className="mt-2 max-w-[70ch] text-sm leading-6 text-ink-subtle">
-            La firma del titular y el sello del instalador se completan a mano sobre el impreso: la aplicación no los genera ni los sustituye.
-          </p>
+        <Sheet2Group title={sheet.groups.signatura}>
+          <p className="mt-2 max-w-[70ch] text-sm leading-6 text-ink-subtle">{sheet.signaturaText}</p>
         </Sheet2Group>
       </div>
 
-      <p className="mt-2 text-[11px] leading-4 text-ink-faint">
-        Solo el instalador puede completar en la hoja 2: el circuito, el nombre y el calibre (In) de cada diferencial, y la firma con el sello.
-      </p>
+      <p className="mt-2 text-[11px] leading-4 text-ink-faint">{sheet.nota}</p>
     </section>
   )
 }

@@ -16,11 +16,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
-import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
+import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { formatPower, formatPowerValue, powerFieldValue, storePower } from '../lib/power-units.mjs'
+import { INTERIOR_CONDUCTORS, type InteriorConductor } from '../lib/interior-conductors.mjs'
 
 /**
  * Los datos administrativos de una instalación (S5): número, piso, puerta,
@@ -37,6 +38,32 @@ export type InteriorAdministrative = {
   resistenciaTierraOhm: string
   titularName: string
 }
+
+export type InstallationType = 'sinTubo' | 'tuboEncastrado' | 'tuboSinEncastrar' | 'enterrado'
+
+const INSTALLATION_TYPE_ITEMS: Array<{ value: InstallationType; label: string }> = [
+  { value: 'sinTubo', label: 'Sin tubo protector (sistema)' },
+  { value: 'tuboEncastrado', label: 'Bajo tubo · encastrado' },
+  { value: 'tuboSinEncastrar', label: 'Bajo tubo · sin encastrar' },
+  { value: 'enterrado', label: 'Conductor enterrado' },
+]
+
+export type SurgeType = 'tipo1' | 'tipo2' | 'tipo3'
+
+const SURGE_TYPE_ITEMS: Array<{ value: SurgeType; label: string }> = [
+  { value: 'tipo1', label: 'Tipo 1 · descargas atmosféricas' },
+  { value: 'tipo2', label: 'Tipo 2 · sobretensiones por maniobras' },
+  { value: 'tipo3', label: 'Tipo 3 · protección en el punto de utilización' },
+]
+
+export type DifferentialType = 'AC' | 'A' | 'F' | 'B'
+
+const DIFFERENTIAL_TYPE_ITEMS: Array<{ value: DifferentialType; label: string }> = [
+  { value: 'AC', label: 'AC · corriente alterna sinusoidal' },
+  { value: 'A', label: 'A · alterna y pulsante' },
+  { value: 'F', label: 'F · frecuencia variable' },
+  { value: 'B', label: 'B · continua y alterna' },
+]
 
 /** El bloque de una instalación que todavía no declaró nada: las seis claves, vacías. */
 export const EMPTY_INTERIOR_ADMINISTRATIVE: InteriorAdministrative = { numero: '', piso: '', puerta: '', superficieLocalM2: '', resistenciaTierraOhm: '', titularName: '' }
@@ -62,11 +89,36 @@ export type InteriorDwelling = {
     hasDryer?: boolean
     pointsOverride?: Record<string, number>
     circuitPowerOverride?: Record<string, number>
+    /** Aislamiento de la instalación en kΩ: un valor para toda la vivienda. */
+    insulationKohm?: number
+    /** Qué columna de canalización del ELEC-3 se imprime para esta vivienda. */
+    installationType?: InstallationType
+    buriedDepthM?: number
+    surgeType?: SurgeType
+    hasDifferential?: boolean
+    differentialType?: DifferentialType
   }
 }
 
 const fmt = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value)
 const fmtDec = (value: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(value)
+/** Dos decimales fijos: caída e intensidad de cálculo. */
+const fmt2 = (value: number) => new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
+/** Color de fila por circuito. El hover repite el tinte para que la fila no se destiña al pasar el cursor. */
+const CIRCUIT_ROW_TINT: Record<string, string> = {
+  C1: 'bg-circuit-yellow hover:bg-circuit-yellow',
+  C2: 'bg-circuit-red hover:bg-circuit-red',
+  C3: 'bg-circuit-gray hover:bg-circuit-gray',
+  C4: 'bg-circuit-gray-soft hover:bg-circuit-gray-soft',
+  C6: 'bg-circuit-yellow hover:bg-circuit-yellow',
+  C7: 'bg-circuit-red hover:bg-circuit-red',
+  C8: 'bg-circuit-orange hover:bg-circuit-orange',
+  C9: 'bg-circuit-sky hover:bg-circuit-sky',
+  C10: 'bg-circuit-green-soft hover:bg-circuit-green-soft',
+  C11: 'bg-circuit-lilac hover:bg-circuit-lilac',
+  C12: 'bg-circuit-gray hover:bg-circuit-gray',
+  C13: 'bg-circuit-green hover:bg-circuit-green',
+}
 /** La serie sale del registro normativo: aquí solo se formatea para el texto. */
 const ICP_SERIES_TEXT = `${ICP_RATINGS.map(rating => fmtDec(rating)).join(' · ')} A`
 
@@ -83,6 +135,12 @@ export type InteriorInputsState = {
   hasDryer: boolean
   pointsOverride: Record<string, number>
   circuitPowerOverride: Record<string, number>
+  insulationKohm?: number
+  installationType?: InstallationType
+  buriedDepthM?: number
+  surgeType?: SurgeType
+  hasDifferential?: boolean
+  differentialType?: DifferentialType
 }
 
 export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
@@ -98,6 +156,12 @@ export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInput
     hasDryer: resolved.hasDryer ?? false,
     pointsOverride: resolved.pointsOverride ?? {},
     circuitPowerOverride: resolved.circuitPowerOverride ?? {},
+    insulationKohm: resolved.insulationKohm,
+    installationType: resolved.installationType,
+    buriedDepthM: resolved.buriedDepthM,
+    surgeType: resolved.surgeType,
+    hasDifferential: resolved.hasDifferential ?? false,
+    differentialType: resolved.differentialType,
   }
 }
 
@@ -142,6 +206,11 @@ export type InteriorPanelProps = {
    * panel no posee ese diálogo: el botón de tabla sólo pide que se abra (S3, S5).
    */
   onOpenTables: () => void
+  /** Tipo de conductor de los circuitos interiores (ITC-BT-26), declarado en Cuadros. */
+  interiorConductor: InteriorConductor
+  onInteriorConductorChange: (value: InteriorConductor) => void
+  /** Abre el panel único en la tabla de la guía BT-26. */
+  onOpenConductorTable: () => void
   /** Unidad con la que se leen y se escriben las potencias; el vatío sigue siendo la unidad guardada. */
   powerUnit: 'W' | 'kW'
   hasIrve?: boolean
@@ -149,26 +218,49 @@ export type InteriorPanelProps = {
   showSourceNotes?: boolean
 }
 
+/** Selector del tipo de conductor de los circuitos interiores (ITC-BT-26). */
+function InteriorConductorField({ value, onChange, onOpenConductorTable }: { value: InteriorConductor; onChange: (value: InteriorConductor) => void; onOpenConductorTable: () => void }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3 rounded-control bg-surface-muted p-3">
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-ink-muted">Tipo de conductor de los circuitos interiores</p>
+        <p className="mt-0.5 text-[11px] leading-4 text-ink-faint">ITC-BT-26 · se imprime en el campo «Tipo de conductor» del ELEC-3.</p>
+      </div>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label htmlFor="interior-conductor" className="text-xs font-semibold text-ink-muted">Conductor</Label>
+        <div className="flex items-center gap-2">
+          <Select value={value} onValueChange={next => { if (next != null) onChange(next as InteriorConductor) }}>
+            <SelectTrigger id="interior-conductor" className="h-9 w-full min-w-0 text-sm sm:min-w-[12rem]"><SelectValue>{(selected: string | null) => selected ?? value}</SelectValue></SelectTrigger>
+            <SelectContent alignItemWithTrigger={false}><SelectGroup>{INTERIOR_CONDUCTORS.map(option => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectGroup></SelectContent>
+          </Select>
+          <TableButton ariaLabel="Ver tabla de conductores · Guía-BT-26" onOpen={onOpenConductorTable} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /**
  * La card completa cuando el proyecto todavía no tiene viviendas. Vive fuera del
  * cuerpo para que sus hooks (el aviso por puntos de la ITC-BT-25 §2.3.2) no queden
  * detrás de un retorno temprano y cambien de orden al generar derivaciones.
  */
-function EmptyInteriorPanel() {
+function EmptyInteriorPanel({ interiorConductor, onInteriorConductorChange, onOpenConductorTable }: Pick<InteriorPanelProps, 'interiorConductor' | 'onInteriorConductorChange' | 'onOpenConductorTable'>) {
   return (
     <section className="rounded-card border border-line bg-paper p-5 shadow-card">
       <h3 className="font-bold">Instalaciones interiores</h3>
       <p className="mt-2 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-sm leading-6 text-brand-ink"><Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />Todavía no hay viviendas. Generá las derivaciones desde la previsión en la pestaña DI y volvé acá.</p>
+      <div className="mt-3"><InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} /></div>
     </section>
   )
 }
 
 export function InteriorPanel(props: InteriorPanelProps) {
-  if (props.dwellings.length === 0) return <EmptyInteriorPanel />
+  if (props.dwellings.length === 0) return <EmptyInteriorPanel {...props} />
   return <InteriorPanelBody {...props} />
 }
 
-function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
+function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, interiorConductor, onInteriorConductorChange, onOpenConductorTable, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
@@ -196,14 +288,33 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   // circuitos siguen al escalón, pero el aviso de la ITC-BT-25 §2.3.2 responde a lo que
   // la vivienda declara ser. Sin declaración se cae al grado del escalón.
   const declaredGrade = declaredGradeOf(dwelling.housingDeclaredGrade) ?? grade
-  const pointFlags = { hasHeating: inputs.hasHeating, hasCooling: inputs.hasCooling, hasDryer: inputs.hasDryer, hasIrve }
+  // La tabla de circuitos es la fuente de la previsión: declarar puntos en C8,
+  // C9 o C10 implica que la vivienda prevé esa carga. Un proyecto guardado antes
+  // de editar la fila conserva su bandera hasta que se toca el número de puntos.
+  const foreseen = (circuitId: string, stored: boolean) => {
+    const declared = inputs.pointsOverride?.[circuitId]
+    return declared == null ? stored : declared > 0
+  }
+  const pointFlags = {
+    hasHeating: foreseen('C8', inputs.hasHeating),
+    hasCooling: foreseen('C9', inputs.hasCooling),
+    hasDryer: foreseen('C10', inputs.hasDryer),
+    hasIrve,
+  }
   const points = totalPoints(rooms, pointFlags)
   // El mínimo de la tabla 2 es el punto de partida: el proyecto declara cuántos
   // puntos instala de verdad en cada circuito, y ese número decide los circuitos.
   const effectivePoints = applyPointOverrides(points, inputs.pointsOverride)
   // El aviso de la ITC-BT-25 §2.3.2 se arma una sola vez por render: la superficie, las
   // previsiones y los puntos que obligan a más de un circuito C1–C5 son la misma regla.
-  const gradeWarning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals })
+  const gradeWarning = electrificationGradeWarning({
+    declaredGrade,
+    areaM2: dwellingArea,
+    pointsByCircuit: effectivePoints.totals,
+    hasHeating: pointFlags.hasHeating,
+    hasCooling: pointFlags.hasCooling,
+    hasDryer: pointFlags.hasDryer,
+  })
   const pointOverflow = gradeWarning?.reasons.filter(reason => reason.id.startsWith('points:')) ?? []
   // El toast del exceso de puntos sale cuando el exceso aparece (S8), no en cada tecla ni
   // al montar: la ref guarda el estado del render anterior, así tipear «31» pasa por «3»
@@ -217,14 +328,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
     }
     pointOverflowSeen.current = overflowing
   }, [pointOverflow.length])
-  // Marcar una previsión no cambia el grado declarado ni bloquea el dato, pero si la
-  // vivienda es básica se avisa de que la instrucción exige elevada.
-  const setPrevision = (key: 'hasHeating' | 'hasCooling' | 'hasDryer', checked: boolean) => {
-    setInput({ [key]: checked })
-    if (!checked) return
-    const warning = electrificationGradeWarning({ declaredGrade, areaM2: dwellingArea, pointsByCircuit: effectivePoints.totals, [key]: true })
-    if (warning) toast.warning(warning.title, { description: warning.description, duration: 9000 })
-  }
   // Los totales se indexan por id de circuito: el id de la fila es texto.
   const pointsFor = (id: string) => effectivePoints.totals[id as keyof typeof effectivePoints.totals] ?? 0
   const minimumFor = (id: string) => points.totals[id as keyof typeof points.totals] ?? 0
@@ -294,15 +397,105 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             <Input id="interior-contracted" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(inputs.contractedPowerW, powerUnit) || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, storePower(Number(event.target.value), powerUnit)) })} className="w-32" />
             {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">La potencia contratada puede ser diferente a la prevista.</span>}
           </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="interior-insulation" className="text-xs font-semibold text-ink-muted">Aislamiento de la instalación (kΩ)</Label>
+            <Input
+              id="interior-insulation"
+              type="number"
+              min="0"
+              step="0.01"
+              value={inputs.insulationKohm ?? ''}
+              onChange={event => {
+                const raw = event.target.value
+                const value = Number(raw)
+                setInput({ insulationKohm: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
+              }}
+              className="w-32"
+            />
+            {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">Un solo valor para la vivienda; se imprime en la hoja 1 del ELEC-3.</span>}
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="interior-installation-type" className="text-xs font-semibold text-ink-muted">Tipo de instalación</Label>
+            <Select
+              value={inputs.installationType ?? ''}
+              onValueChange={value => {
+                const next = value == null || value === '' ? undefined : value as InstallationType
+                setInput({ installationType: next, buriedDepthM: next === 'enterrado' ? inputs.buriedDepthM : undefined })
+              }}
+            >
+              <SelectTrigger id="interior-installation-type" className="h-9 w-full min-w-0 text-sm"><SelectValue>{(selected: string | null) => INSTALLATION_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue></SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                {INSTALLATION_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {inputs.installationType === 'enterrado' && (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="interior-buried-depth" className="text-xs font-semibold text-ink-muted">Profundidad de enterramiento (m)</Label>
+              <Input
+                id="interior-buried-depth"
+                type="number"
+                min="0"
+                step="0.05"
+                value={inputs.buriedDepthM ?? ''}
+                onChange={event => {
+                  const raw = event.target.value
+                  const value = Number(raw)
+                  setInput({ buriedDepthM: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
+                }}
+                className="w-32"
+              />
+            </div>
+          )}
           <div className="flex items-end gap-2 pb-1">
-            <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true })} />
+            <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true, surgeType: checked === true ? inputs.surgeType : undefined })} />
             <Label htmlFor="interior-surge" className="text-sm font-normal">Protección contra sobretensiones</Label>
           </div>
+          {inputs.hasSurge && (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="interior-surge-type" className="text-xs font-semibold text-ink-muted">Tipo de protector</Label>
+              <Select
+                value={inputs.surgeType ?? ''}
+                onValueChange={value => setInput({ surgeType: value == null || value === '' ? undefined : value as SurgeType })}
+              >
+                <SelectTrigger id="interior-surge-type" className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue>{(selected: string | null) => SURGE_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue>
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {SURGE_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex items-end gap-2 pb-1">
+            <Checkbox id="interior-differential" checked={inputs.hasDifferential} onCheckedChange={checked => setInput({ hasDifferential: checked === true, differentialType: checked === true ? inputs.differentialType : undefined })} />
+            <Label htmlFor="interior-differential" className="text-sm font-normal">Diferencial general</Label>
+          </div>
+          {inputs.hasDifferential && (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="interior-differential-type" className="text-xs font-semibold text-ink-muted">Tipo de diferencial</Label>
+              <Select
+                value={inputs.differentialType ?? ''}
+                onValueChange={value => setInput({ differentialType: value == null || value === '' ? undefined : value as DifferentialType })}
+              >
+                <SelectTrigger id="interior-differential-type" className="h-9 w-full min-w-0 text-sm">
+                  <SelectValue>{(selected: string | null) => DIFFERENTIAL_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue>
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  {DIFFERENTIAL_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">ICP · calibre de la potencia contratada</span>{evaluation.icpCurrentA == null
             ? <span>Sin potencia contratada</span>
             : evaluation.icpRatingA == null
               ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
               : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
+        </div>
+
+        <div className="mt-5">
+          <InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} />
         </div>
 
         <div className="mt-5">
@@ -325,6 +518,9 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                   <TableHead scope="col" className="py-2 pr-2">P/toma ({powerUnit})</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Fs</TableHead>
                   <TableHead scope="col" className="py-2 pr-2">Fu</TableHead>
+                  <TableHead scope="col" className="py-2 pr-2">Potencia prevista ({powerUnit})</TableHead>
+                  <TableHead scope="col" className="py-2 pr-2">Ib (A)</TableHead>
+                  <TableHead scope="col" className="py-2 pr-2">Carga simultánea (%)</TableHead>
                   <TableHead scope="col" className="py-2">Caída</TableHead>
                 </TableRow>
               </TableHeader>
@@ -335,8 +531,10 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                   // La potencia escrita por el proyecto entra en la unidad elegida y
                   // se guarda en vatios: el motor nunca ve kilovatios.
                   const manualW = circuitPowerW(circuit.id, inputs.circuitPowerOverride)
+                  const forecastW = housingCircuitForecastW({ powerPerPointW: manualW, points: pointsFor(circuit.id), fs: circuit.fs, fu: circuit.fu })
+                  const ibA = housingCircuitIb(forecastW)
                   return (
-                    <TableRow key={circuit.id} className="border-b border-line-soft">
+                    <TableRow key={circuit.id} className={`border-b border-line-soft ${CIRCUIT_ROW_TINT[circuit.id] ?? ''}`}>
                       <TableCell className="py-2 pr-2 font-semibold">{circuit.id}</TableCell>
                       <TableCell className="py-2 pr-2">{circuit.name}{circuit.note && <span className="block text-[11px] text-ink-faint">{circuit.note}</span>}</TableCell>
                       <TableCell className="py-2 pr-2"><Input aria-label={`Longitud · ${circuit.id}`} type="number" min="0" step="0.1" value={lengthM || ''} onChange={event => setLength(circuit.id, Number(event.target.value))} className="w-20" /></TableCell>
@@ -370,14 +568,17 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                             />
                           )}
                       </TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">{circuit.fs == null ? '—' : circuit.fs}</TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">{circuit.fu == null ? '—' : circuit.fu}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums" title={circuit.fs == null ? 'No publicado en la tabla 1 · se aplica 1' : undefined}>{housingCircuitFactor(circuit.fs)}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums" title={circuit.fu == null ? 'No publicado en la tabla 1 · se aplica 1' : undefined}>{housingCircuitFactor(circuit.fu)}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums">{forecastW == null ? '—' : formatPowerValue(forecastW, powerUnit)}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums">{ibA == null ? '—' : `${fmt2(ibA)} A`}</TableCell>
+                      <TableCell className="py-2 pr-2 tabular-nums">{fmtDec(housingCircuitSimultaneityPercent({ fs: circuit.fs, fu: circuit.fu }))} %</TableCell>
                       <TableCell className="py-2 tabular-nums">
                         {sizing.dropPercent == null
                           ? <span className="text-ink-faint">—</span>
                           : <span className={sizing.over ? 'inline-flex items-center gap-1 font-semibold text-danger' : ''} title={sizing.over ? `Supera la caída máxima permitida de ${HOUSING_CIRCUIT_MAX_DROP} %` : `Caída máxima permitida: ${HOUSING_CIRCUIT_MAX_DROP} %`}>
                             {sizing.over && <TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />}
-                            {fmt(sizing.dropPercent)} %
+                            {fmt2(sizing.dropPercent)} %
                             {sizing.over && <span className="sr-only">. Supera la caída máxima permitida de {HOUSING_CIRCUIT_MAX_DROP} %</span>}
                           </span>}
                       </TableCell>
@@ -400,12 +601,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             <h4 className="text-xs font-semibold text-ink-muted">Estancias y puntos de utilización · ITC-BT-25 §4</h4>
             <Button type="button" variant="outline" size="sm" className="h-auto gap-2 px-3 py-1.5" onClick={addRoom}><Plus data-icon="inline-start" /> Añadir estancia</Button>
           </div>
-          <p className="mt-1 text-[11px] leading-4 text-ink-faint">La tabla 2 fija los puntos mínimos por estancia según su superficie o longitud. C8, C9 y C10 se cuentan solo si la vivienda los prevé.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
-            <div className="flex items-center gap-2"><Checkbox id="interior-heating" checked={inputs.hasHeating ?? false} onCheckedChange={checked => setPrevision('hasHeating', checked === true)} /><Label htmlFor="interior-heating" className="text-sm font-normal">Calefacción eléctrica</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-cooling" checked={inputs.hasCooling ?? false} onCheckedChange={checked => setPrevision('hasCooling', checked === true)} /><Label htmlFor="interior-cooling" className="text-sm font-normal">Aire acondicionado</Label></div>
-            <div className="flex items-center gap-2"><Checkbox id="interior-dryer" checked={inputs.hasDryer ?? false} onCheckedChange={checked => setPrevision('hasDryer', checked === true)} /><Label htmlFor="interior-dryer" className="text-sm font-normal">Secadora</Label></div>
-          </div>
+          <p className="mt-1 text-[11px] leading-4 text-ink-faint">La tabla 2 fija los puntos mínimos por estancia según su superficie o longitud. C8, C9 y C10 se cuentan solo si declarás sus puntos en la tabla de circuitos de arriba.</p>
 
           {dwellingArea > 0 && (
             <p className={`mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${overArea ? 'font-semibold text-danger' : 'text-ink-muted'}`}>
@@ -491,7 +687,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 </TableHeader>
                 <TableBody>
                   {HOUSING_CIRCUIT_TABLE.map(circuit => (
-                    <TableRow key={circuit.id} className="border-b border-line-soft">
+                    <TableRow key={circuit.id} className={`border-b border-line-soft ${CIRCUIT_ROW_TINT[circuit.id] ?? ''}`}>
                       <TableCell className="py-2 pr-3 font-semibold">{circuit.id}</TableCell>
                       <TableCell className="py-2 pr-3">{circuit.name}</TableCell>
                       <TableCell className="py-2 pr-3 tabular-nums">{circuit.powerPerPointW == null ? '—' : formatPowerValue(circuit.powerPerPointW, powerUnit)}</TableCell>
