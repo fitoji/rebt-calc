@@ -22,7 +22,7 @@ S6. Decisiones de arquitectura: un único array `differentials[]` persistido por
 - T2 — S1,S4,S6 — inline — done — UI en `components/interior-panel.tsx`: tabla progresiva, selects de tipo/sensibilidad, chips de circuitos y avisos en línea; se retiraron el checkbox global y el select de tipo único; suite 735/735, typecheck OK.
 - T3 — S3,S5,S6 — inline — done — ELEC-3 hoja 2: adapter, i18n y caption; el tipo se imprime en la columna «Nombre» y los circuitos en «Circuito», sin tocar el modelo de 4 columnas ni el calibre pendiente; suite 736/736, typecheck OK.
 - T4 — S5 — inline — done — Unifilar: `differentialDevicesFor` expone el array sin romper el recuento existente; la lámina dibuja un símbolo por dispositivo con id, tipo y circuitos; suite 737/737, typecheck OK.
-- T5 — S5,S6 — inline — pending — Documentación (help, README, texto del caption) y verificación final.
+- T5 — S5,S6 — inline — done — Documentación (help, README, caption de ELEC-3) y verificación final: suite 737/737, `tsc --noEmit` limpio, detector de Impeccable `[]`.
 
 ## Log
 
@@ -31,3 +31,6 @@ L1 (verbatim): «bien ,ahora pensemos como hacer con el tema de diferencial, par
 - 2026-11-18 — Diseño con skill `impeccable` (Operate, mundo visual existente, `PRODUCT.md` rige). Correcciones verificadas con fuente: la regla de uno por cada cinco circuitos aplica a ambos grados; tipo ≠ sensibilidad; la Guía BT-52 exige protección VE individual y tipo B o A + RDC-DD.
 - 2026-11-18 — Usuario (verbatim): «Completo por capas (Recommended)». Alcance cerrado con cinco capas, incluido el unifilar para evitar que el esquema contradiga la tabla.
 - 2026-11-18 — Usuario (verbatim): «implementa». Sin RDD: `gentle-ai review mode status` → off (clone_local). Rama creada desde `feature/c4-subdivision` porque esta feature depende de `circuitsForDifferentials`.
+- 2026-11-18 — Work units: `0368301` motor y validación; `8179e3a` panel; `a242429` ELEC-3 hoja 2; `fb277f5` unifilar. Test-first observado en cada capa: RED por módulo/export ausente o aserción de fuente, GREEN tras el cambio.
+- 2026-11-18 — Decisiones de implementación: `differentialsFor` conserva su forma `{differentials, sensitivityMa}` para no romper consumidores; se añadió `differentialDevicesFor` en paralelo. La hoja 2 mantiene sus cuatro columnas oficiales: el tipo se imprime en «Nombre» y los circuitos en «Circuito», sin inventar calibre. El unifilar dibuja un símbolo por dispositivo con id, tipo y circuitos; con un solo diferencial conserva la geometría anterior.
+- 2026-11-18 — Verificación final: `pnpm test` 737/737, `pnpm typecheck` limpio, detector de Impeccable sin hallazgos. Sin native review (RDD off).
