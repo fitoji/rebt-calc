@@ -24,7 +24,7 @@ S6. Decisiones de arquitectura: un único array `differentials[]` persistido por
 - T4 — S5 — inline — done — Unifilar: `differentialDevicesFor` expone el array sin romper el recuento existente; la lámina dibuja un símbolo por dispositivo con id, tipo y circuitos; suite 737/737, typecheck OK.
 - T5 — S5,S6 — inline — done — Documentación (help, README, caption de ELEC-3) y verificación final: suite 737/737, `tsc --noEmit` limpio, detector de Impeccable `[]`.
 - T6 — S1,S4 — inline — done — Referencia de tipos junto a «Tipo»: `TableButton` + `DifferentialTypesDialog` con tabla AC/A/F/B/S y curva de tiempos de ensayo; datos en `lib/differentials.mjs`; suite 740/740, detector `[]`.
-- T7 — S1 — inline — done — Drag-and-drop de circuitos sin asignar con `@ui-sdk/core` (sólo `bindDrag`, `bindDragPreview`, `dragThreshold`): chips arrastrables, preview flotante, fila resaltada y `assignCircuit` en el drop; el Select permanece como ruta de teclado; suite 742/742, build OK, detector `[]`.
+- T7 — S1 — inline — done — Drag-and-drop de circuitos sin asignar con `@ui-sdk/core` (sólo `bindDrag`, `bindDragPreview`, `dragThreshold`): chips arrastrables, preview flotante, fila resaltada y `assignCircuit` en el drop; el Select permanece como ruta de teclado; suite 742/742, build OK, detector `[]`; verificación independiente PASS y corrección de los dos avisos (preview al desmontar y array obsoleto en el drop).
 
 ## Log
 

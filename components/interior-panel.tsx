@@ -295,7 +295,13 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   const [showDifferentialTypes, setShowDifferentialTypes] = useState(false)
   const [dragOverDevice, setDragOverDevice] = useState<string | null>(null)
   const dragCleanup = useRef<(() => void) | null>(null)
-  useEffect(() => () => dragCleanup.current?.(), [])
+  const dragPreview = useRef<ReturnType<typeof bindDragPreview> | null>(null)
+  const dragTarget = useRef<HTMLElement | null>(null)
+  useEffect(() => () => {
+    dragCleanup.current?.()
+    dragPreview.current?.remove()
+    dragTarget.current?.removeAttribute('data-over')
+  }, [])
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
@@ -325,6 +331,8 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   })
   const unassignedCircuits = circuitIds.filter(id => !differentialDevices.some(device => device.circuits.includes(id)))
   const setDifferentials = (devices: DifferentialDevice[]) => setInput({ differentials: devices, differentialType: devices[0]?.type ?? undefined })
+  const devicesRef = useRef(differentialDevices)
+  devicesRef.current = differentialDevices
 
   // Drag pointer-only de los chips sin asignar. El Select de cada fila sigue
   // siendo la ruta de teclado, así que el gesto no es la única forma de asignar.
@@ -335,25 +343,29 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
     const startY = event.clientY
     let preview: ReturnType<typeof bindDragPreview> | null = null
     let target: HTMLElement | null = null
+    dragPreview.current = null
+    dragTarget.current = null
     dragCleanup.current?.()
     dragCleanup.current = bindDrag(el, event.nativeEvent, {
       threshold: dragThreshold,
       cancelOnEscape: true,
       onStart: () => {
         preview = bindDragPreview(el, { x: startX, y: startY })
+        dragPreview.current = preview
         return true
       },
       onMove: ({ x, y }) => {
         preview?.move(x, y)
         const found = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-differential-target]') ?? null
         const device = found?.dataset.differentialTarget
-          ? differentialDevices.find(entry => entry.id === found.dataset.differentialTarget)
+          ? devicesRef.current.find(entry => entry.id === found.dataset.differentialTarget)
           : null
         const valid = device != null && canAssignCircuit(device, circuitId)
         const next = valid ? found : null
         if (target !== next) {
           target?.removeAttribute('data-over')
           target = next
+          dragTarget.current = next
           target?.setAttribute('data-over', '')
           setDragOverDevice(valid ? device?.id ?? null : null)
         }
@@ -361,10 +373,12 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
       },
       onEnd: (_up, canceled) => {
         if (!canceled && target?.dataset.differentialTarget) {
-          setDifferentials(assignCircuit(differentialDevices, target.dataset.differentialTarget, circuitId))
+          setDifferentials(assignCircuit(devicesRef.current, target.dataset.differentialTarget, circuitId))
         }
         target?.removeAttribute('data-over')
         preview?.remove()
+        dragPreview.current = null
+        dragTarget.current = null
         setDragOverDevice(null)
         dragCleanup.current = null
       },
