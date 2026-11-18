@@ -35,7 +35,7 @@ test('C5 stays untinted: the request never assigned it a family', () => {
 })
 
 test('the card table and the normative dialog share the mapping', () => {
-  assert.equal(panel.match(/CIRCUIT_ROW_TINT\[circuit\.id\]/g)?.length, 2, 'both housing circuit tables are tinted')
+  assert.ok((panel.match(/CIRCUIT_ROW_TINT\[circuit\.id\]/g)?.length ?? 0) >= 2, 'the housing rows and their section selects are tinted')
 })
 
 test('all nine tints exist in both themes and are exposed as utilities', () => {

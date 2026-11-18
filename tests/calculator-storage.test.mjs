@@ -376,6 +376,24 @@ test('rejects a malformed differential device instead of keeping it in a snapsho
   }
 })
 
+test('persists the section override declared for a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, sectionOverride: { C1: 6, C2: 2.5 } }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior.sectionOverride, interior.sectionOverride, 'the section override survives a reload')
+})
+
+test('rejects an invalid section override instead of keeping it in a snapshot', () => {
+  for (const sectionOverride of [{ C1: -1 }, { C1: '2.5' }, { C1: null }]) {
+    const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, sectionOverride }
+    const storage = createMemoryStorage()
+
+    saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+    assert.equal(loadCalculatorInputs(storage), null, `rejects ${JSON.stringify(sectionOverride)}`)
+  }
+})
+
 test('persists the surge protector type declared for a dwelling', () => {
   const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: true, surgeType: 'tipo2' }
   const storage = createMemoryStorage()

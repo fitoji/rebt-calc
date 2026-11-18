@@ -205,7 +205,8 @@ test('the report keeps its columns and the sizing keeps the table values', () =>
   const calc = read('components/load-calculator.tsx')
   const rows = calc.slice(calc.indexOf('const housingCircuitReportRows'), calc.indexOf('const housingRoomReportRows'))
   assert.match(rows, /circuit\.breakerA/, 'the PIA of the report is the table value')
-  assert.match(rows, /housingCircuitSizing\(circuit, lengthM\)/, 'the sizing of the report is unchanged')
+  assert.match(rows, /housingCircuitSizing\(circuit, lengthM, dwelling\.interior\?\.sectionOverride/, 'the report passes the declared section')
+  assert.match(rows, /sizing\.effectiveSection/, 'the report never prints an undersized override')
   assert.match(calc, /title: '11\. Circuitos de vivienda · ITC-BT-25',\s*\n\s*columns: \['Vivienda', 'Circuito', 'PIA', 'Sección', 'Longitud', 'Caída'\]/, 'no power column is invented in the report')
 })
 

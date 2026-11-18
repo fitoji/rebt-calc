@@ -7,6 +7,7 @@ import { bindDrag, bindDragPreview, dragThreshold } from '@ui-sdk/core'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
+import { CircuitSectionSelect } from '@/components/circuit-section-select'
 import { DifferentialTypesDialog } from '@/components/differential-types-dialog'
 import { explainHousingPoints, explainInterior } from '../lib/calculation-explanations.mjs'
 import { TableButton } from '@/components/table-button'
@@ -21,7 +22,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DIFFERENTIAL_SENSITIVITY_MA, defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { UPSTREAM_SENSITIVITY_MA, addDifferential, assignCircuit, canAssignCircuit, normalizeDifferentials, removeCircuit, removeDifferential } from '../lib/differentials.mjs'
-import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitLength, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
+import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitLength, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split, sectionOverrideWarning } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
@@ -104,6 +105,8 @@ export type InteriorDwelling = {
     hasDryer?: boolean
     pointsOverride?: Record<string, number>
     circuitPowerOverride?: Record<string, number>
+    /** Sección elegida por circuito; ausente = la calculada. */
+    sectionOverride?: Record<string, number>
     /** Aislamiento de la instalación en kΩ: un valor para toda la vivienda. */
     insulationKohm?: number
     /** Qué columna de canalización del ELEC-3 se imprime para esta vivienda. */
@@ -159,6 +162,7 @@ export type InteriorInputsState = {
   hasDryer: boolean
   pointsOverride: Record<string, number>
   circuitPowerOverride: Record<string, number>
+  sectionOverride: Record<string, number>
   insulationKohm?: number
   installationType?: InstallationType
   buriedDepthM?: number
@@ -183,6 +187,7 @@ export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInput
     hasDryer: resolved.hasDryer ?? false,
     pointsOverride: resolved.pointsOverride ?? {},
     circuitPowerOverride: resolved.circuitPowerOverride ?? {},
+    sectionOverride: resolved.sectionOverride ?? {},
     insulationKohm: resolved.insulationKohm,
     installationType: resolved.installationType,
     buriedDepthM: resolved.buriedDepthM,
@@ -320,6 +325,12 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
 
   const setInput = (patch: Partial<typeof inputs>) => onChange(dwelling.id, patch)
   const setLength = (id: string, value: number) => onChange(dwelling.id, { lengths: { ...(inputs.lengths ?? {}), [id]: Math.max(0, value) } })
+  const setSectionOverride = (id: string, section: number | null) => {
+    const next = { ...(inputs.sectionOverride ?? {}) }
+    if (section == null) delete next[id]
+    else next[id] = section
+    onChange(dwelling.id, { sectionOverride: next })
+  }
   const grade = housingGradeFor(dwelling.powerW)
   const circuits = housingCircuitsFor(dwelling.powerW, { hasIrve, c4Mode, c4Pair })
   const circuitIds = circuits.map(circuit => circuit.id)
@@ -615,7 +626,8 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
               <TableBody>
                 {circuits.map(circuit => {
                   const lengthM = housingCircuitLength(inputs.lengths, circuit)
-                  const sizing = housingCircuitSizing(circuit, lengthM)
+                  const sizing = housingCircuitSizing(circuit, lengthM, inputs.sectionOverride?.[circuit.id] ?? null)
+                  const sectionWarning = sectionOverrideWarning(sizing)
                   // La potencia escrita por el proyecto entra en la unidad elegida y
                   // se guarda en vatios: el motor nunca ve kilovatios.
                   const manualW = circuitPowerW(circuit.id, inputs.circuitPowerOverride)
@@ -627,9 +639,21 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                       <TableCell className="py-2 pr-2">{circuit.name}{circuit.note && <span className="block text-[11px] text-ink-faint">{circuit.note}</span>}</TableCell>
                       <TableCell className="py-2 pr-2"><Input aria-label={`Longitud · ${circuit.id}`} type="number" min="0" step="0.1" value={lengthM || ''} onChange={event => setLength(circuit.id, Number(event.target.value))} className="w-20" /></TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.breakerA == null ? '—' : `${circuit.breakerA} A`}</TableCell>
-                      <TableCell className="py-2 pr-2 tabular-nums">
-                        {sizing.section == null ? '—' : `${sizing.section} mm²`}
-                        {sizing.section != null && sizing.tableSection != null && sizing.section > sizing.tableSection && <span className="block text-[11px] text-ink-faint">mín. {sizing.tableSection}</span>}
+                      <TableCell className="py-2 pr-2 tabular-nums align-top">
+                        <CircuitSectionSelect
+                          circuitId={circuit.id}
+                          recommended={sizing.recommendedSection}
+                          selected={sizing.overrideSection}
+                          invalid={!sizing.compliant}
+                          tint={CIRCUIT_ROW_TINT[circuit.id]}
+                          onChange={section => setSectionOverride(circuit.id, section)}
+                        />
+                        {sectionWarning && (
+                          <p role="alert" className="mt-1 flex items-start gap-1 text-[11px] leading-4 text-danger">
+                            <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                            {sectionWarning}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.tube == null ? '—' : `${circuit.tube} mm`}</TableCell>
                       <TableCell className="py-2 pr-2">
