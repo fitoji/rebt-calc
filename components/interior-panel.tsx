@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
+import { DifferentialTypesDialog } from '@/components/differential-types-dialog'
 import { explainHousingPoints, explainInterior } from '../lib/calculation-explanations.mjs'
 import { TableButton } from '@/components/table-button'
 import { Button } from '@/components/ui/button'
@@ -290,6 +291,7 @@ export function InteriorPanel(props: InteriorPanelProps) {
 
 function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, interiorConductor, onInteriorConductorChange, onOpenConductorTable, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
+  const [showDifferentialTypes, setShowDifferentialTypes] = useState(false)
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
@@ -656,7 +658,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 <TableHeader>
                   <TableRow className="border-b border-line uppercase tracking-wide text-ink-faint">
                     <TableHead scope="col" className="py-2 pr-2">Diferencial</TableHead>
-                    <TableHead scope="col" className="py-2 pr-2">Tipo</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Tipo <TableButton ariaLabel="Ver tipos de diferenciales" onOpen={() => setShowDifferentialTypes(true)} /></TableHead>
                     <TableHead scope="col" className="py-2 pr-2">Sensibilidad</TableHead>
                     <TableHead scope="col" className="py-2 pr-2">Selectivo</TableHead>
                     <TableHead scope="col" className="py-2 pr-2">RDC-DD</TableHead>
@@ -850,6 +852,8 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             <SourceNote label="ITC-BT-25 §3, tabla 1">Tabla 1 publicada en la ITC-BT-25 §3, con las notas que cambian una decisión de diseño. El número de circuitos instalados se ajusta en la card; la tabla describe el grado de electrificación. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>
           </DialogContent>
         </Dialog>
+
+        <DifferentialTypesDialog open={showDifferentialTypes} onOpenChange={setShowDifferentialTypes} />
 
         {evaluation.problems.length > 0 && (
           <ul className="mt-4 flex flex-col gap-2 rounded-control bg-warning-soft p-3 text-xs leading-5 text-warning-ink">

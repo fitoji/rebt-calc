@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
+import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
 import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
@@ -68,6 +68,35 @@ test('la hoja 2 del ELEC-3 declara tipo y circuitos sin inventar el calibre', ()
   assert.equal(rows[1].nombre, 'Tipo B')
   const i18n = read('lib/elec3-i18n.mjs')
   assert.match(i18n, /declara el tipo, los circuitos y la sensibilidad/, 'el caption ya no dice que sólo declara sensibilidad')
+})
+
+test('los tipos de diferencial llevan características verificables', () => {
+  assert.deepEqual(Object.keys(DIFFERENTIAL_TYPE_INFO), ['AC', 'A', 'F', 'B', 'S'])
+  assert.match(DIFFERENTIAL_TYPE_INFO.A.detecta, /pulsante/)
+  assert.match(DIFFERENTIAL_TYPE_INFO.B.detecta, /continua/)
+  assert.equal(DIFFERENTIAL_TYPE_INFO.F.hastaKhz, 1)
+  assert.match(DIFFERENTIAL_TYPE_INFO.S.cargas, /cabecera/)
+})
+
+test('la curva usa tiempos normativos de ensayo, no estimaciones', () => {
+  assert.deepEqual(DIFFERENTIAL_TRIP_TIMES.general, [
+    { multiple: 1, ms: 300 },
+    { multiple: 2, ms: 150 },
+    { multiple: 5, ms: 40 },
+  ])
+  assert.equal(DIFFERENTIAL_TRIP_TIMES.selective.min[0].ms, 130)
+  assert.equal(DIFFERENTIAL_TRIP_TIMES.selective.max[0].ms, 500)
+  assert.match(DIFFERENTIAL_TRIP_TIMES.source, /61008|62423/)
+})
+
+test('la tabla de diferenciales ofrece el botón de tipos y su referencia', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /Ver tipos de diferenciales/, 'el botón vive junto al encabezado Tipo')
+  assert.match(panel, /DifferentialTypesDialog/, 'el panel abre la referencia')
+  const dialog = read('components/differential-types-dialog.tsx')
+  assert.match(dialog, /DIFFERENTIAL_TYPE_INFO/, 'la tabla sale de la fuente compartida')
+  assert.match(dialog, /DIFFERENTIAL_TRIP_TIMES/, 'la curva sale de la fuente compartida')
+  assert.match(dialog, /<polyline/, 'se dibuja la envolvente de tiempos')
 })
 
 test('un proyecto antiguo migra su tipo único a un diferencial que cubre todos los circuitos', () => {
