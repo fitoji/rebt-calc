@@ -157,7 +157,7 @@ test('the dwelling card shows the circuit table', () => {
   const panel = read('components/interior-panel.tsx')
   const calc = read('components/load-calculator.tsx')
 
-  assert.match(panel, /housingCircuitsFor\(dwelling\.powerW, \{ hasIrve \}\)/, 'the card builds the roster from the grade')
+  assert.match(panel, /housingCircuitsFor\(dwelling\.powerW, \{ hasIrve, c4Mode, c4Pair \}\)/, 'the card builds the roster from the grade and the C4 split')
   assert.match(panel, /Circuitos de la vivienda ·/, 'the table has its heading')
   assert.match(panel, /Máx\. puntos/, 'the table shows the maximum points')
   assert.match(panel, /P\/toma/, 'the table shows the power per point')

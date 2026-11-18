@@ -11,12 +11,14 @@ import { TableButton } from '@/components/table-button'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
-import { HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, circuitPowerW, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor } from '../lib/housing-circuits.mjs'
+import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
@@ -97,6 +99,10 @@ export type InteriorDwelling = {
     surgeType?: SurgeType
     hasDifferential?: boolean
     differentialType?: DifferentialType
+    /** ITC-BT-25 tabla 1 nota (8): 1 circuito C4, 2 o 3 circuitos independientes. */
+    c4Mode?: 1 | 2 | 3
+    /** Par de aparatos que comparte circuito cuando `c4Mode` es 2. */
+    c4Pair?: string
   }
 }
 
@@ -110,6 +116,9 @@ const CIRCUIT_ROW_TINT: Record<string, string> = {
   C2: 'bg-circuit-red hover:bg-circuit-red',
   C3: 'bg-circuit-gray hover:bg-circuit-gray',
   C4: 'bg-circuit-gray-soft hover:bg-circuit-gray-soft',
+  'C4.1': 'bg-circuit-gray-soft hover:bg-circuit-gray-soft',
+  'C4.2': 'bg-circuit-gray-soft hover:bg-circuit-gray-soft',
+  'C4.3': 'bg-circuit-gray-soft hover:bg-circuit-gray-soft',
   C6: 'bg-circuit-yellow hover:bg-circuit-yellow',
   C7: 'bg-circuit-red hover:bg-circuit-red',
   C8: 'bg-circuit-orange hover:bg-circuit-orange',
@@ -141,6 +150,8 @@ export type InteriorInputsState = {
   surgeType?: SurgeType
   hasDifferential?: boolean
   differentialType?: DifferentialType
+  c4Mode: 1 | 2 | 3
+  c4Pair: string
 }
 
 export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
@@ -162,6 +173,8 @@ export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInput
     surgeType: resolved.surgeType,
     hasDifferential: resolved.hasDifferential ?? false,
     differentialType: resolved.differentialType,
+    c4Mode: resolveC4Split(resolved).c4Mode as 1 | 2 | 3,
+    c4Pair: resolveC4Split(resolved).c4Pair as string,
   }
 }
 
@@ -265,20 +278,23 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
+  const { c4Mode, c4Pair } = resolveC4Split(inputs)
   // El número de circuitos lo fija el grado de electrificación, no el proyecto:
   // la básica tiene cinco y la elevada doce. El interior guardado puede traer un
-  // valor viejo, así que se resuelve acá.
+  // valor viejo, así que se resuelve acá. C4 añade circuitos físicos, pero la
+  // nota (8) los excluye del recuento de diferenciales.
   const evaluation = evaluateInterior({
     igaA: dwelling.housingIgaA ?? null,
     powerW: dwelling.powerW,
     ...inputs,
-    circuits: defaultCircuitsFor(dwelling.powerW),
+    circuits: defaultCircuitsFor(dwelling.powerW) + (c4Mode - 1),
+    c4Mode,
   })
 
   const setInput = (patch: Partial<typeof inputs>) => onChange(dwelling.id, patch)
   const setLength = (id: string, value: number) => onChange(dwelling.id, { lengths: { ...(inputs.lengths ?? {}), [id]: Math.max(0, value) } })
   const grade = housingGradeFor(dwelling.powerW)
-  const circuits = housingCircuitsFor(dwelling.powerW, { hasIrve })
+  const circuits = housingCircuitsFor(dwelling.powerW, { hasIrve, c4Mode, c4Pair })
   const rooms = inputs.rooms ?? []
   const roomsArea = rooms.reduce((sum, room) => sum + Math.max(0, room.area || 0), 0)
   const dwellingArea = dwelling.housingAreaM2 ?? 0
@@ -330,6 +346,9 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   }, [pointOverflow.length])
   // Los totales se indexan por id de circuito: el id de la fila es texto.
   const pointsFor = (id: string) => effectivePoints.totals[id as keyof typeof effectivePoints.totals] ?? 0
+  // Dividir C4 reparte los mismos puntos entre las ramas: no se duplica la
+  // previsión ni se pierde el override declarado en la fila original.
+  const c4Points = c4BranchPoints(pointsFor('C4'), c4Mode, c4Pair)
   const minimumFor = (id: string) => points.totals[id as keyof typeof points.totals] ?? 0
   const isOverridden = (id: string) => effectivePoints.overridden.includes(id)
   const interiorExplanation = explainInterior(
@@ -503,6 +522,39 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             <h4 className="text-xs font-semibold text-ink-muted">Circuitos de la vivienda · {grade === 'elevated' ? 'electrificación elevada' : 'electrificación básica'}</h4>
             <Button type="button" variant="outline" size="sm" className="h-auto gap-2 px-3 py-1.5" aria-haspopup="dialog" aria-controls="housing-circuits-dialog" onClick={() => setShowCircuitTable(true)}><Table2 data-icon="inline-start" /> Tabla</Button>
           </div>
+          <div className="mt-2 rounded-control border border-line bg-paper p-3">
+            <FieldSet>
+              <FieldLegend className="text-xs font-semibold text-ink-muted">C4 · configuración</FieldLegend>
+              <RadioGroup value={String(c4Mode)} onValueChange={value => setInput({ c4Mode: Number(value) as 1 | 2 | 3 })} aria-describedby="c4-split-help" className="flex flex-wrap gap-3">
+                {([1, 2, 3] as const).map(mode => (
+                  <FieldLabel key={mode} htmlFor={`c4-mode-${mode}`} className="flex cursor-pointer items-center gap-2 text-xs">
+                    <RadioGroupItem id={`c4-mode-${mode}`} value={String(mode)} />
+                    {mode === 1 ? 'Circuito único' : `${mode} circuitos independientes`}
+                  </FieldLabel>
+                ))}
+              </RadioGroup>
+            </FieldSet>
+            <p id="c4-split-help" className="mt-2 text-[11px] leading-4 text-ink-faint">ITC-BT-25 tabla 1, nota (8): circuitos independientes de 16 A por aparato. No cambia el grado de electrificación ni añade diferencial.</p>
+            {c4Mode > 1 && (
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {c4Mode === 2 && (
+                  <Label className="flex items-center gap-2 text-xs">
+                    Agrupar en C4.1
+                    <Select value={c4Pair} onValueChange={value => { if (value != null) setInput({ c4Pair: String(value) }) }}>
+                      <SelectTrigger id="c4-pair" className="w-56"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {C4_PAIRS.map(pair => <SelectItem key={pair.key} value={pair.key}>{pair.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                )}
+                <Label className="flex items-center gap-2 text-xs">
+                  Puntos de C4
+                  <Input aria-label="Puntos totales · C4" type="number" min="0" step="1" value={pointsFor('C4')} onChange={event => setPointOverride('C4', pointCount(event.target.value))} className="w-16" />
+                </Label>
+              </div>
+            )}
+          </div>
           <div className="mt-2 overflow-x-auto">
             <Table aria-label={`Circuitos de la vivienda · ${grade === 'elevated' ? 'electrificación elevada' : 'electrificación básica'}`} className="w-full text-left text-xs">
               <TableHeader>
@@ -545,7 +597,9 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                       </TableCell>
                       <TableCell className="py-2 pr-2 tabular-nums">{circuit.tube == null ? '—' : `${circuit.tube} mm`}</TableCell>
                       <TableCell className="py-2 pr-2">
-                        {POINT_CIRCUITS.includes(circuit.id as (typeof POINT_CIRCUITS)[number]) ? (
+                        {circuit.baseId === 'C4' ? (
+                          <span className="tabular-nums">{c4Points[circuit.id] ?? 0}</span>
+                        ) : POINT_CIRCUITS.includes(circuit.id as (typeof POINT_CIRCUITS)[number]) ? (
                           <div className="flex items-center gap-1">
                             <Input aria-label={`Puntos · ${circuit.id} · ${circuit.name}`} type="number" min="0" step="1" value={pointsFor(circuit.id)} onChange={event => setPointOverride(circuit.id, pointCount(event.target.value))} className="w-16" />
                             {isOverridden(circuit.id) && (
@@ -594,6 +648,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
           <p className="mt-2 text-[11px] leading-4 text-ink-faint">La columna Puntos arranca en el mínimo que sale de las estancias (tabla 2) y se puede reemplazar por los puntos que vas a instalar; el máximo de la tabla 1 no se edita.</p>
           <p className="mt-2 text-[11px] leading-4 text-ink-faint">Solo los circuitos que la tabla 1 deja sin potencia por toma admiten un valor manual; el máximo permisible de cada uno figura en la nota de cada circuito. Ese valor no cambia la protección ni la sección del circuito.</p>
           {showSourceNotes && <SourceNote label="ITC-BT-25 §3 · tabla 1">ITC-BT-25 §3, tabla 1: características mínimas de los circuitos del grado de electrificación. El número de circuitos instalados se ajusta arriba; esta tabla describe el grado, no lo cambia. La sección de cada circuito se toma de la tabla y además la caída de tensión no puede superar el 3 %, calculada con la intensidad nominal del interruptor automático del circuito y la distancia al punto de utilización más alejado. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+          {showSourceNotes && c4Mode > 1 && <SourceNote label="ITC-BT-25 tabla 1 · nota (8)">Nota (8): «Los fusibles o interruptores automáticos no son necesarios si se dispone de circuitos independientes para cada aparato, con interruptor automático de 16 A en cada circuito». La Guía BT-25 recomienda dos o tres circuitos independientes sin pasar a electrificación elevada ni añadir diferencial; no fija qué dos aparatos comparten circuito, por eso se eligen arriba. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
         </div>
 
         <div className="mt-5">

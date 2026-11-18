@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { c4BranchPoints, c4Branches, housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { circuitsForDifferentials, evaluateInterior } from '../lib/interior-installation.mjs'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = file => readFileSync(path.join(root, file), 'utf8')
 
 const dwelling = (circuits, c4Mode) => ({
   igaA: 25,
@@ -47,6 +53,28 @@ test('los puntos de C4 se reparten entre las ramas sin cambiar el total', () => 
   assert.deepEqual(c4BranchPoints(3, 3), { 'C4.1': 1, 'C4.2': 1, 'C4.3': 1 })
   assert.deepEqual(c4BranchPoints(3, 2, 'lavadora-lavavajillas'), { 'C4.1': 2, 'C4.2': 1 })
   assert.deepEqual(c4BranchPoints(3, 2, 'lavavajillas-termo'), { 'C4.1': 2, 'C4.2': 1 })
+})
+
+test('el panel ofrece tres estados con RadioGroup y no con un checkbox', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /C4 · configuración/, 'el control está rotulado y es específico de C4')
+  assert.match(panel, /<RadioGroup value=\{String\(c4Mode\)\}/, 'los tres estados son opciones pares')
+  assert.match(panel, /c4-mode-\$\{mode\}/, 'cada opción tiene id propio')
+  assert.match(panel, /No cambia el grado de electrificación ni añade diferencial/, 'el texto auxiliar explica la consecuencia')
+  assert.match(panel, /C4_PAIRS\.map/, 'el modo 2 ofrece las tres parejas posibles')
+  assert.doesNotMatch(panel, /Subdividir/, 'no hay checkbox «Subdividir»')
+  assert.match(panel, /nota \(8\)/, 'la fuente normativa correcta está citada')
+})
+
+test('las ramas derivan puntos y potencia de C4 sin duplicar la previsión', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /c4BranchPoints\(pointsFor\('C4'\), c4Mode, c4Pair\)/, 'los puntos se reparten desde C4')
+  assert.match(panel, /circuit\.baseId === 'C4'/, 'la fila de rama muestra puntos derivados')
+  assert.match(panel, /setLength\(circuit\.id/, 'la longitud se guarda por rama')
+  const calc = read('components/load-calculator.tsx')
+  assert.match(calc, /resolveC4Split\(dwelling\.interior\)/, 'el informe usa el mismo modo persistido')
+  const lib = read('lib/housing-circuits.mjs')
+  assert.ok(lib.includes('/^C4\\.\\d+$/'), 'las ramas heredan la potencia por toma de C4')
 })
 
 test('el grado y el número de circuitos de tabla no cambian al subdividir', () => {
