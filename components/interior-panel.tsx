@@ -725,7 +725,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                     aria-hidden="true"
                     title={`Arrastrar ${id} a un diferencial; también podés usar «Añadir circuito» en cada fila`}
                     onPointerDown={event => startCircuitDrag(event, id)}
-                    className="cursor-grab touch-none rounded-control border border-line bg-brand-soft px-1.5 py-0.5 text-[11px] font-semibold text-brand-ink select-none active:cursor-grabbing"
+                    className={`cursor-grab touch-none rounded-control border border-line px-1.5 py-0.5 text-[11px] font-semibold select-none active:cursor-grabbing ${CIRCUIT_ROW_TINT[id] ?? 'bg-brand-soft'}`}
                   >
                     {id}
                   </span>

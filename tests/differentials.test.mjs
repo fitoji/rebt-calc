@@ -89,6 +89,7 @@ test('el panel arrastra circuitos sin asignar y los suelta en cada diferencial',
   assert.match(panel, /Circuitos sin asignar/, 'existe el pool arrastrable')
   assert.match(panel, /data-over/, 'el destino válido se resalta')
   assert.match(panel, /dragPreview\.current\?\.remove\(\)/, 'desmontar durante un drag quita el preview')
+  assert.match(panel, /CIRCUIT_ROW_TINT\[id\]/, 'los chips usan el mismo tinte que la tabla de circuitos')
 })
 
 test('los tipos de diferencial llevan características verificables', () => {
