@@ -18,6 +18,7 @@ test('el switch compartido usa los behaviors de UI SDK y conserva su API', () =>
   assert.match(source, /state\.checked/, 'el icono sigue al estado del switch')
   assert.match(source, /motion-reduce:transition-none/, 'la animación respeta movimiento reducido')
   assert.match(source, /data-\[checked\]:bg-primary/, 'el color encendido sale del tema')
+  assert.match(source, /rounded-sm/, 'el switch usa un radio pequeño')
   assert.doesNotMatch(source, /@base-ui\/react\/switch/, 'ya no depende del switch de Base UI')
 })
 
