@@ -511,7 +511,7 @@ export function LoadCalculator() {
   const effectiveAdministrativeDwellingId = selectedAdministrativeDwellingId != null && interiorDwellings.some(dwelling => dwelling.id === selectedAdministrativeDwellingId)
     ? selectedAdministrativeDwellingId
     : interiorDwellings[0]?.id ?? null
-  const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean; c4Mode: 1 | 2 | 3; c4Pair: string }>) => {
+  const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean; c4Mode: 1 | 2 | 3; c4Pair: string; differentials: Array<{ id: string; type: 'AC' | 'A' | 'F' | 'B' | null; sensitivityMa: number; selective: boolean; rdcDd: boolean; circuits: string[] }> }>) => {
     setLineTouched(true)
     setDerivations(current => current.map(derivation => derivation.id === id
       ? { ...derivation, interior: { ...resolveInterior(derivation.powerW, derivation.interior), ...patch } }

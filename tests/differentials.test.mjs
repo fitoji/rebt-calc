@@ -1,9 +1,26 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const read = file => readFileSync(path.join(root, file), 'utf8')
 
 const basicIds = ['C1', 'C2', 'C3', 'C4', 'C5']
 const elevatedIds = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10']
+
+test('el panel declara el mínimo reglamentario y una tabla por dispositivo', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /Diferenciales · protección y agrupación/, 'la sección existe')
+  assert.match(panel, /mínimo \{evaluation\.differentials\}/, 'el mínimo es dato derivado')
+  assert.match(panel, /normalizeDifferentials\(/, 'la tabla lee la fuente de verdad')
+  assert.match(panel, /assignCircuit\(/, 'mover un circuito lo quita del otro diferencial')
+  assert.match(panel, /Añadir circuito/, 'la asignación es explícita')
+  assert.match(panel, /RDC-DD/, 'la protección VE se declara')
+  assert.doesNotMatch(panel, /id="interior-differential-type"/, 'ya no hay un tipo global')
+})
 
 test('un proyecto antiguo migra su tipo único a un diferencial que cubre todos los circuitos', () => {
   const { devices, warnings } = normalizeDifferentials({ differentialType: 'A', circuitIds: basicIds, minimum: 1 })

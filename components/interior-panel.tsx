@@ -17,7 +17,8 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
+import { DIFFERENTIAL_SENSITIVITY_MA, defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
+import { UPSTREAM_SENSITIVITY_MA, addDifferential, assignCircuit, normalizeDifferentials, removeCircuit, removeDifferential } from '../lib/differentials.mjs'
 import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitLength, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
@@ -59,6 +60,16 @@ const SURGE_TYPE_ITEMS: Array<{ value: SurgeType; label: string }> = [
 ]
 
 export type DifferentialType = 'AC' | 'A' | 'F' | 'B'
+
+/** Un diferencial declarado: tipo de onda, sensibilidad y circuitos que protege. */
+export type DifferentialDevice = {
+  id: string
+  type: DifferentialType | null
+  sensitivityMa: number
+  selective: boolean
+  rdcDd: boolean
+  circuits: string[]
+}
 
 const DIFFERENTIAL_TYPE_ITEMS: Array<{ value: DifferentialType; label: string }> = [
   { value: 'AC', label: 'AC · corriente alterna sinusoidal' },
@@ -103,6 +114,8 @@ export type InteriorDwelling = {
     c4Mode?: 1 | 2 | 3
     /** Par de aparatos que comparte circuito cuando `c4Mode` es 2. */
     c4Pair?: string
+    /** Diferenciales declarados con su tipo y agrupación de circuitos. */
+    differentials?: DifferentialDevice[]
   }
 }
 
@@ -152,6 +165,7 @@ export type InteriorInputsState = {
   differentialType?: DifferentialType
   c4Mode: 1 | 2 | 3
   c4Pair: string
+  differentials?: DifferentialDevice[]
 }
 
 export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInputsState {
@@ -175,6 +189,7 @@ export function resolveInteriorInputs(dwelling: InteriorDwelling): InteriorInput
     differentialType: resolved.differentialType,
     c4Mode: resolveC4Split(resolved).c4Mode as 1 | 2 | 3,
     c4Pair: resolveC4Split(resolved).c4Pair as string,
+    differentials: resolved.differentials,
   }
 }
 
@@ -295,6 +310,15 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   const setLength = (id: string, value: number) => onChange(dwelling.id, { lengths: { ...(inputs.lengths ?? {}), [id]: Math.max(0, value) } })
   const grade = housingGradeFor(dwelling.powerW)
   const circuits = housingCircuitsFor(dwelling.powerW, { hasIrve, c4Mode, c4Pair })
+  const circuitIds = circuits.map(circuit => circuit.id)
+  const { devices: differentialDevices, warnings: differentialWarnings } = normalizeDifferentials({
+    differentials: inputs.differentials,
+    differentialType: inputs.differentialType,
+    circuitIds,
+    minimum: evaluation.differentials,
+  })
+  const unassignedCircuits = circuitIds.filter(id => !differentialDevices.some(device => device.circuits.includes(id)))
+  const setDifferentials = (devices: DifferentialDevice[]) => setInput({ differentials: devices, differentialType: devices[0]?.type ?? undefined })
   const rooms = inputs.rooms ?? []
   const roomsArea = rooms.reduce((sum, room) => sum + Math.max(0, room.area || 0), 0)
   const dwellingArea = dwelling.housingAreaM2 ?? 0
@@ -409,7 +433,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="flex items-center justify-between gap-2 font-semibold text-ink-muted">IGA<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} /></span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
           <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span>{evaluation.differentials} × {evaluation.sensitivityMa} mA</span></div>
+          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span className="tabular-nums">mínimo {evaluation.differentials} · instalados {differentialDevices.length} · {evaluation.sensitivityMa} mA</span></div>
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada ({powerUnit})</Label>
@@ -482,26 +506,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
                   {SURGE_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          <div className="flex items-end gap-2 pb-1">
-            <Checkbox id="interior-differential" checked={inputs.hasDifferential} onCheckedChange={checked => setInput({ hasDifferential: checked === true, differentialType: checked === true ? inputs.differentialType : undefined })} />
-            <Label htmlFor="interior-differential" className="text-sm font-normal">Diferencial general</Label>
-          </div>
-          {inputs.hasDifferential && (
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="interior-differential-type" className="text-xs font-semibold text-ink-muted">Tipo de diferencial</Label>
-              <Select
-                value={inputs.differentialType ?? ''}
-                onValueChange={value => setInput({ differentialType: value == null || value === '' ? undefined : value as DifferentialType })}
-              >
-                <SelectTrigger id="interior-differential-type" className="h-9 w-full min-w-0 text-sm">
-                  <SelectValue>{(selected: string | null) => DIFFERENTIAL_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue>
-                </SelectTrigger>
-                <SelectContent alignItemWithTrigger={false}>
-                  {DIFFERENTIAL_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -641,6 +645,84 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 </Label>
               </div>
             )}
+          </div>
+          <div className="mt-2 rounded-control border border-line bg-paper p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h5 className="text-xs font-semibold text-ink-muted">Diferenciales · protección y agrupación</h5>
+              <span className="text-[11px] text-ink-faint">mínimo {evaluation.differentials} · instalados {differentialDevices.length}</span>
+            </div>
+            <div className="mt-2 overflow-x-auto">
+              <Table aria-label="Diferenciales de la vivienda" className="w-full text-left text-xs">
+                <TableHeader>
+                  <TableRow className="border-b border-line uppercase tracking-wide text-ink-faint">
+                    <TableHead scope="col" className="py-2 pr-2">Diferencial</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Tipo</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Sensibilidad</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Selectivo</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">RDC-DD</TableHead>
+                    <TableHead scope="col" className="py-2 pr-2">Circuitos asignados</TableHead>
+                    <TableHead scope="col" className="py-2"><span className="sr-only">Acciones</span></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {differentialDevices.map(device => (
+                    <TableRow key={device.id} className="border-b border-line-soft">
+                      <TableCell className="py-2 pr-2 font-semibold">{device.id}</TableCell>
+                      <TableCell className="py-2 pr-2">
+                        <Select value={device.type ?? ''} onValueChange={value => setDifferentials(differentialDevices.map(entry => entry.id === device.id ? { ...entry, type: value == null || value === '' ? null : value as DifferentialType } : entry))}>
+                          <SelectTrigger aria-label={`Tipo · ${device.id}`} className="h-8 w-36"><SelectValue>{(selected: string | null) => DIFFERENTIAL_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue></SelectTrigger>
+                          <SelectContent alignItemWithTrigger={false}>
+                            {DIFFERENTIAL_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="py-2 pr-2">
+                        <Select value={String(device.sensitivityMa)} disabled={!device.selective} onValueChange={value => setDifferentials(differentialDevices.map(entry => entry.id === device.id ? { ...entry, sensitivityMa: Number(value) } : entry))}>
+                          <SelectTrigger aria-label={`Sensibilidad · ${device.id}`} className="h-8 w-24"><SelectValue /></SelectTrigger>
+                          <SelectContent alignItemWithTrigger={false}>
+                            <SelectItem value={String(DIFFERENTIAL_SENSITIVITY_MA)}>{DIFFERENTIAL_SENSITIVITY_MA} mA</SelectItem>
+                            <SelectItem value={String(UPSTREAM_SENSITIVITY_MA)}>{UPSTREAM_SENSITIVITY_MA} mA · cabecera selectiva</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="py-2 pr-2">
+                        <Checkbox aria-label={`Selectivo · ${device.id}`} checked={device.selective} onCheckedChange={checked => setDifferentials(differentialDevices.map(entry => entry.id === device.id ? { ...entry, selective: checked === true, sensitivityMa: checked === true ? entry.sensitivityMa : 30 } : entry))} />
+                      </TableCell>
+                      <TableCell className="py-2 pr-2">
+                        {device.type === 'A' && circuitIds.includes('C13')
+                          ? <Checkbox aria-label={`RDC-DD · ${device.id}`} checked={device.rdcDd} onCheckedChange={checked => setDifferentials(differentialDevices.map(entry => entry.id === device.id ? { ...entry, rdcDd: checked === true } : entry))} />
+                          : <span className="text-ink-faint">—</span>}
+                      </TableCell>
+                      <TableCell className="py-2 pr-2">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {device.circuits.map(id => (
+                            <span key={id} className="inline-flex items-center gap-1 rounded-control bg-brand-soft px-1.5 py-0.5 font-semibold text-brand-ink">
+                              {id}
+                              <button type="button" aria-label={`Quitar ${id} de ${device.id}`} className="cursor-pointer leading-none" onClick={() => setDifferentials(removeCircuit(differentialDevices, id))}>×</button>
+                            </span>
+                          ))}
+                          <Select value="" onValueChange={value => { if (value != null && value !== '') setDifferentials(assignCircuit(differentialDevices, device.id, value)) }}>
+                            <SelectTrigger aria-label={`Añadir circuito a ${device.id}`} className="h-7 w-32"><SelectValue>Añadir circuito</SelectValue></SelectTrigger>
+                            <SelectContent alignItemWithTrigger={false}>
+                              {unassignedCircuits.map(id => <SelectItem key={id} value={id}>{id}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Eliminar ${device.id}`} onClick={() => setDifferentials(removeDifferential(differentialDevices, device.id))}><Trash2 /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setDifferentials(addDifferential(differentialDevices))}><Plus data-icon="inline-start" /> Añadir diferencial</Button>
+              <div className="flex flex-col gap-1">
+                {differentialWarnings.map(warning => <p key={warning} className="flex items-start gap-1 text-[11px] leading-4 text-ink-faint"><TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />{warning}</p>)}
+              </div>
+            </div>
           </div>
           {POINT_CIRCUITS.some(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1) && (
             <p className="mt-2 text-[11px] leading-4 text-ink-faint">Con los puntos declarados: {POINT_CIRCUITS.filter(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1).map(circuit => `${circuit} necesita ${effectivePoints.requiredCircuits[circuit]} circuitos`).join(' · ')}.</p>

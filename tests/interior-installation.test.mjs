@@ -21,13 +21,13 @@ import { explainInterior } from '../lib/calculation-explanations.mjs'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
 
-test('el tipo de diferencial general se elige solo con el checkbox activo', () => {
+test('la protección diferencial se declara por dispositivo, no con un tipo global', () => {
   const panel = read('components/interior-panel.tsx')
-  assert.match(panel, /\{inputs\.hasDifferential && \(/, 'el select está condicionado al checkbox')
-  assert.match(panel, /id="interior-differential-type"/, 'el selector existe')
-  assert.match(panel, /value=\{inputs\.differentialType \?\? ''\}/, 'el Select siempre recibe un valor definido')
-  assert.match(panel, /differentialType: checked === true \? inputs\.differentialType : undefined/, 'al desactivar se limpia el tipo')
-  for (const type of ['AC', 'A', 'F', 'B']) assert.match(panel, new RegExp(`'${type}'`), `el tipo ${type} está disponible`)
+  assert.match(panel, /Diferenciales exigidos/, 'el mínimo reglamentario sigue visible')
+  assert.match(panel, /evaluation\.differentials/, 'el mínimo sale del motor')
+  assert.match(panel, /DIFFERENTIAL_TYPE_ITEMS\.map/, 'los cuatro tipos siguen disponibles por dispositivo')
+  assert.doesNotMatch(panel, /id="interior-differential-type"/, 'el selector global desapareció')
+  for (const type of ['AC', 'A', 'F', 'B']) assert.match(panel, new RegExp(`value: '${type}'`), `el tipo ${type} está disponible`)
 })
 
 test('el tipo de protector aparece solo con la protección contra sobretensiones activa', () => {
