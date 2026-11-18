@@ -354,6 +354,28 @@ test('rejects an invalid C4 split instead of keeping it in a snapshot', () => {
   }
 })
 
+test('persists the differential devices declared for a dwelling', () => {
+  const differentials = [
+    { id: 'D1', type: 'A', sensitivityMa: 30, selective: false, circuits: ['C1', 'C2'] },
+    { id: 'D2', type: 'B', sensitivityMa: 30, selective: false, rdcDd: false, circuits: ['C13'] },
+  ]
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, differentials }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior.differentials, differentials, 'the devices and their assignments survive a reload')
+})
+
+test('rejects a malformed differential device instead of keeping it in a snapshot', () => {
+  for (const differential of [{ type: 'Z' }, { sensitivityMa: 90 }, { circuits: [3] }, { selective: 'yes' }]) {
+    const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, differentials: [{ id: 'D1', ...differential }] }
+    const storage = createMemoryStorage()
+
+    saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+    assert.equal(loadCalculatorInputs(storage), null, `rejects ${JSON.stringify(differential)}`)
+  }
+})
+
 test('persists the surge protector type declared for a dwelling', () => {
   const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: true, surgeType: 'tipo2' }
   const storage = createMemoryStorage()
