@@ -13,6 +13,11 @@ test('el switch compartido usa los behaviors de UI SDK y conserva su API', () =>
   assert.match(source, /SwitchThumb/, 'el thumb viene del SDK')
   assert.match(source, /onCheckedChange\?:\s*\(checked: boolean\) => void/, 'la API pública sigue recibiendo un booleano')
   assert.match(source, /data-\[checked\]/, 'el estado se estila con data-checked')
+  assert.match(source, /\bCheck\b/, 'el estado encendido muestra un check')
+  assert.match(source, /\bX\b/, 'el estado apagado muestra una x')
+  assert.match(source, /state\.checked/, 'el icono sigue al estado del switch')
+  assert.match(source, /motion-reduce:transition-none/, 'la animación respeta movimiento reducido')
+  assert.match(source, /data-\[checked\]:bg-primary/, 'el color encendido sale del tema')
   assert.doesNotMatch(source, /@base-ui\/react\/switch/, 'ya no depende del switch de Base UI')
 })
 

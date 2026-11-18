@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Info } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { SwitchField } from '@/components/ui/switch-field'
 import { powerFieldValue, storePower } from '../lib/power-units.mjs'
 import type { Documentation } from '../lib/project-documentation.mjs'
