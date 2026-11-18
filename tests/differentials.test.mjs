@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
+import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, DIFFERENTIAL_TYPES, assignCircuit, canAssignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
 import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
@@ -68,6 +68,26 @@ test('la hoja 2 del ELEC-3 declara tipo y circuitos sin inventar el calibre', ()
   assert.equal(rows[1].nombre, 'Tipo B')
   const i18n = read('lib/elec3-i18n.mjs')
   assert.match(i18n, /declara el tipo, los circuitos y la sensibilidad/, 'el caption ya no dice que sólo declara sensibilidad')
+})
+
+test('un circuito sólo se puede soltar en un diferencial que pueda protegerlo', () => {
+  const branch = { id: 'D1', type: 'A', sensitivityMa: 30, selective: false, circuits: ['C1'] }
+  const upstream = { ...branch, id: 'D2', sensitivityMa: 300, selective: true, circuits: [] }
+  assert.equal(canAssignCircuit(branch, 'C2'), true)
+  assert.equal(canAssignCircuit(branch, 'C1'), false, 'ya lo tiene asignado')
+  assert.equal(canAssignCircuit(upstream, 'C2'), false, 'la cabecera de 300 mA no protege circuitos')
+  assert.equal(canAssignCircuit(branch, 'C13'), false, 'C13 necesita su propio diferencial')
+  assert.equal(canAssignCircuit({ ...branch, circuits: [] }, 'C13'), true)
+})
+
+test('el panel arrastra circuitos sin asignar y los suelta en cada diferencial', () => {
+  const panel = read('components/interior-panel.tsx')
+  assert.match(panel, /from '@ui-sdk\/core'/, 'usa los behaviors del SDK')
+  assert.match(panel, /bindDragPreview\(/, 'muestra una copia del circuito')
+  assert.match(panel, /threshold: dragThreshold/, 'un clic no se vuelve drag')
+  assert.match(panel, /data-differential-target/, 'cada fila es zona de drop')
+  assert.match(panel, /Circuitos sin asignar/, 'existe el pool arrastrable')
+  assert.match(panel, /data-over/, 'el destino válido se resalta')
 })
 
 test('los tipos de diferencial llevan características verificables', () => {

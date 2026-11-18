@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { bindDrag, bindDragPreview, dragThreshold } from '@ui-sdk/core'
 
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
@@ -19,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DIFFERENTIAL_SENSITIVITY_MA, defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
-import { UPSTREAM_SENSITIVITY_MA, addDifferential, assignCircuit, normalizeDifferentials, removeCircuit, removeDifferential } from '../lib/differentials.mjs'
+import { UPSTREAM_SENSITIVITY_MA, addDifferential, assignCircuit, canAssignCircuit, normalizeDifferentials, removeCircuit, removeDifferential } from '../lib/differentials.mjs'
 import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitLength, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
@@ -292,6 +293,9 @@ export function InteriorPanel(props: InteriorPanelProps) {
 function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewElec3, onOpenTables, interiorConductor, onInteriorConductorChange, onOpenConductorTable, powerUnit, hasIrve = false, explanationMode = 'calculation', showSourceNotes = true }: InteriorPanelProps) {
   const [showCircuitTable, setShowCircuitTable] = useState(false)
   const [showDifferentialTypes, setShowDifferentialTypes] = useState(false)
+  const [dragOverDevice, setDragOverDevice] = useState<string | null>(null)
+  const dragCleanup = useRef<(() => void) | null>(null)
+  useEffect(() => () => dragCleanup.current?.(), [])
 
   const dwelling = dwellings.find(entry => entry.id === selectedId) ?? dwellings[0]
   const inputs = resolveInteriorInputs(dwelling)
@@ -321,6 +325,51 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   })
   const unassignedCircuits = circuitIds.filter(id => !differentialDevices.some(device => device.circuits.includes(id)))
   const setDifferentials = (devices: DifferentialDevice[]) => setInput({ differentials: devices, differentialType: devices[0]?.type ?? undefined })
+
+  // Drag pointer-only de los chips sin asignar. El Select de cada fila sigue
+  // siendo la ruta de teclado, así que el gesto no es la única forma de asignar.
+  const startCircuitDrag = (event: ReactPointerEvent<HTMLSpanElement>, circuitId: string) => {
+    if (event.button !== 0) return
+    const el = event.currentTarget
+    const startX = event.clientX
+    const startY = event.clientY
+    let preview: ReturnType<typeof bindDragPreview> | null = null
+    let target: HTMLElement | null = null
+    dragCleanup.current?.()
+    dragCleanup.current = bindDrag(el, event.nativeEvent, {
+      threshold: dragThreshold,
+      cancelOnEscape: true,
+      onStart: () => {
+        preview = bindDragPreview(el, { x: startX, y: startY })
+        return true
+      },
+      onMove: ({ x, y }) => {
+        preview?.move(x, y)
+        const found = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-differential-target]') ?? null
+        const device = found?.dataset.differentialTarget
+          ? differentialDevices.find(entry => entry.id === found.dataset.differentialTarget)
+          : null
+        const valid = device != null && canAssignCircuit(device, circuitId)
+        const next = valid ? found : null
+        if (target !== next) {
+          target?.removeAttribute('data-over')
+          target = next
+          target?.setAttribute('data-over', '')
+          setDragOverDevice(valid ? device?.id ?? null : null)
+        }
+        preview?.el.toggleAttribute('data-over', valid)
+      },
+      onEnd: (_up, canceled) => {
+        if (!canceled && target?.dataset.differentialTarget) {
+          setDifferentials(assignCircuit(differentialDevices, target.dataset.differentialTarget, circuitId))
+        }
+        target?.removeAttribute('data-over')
+        preview?.remove()
+        setDragOverDevice(null)
+        dragCleanup.current = null
+      },
+    })
+  }
   const rooms = inputs.rooms ?? []
   const roomsArea = rooms.reduce((sum, room) => sum + Math.max(0, room.area || 0), 0)
   const dwellingArea = dwelling.housingAreaM2 ?? 0
@@ -653,6 +702,22 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
               <h5 className="text-xs font-semibold text-ink-muted">Diferenciales · protección y agrupación</h5>
               <span className="text-[11px] text-ink-faint">mínimo {evaluation.differentials} · instalados {differentialDevices.length}</span>
             </div>
+            {unassignedCircuits.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-[11px] text-ink-faint">Circuitos sin asignar · arrastrá a un diferencial:</span>
+                {unassignedCircuits.map(id => (
+                  <span
+                    key={id}
+                    aria-hidden="true"
+                    title={`Arrastrar ${id} a un diferencial; también podés usar «Añadir circuito» en cada fila`}
+                    onPointerDown={event => startCircuitDrag(event, id)}
+                    className="cursor-grab touch-none rounded-control border border-line bg-brand-soft px-1.5 py-0.5 text-[11px] font-semibold text-brand-ink select-none active:cursor-grabbing"
+                  >
+                    {id}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="mt-2 overflow-x-auto">
               <Table aria-label="Diferenciales de la vivienda" className="w-full text-left text-xs">
                 <TableHeader>
@@ -668,7 +733,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 </TableHeader>
                 <TableBody>
                   {differentialDevices.map(device => (
-                    <TableRow key={device.id} className="border-b border-line-soft">
+                    <TableRow key={device.id} data-differential-target={device.id} className={`border-b border-line-soft ${dragOverDevice === device.id ? 'bg-brand-soft' : ''}`}>
                       <TableCell className="py-2 pr-2 font-semibold">{device.id}</TableCell>
                       <TableCell className="py-2 pr-2">
                         <Select value={device.type ?? ''} onValueChange={value => setDifferentials(differentialDevices.map(entry => entry.id === device.id ? { ...entry, type: value == null || value === '' ? null : value as DifferentialType } : entry))}>
