@@ -5,7 +5,7 @@ import { Info } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
+import { SwitchField } from '@/components/ui/switch-field'
 import { powerFieldValue, storePower } from '../lib/power-units.mjs'
 import type { Documentation } from '../lib/project-documentation.mjs'
 
@@ -146,14 +146,11 @@ function PowerRow({ field, documentation, onChange, powerUnit }: { field: { key:
 /** Un criterio: rótulo, nota y el mismo interruptor en cualquier destino. */
 function ToggleRow({ toggle, documentation, onChange }: { toggle: { key: ToggleKey; label: string; hint: string }; documentation: Documentation; onChange: (patch: DocumentationPatch) => void }) {
   return (
-    <li className="flex items-start justify-between gap-4 rounded-control border border-line p-3">
-      <div className="min-w-0">
-        <Label htmlFor={`doc-${toggle.key}`} className="block text-sm font-semibold text-ink">{toggle.label}</Label>
-        <p className="mt-1 text-xs leading-5 text-ink-faint">{toggle.hint}</p>
-      </div>
-      <Switch
+    <li>
+      <SwitchField
         id={`doc-${toggle.key}`}
-        aria-label={toggle.label}
+        label={toggle.label}
+        description={toggle.hint}
         checked={documentation[toggle.key]}
         onCheckedChange={checked => onChange({ [toggle.key]: checked === true })}
       />
