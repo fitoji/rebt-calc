@@ -90,6 +90,8 @@ test('el panel arrastra circuitos sin asignar y los suelta en cada diferencial',
   assert.match(panel, /data-over/, 'el destino válido se resalta')
   assert.match(panel, /dragPreview\.current\?\.remove\(\)/, 'desmontar durante un drag quita el preview')
   assert.ok((panel.match(/CIRCUIT_ROW_TINT\[id\]/g) ?? []).length >= 2, 'el pool y el chip asignado usan el mismo tinte que la tabla de circuitos')
+  assert.ok((panel.match(/startCircuitDrag\(/g) ?? []).length >= 2, 'los chips del pool y los asignados se pueden arrastrar')
+  assert.match(panel, /onPointerDown=\{event => event\.stopPropagation\(\)\}/, 'quitar un circuito no inicia un drag')
 })
 
 test('los tipos de diferencial llevan características verificables', () => {

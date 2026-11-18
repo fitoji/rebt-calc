@@ -18,6 +18,7 @@ S4. La recomendada es `max(sección de tabla 1, sección exigida por caída ≤ 
 - T2 — S1,S2 — inline — done — `CircuitSectionSelect` con UI SDK, opción recomendada marcada con check y alerta roja específica.
 - T3 — S3 — inline — done — ELEC-3 e informe usan `effectiveSection`: propagan la sección mayor y nunca imprimen una menor.
 - T4 — S1..S4 — inline — done — Documentación y verificación: 758/758, typecheck, build y detector `[]`.
+- T5 — S1..S4 — inline — done — Modo didáctico: `explainInterior` agrega C4 subdividido, diferenciales declarados y secciones elegidas, con el motivo de no cumplimiento; 761/761, typecheck y build OK.
 
 ## Log
 
@@ -25,5 +26,6 @@ L1 (verbatim): «quisiera que en la tabla de circuitos de vivienda, pueda modifi
 
 L2 (verbatim): «si elijo un seccion menor de la recomendada , tiene que salir una alerta diciendo que no cumple con corriente admisible o por la caida de tension y quedar en rojo, y obviamente no puede propagarse a elect3, ahora si elijo una seccion superior deberia propagarse . pero en el select siempre tiene que quedar marcada la recomendada»
 
+- 2026-11-18 — Usuario (verbatim): «bien, ahora en modo didactico, creo que faltan mas explicaciones en el tab cuadro, ya que agregamos muchas cosas». Se agregaron pasos para C4 subdividido, diferenciales declarados y secciones elegidas; el panel les pasa los circuitos y dispositivos ya calculados.
 - 2026-11-18 — Usuario (verbatim): «quiero que cada select tenga el color de su circuito correspondiente y que a la derecha del numero de seccion seleccionada aparezca un check, como en aqui https://ui-sdk.dev/sink?mode=all&uses=Select en el componente Hotel amenities». El trigger hereda `CIRCUIT_ROW_TINT[circuit.id]`; el ítem seleccionado usa `SelectItemIndicator` con check y la opción calculada conserva su marca «Recomendada».
 - 2026-11-18 — Decisión: la recomendada se calcula con tabla 1 y caída; un override menor se muestra pero no se imprime en ELEC-3. Se reutiliza `recharts`/UI SDK ya instalados; no hay dependencias nuevas.

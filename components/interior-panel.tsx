@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { ChevronLeft, ChevronRight, FileText, Info, Plus, Table2, Trash2, TriangleAlert, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { bindDrag, bindDragPreview, dragThreshold } from '@ui-sdk/core'
@@ -290,6 +290,16 @@ function EmptyInteriorPanel({ interiorConductor, onInteriorConductorChange, onOp
   )
 }
 
+/** Bloque de la card: rótulo estable y separación por línea, sin cards anidadas. */
+function PanelSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-6 border-t border-line pt-5 first:mt-0 first:border-t-0 first:pt-0">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</h4>
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
 export function InteriorPanel(props: InteriorPanelProps) {
   if (props.dwellings.length === 0) return <EmptyInteriorPanel {...props} />
   return <InteriorPanelBody {...props} />
@@ -454,7 +464,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
   const interiorExplanation = explainInterior(
     { igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...inputs },
     evaluation,
-    { grade },
+    { grade, circuits, differentialDevices },
   )
   // La explicación guiada desarrolla el mínimo de la tabla 2 a partir de las
   // estancias; los puntos que el proyecto instala viven en la tabla de arriba.
@@ -505,97 +515,112 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="flex items-center justify-between gap-2 font-semibold text-ink-muted">IGA<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} /></span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span className="tabular-nums">mínimo {evaluation.differentials} · instalados {differentialDevices.length} · {evaluation.sensitivityMa} mA</span></div>
-
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada ({powerUnit})</Label>
-            <Input id="interior-contracted" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(inputs.contractedPowerW, powerUnit) || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, storePower(Number(event.target.value), powerUnit)) })} className="w-32" />
-            {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">La potencia contratada puede ser diferente a la prevista.</span>}
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="interior-insulation" className="text-xs font-semibold text-ink-muted">Aislamiento de la instalación (kΩ)</Label>
-            <Input
-              id="interior-insulation"
-              type="number"
-              min="0"
-              step="0.01"
-              value={inputs.insulationKohm ?? ''}
-              onChange={event => {
-                const raw = event.target.value
-                const value = Number(raw)
-                setInput({ insulationKohm: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
-              }}
-              className="w-32"
-            />
-            {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">Un solo valor para la vivienda; se imprime en la hoja 1 del ELEC-3.</span>}
-          </div>
-          <div className="flex min-w-0 flex-col gap-1.5">
-            <Label htmlFor="interior-installation-type" className="text-xs font-semibold text-ink-muted">Tipo de instalación</Label>
-            <Select
-              value={inputs.installationType ?? ''}
-              onValueChange={value => {
-                const next = value == null || value === '' ? undefined : value as InstallationType
-                setInput({ installationType: next, buriedDepthM: next === 'enterrado' ? inputs.buriedDepthM : undefined })
-              }}
-            >
-              <SelectTrigger id="interior-installation-type" className="h-9 w-full min-w-0 text-sm"><SelectValue>{(selected: string | null) => INSTALLATION_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue></SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                {INSTALLATION_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          {inputs.installationType === 'enterrado' && (
+        <PanelSection title="Contratación y medida">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="interior-buried-depth" className="text-xs font-semibold text-ink-muted">Profundidad de enterramiento (m)</Label>
-              <Input
-                id="interior-buried-depth"
-                type="number"
-                min="0"
-                step="0.05"
-                value={inputs.buriedDepthM ?? ''}
-                onChange={event => {
-                  const raw = event.target.value
-                  const value = Number(raw)
-                  setInput({ buriedDepthM: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
-                }}
-                className="w-32"
-              />
+              <Label htmlFor="interior-contracted" className="text-xs font-semibold text-ink-muted">Potencia contratada ({powerUnit})</Label>
+              <Input id="interior-contracted" type="number" min="0" step={powerUnit === 'kW' ? '0.01' : '1'} value={powerFieldValue(inputs.contractedPowerW, powerUnit) || ''} onChange={event => setInput({ contractedPowerW: Math.max(0, storePower(Number(event.target.value), powerUnit)) })} className="w-32" />
+              {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">La potencia contratada puede ser diferente a la prevista.</span>}
             </div>
-          )}
-          <div className="flex items-end gap-2 pb-1">
-            <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true, surgeType: checked === true ? inputs.surgeType : undefined })} />
-            <Label htmlFor="interior-surge" className="text-sm font-normal">Protección contra sobretensiones</Label>
+            <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">ICP · calibre de la potencia contratada</span>{evaluation.icpCurrentA == null
+              ? <span>Sin potencia contratada</span>
+              : evaluation.icpRatingA == null
+                ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
+                : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
+            <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Escalón de potencia</span><span>{stepLabel(dwelling.powerW, powerUnit)}</span></div>
           </div>
-          {inputs.hasSurge && (
+        </PanelSection>
+
+        <PanelSection title="Protección general">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="flex items-center justify-between gap-2 font-semibold text-ink-muted">IGA<TableButton ariaLabel="Ver tabla A · escalones de potencia" onOpen={onOpenTables} /></span><span className="tabular-nums">{evaluation.igaA == null ? '—' : `${evaluation.igaA} A`}</span></div>
+            <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Potencia máxima admisible</span><span className="tabular-nums">{evaluation.maxPowerW == null ? '—' : formatPower(evaluation.maxPowerW, powerUnit)}</span></div>
+            <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">Diferenciales exigidos</span><span className="tabular-nums">mínimo {evaluation.differentials} · instalados {differentialDevices.length} · {evaluation.sensitivityMa} mA</span></div>
+          </div>
+        </PanelSection>
+
+        <PanelSection title="Protección contra sobretensiones">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex items-center gap-2 pb-1">
+              <Checkbox id="interior-surge" checked={inputs.hasSurge} onCheckedChange={checked => setInput({ hasSurge: checked === true, surgeType: checked === true ? inputs.surgeType : undefined })} />
+              <Label htmlFor="interior-surge" className="text-sm font-normal">Protección contra sobretensiones</Label>
+            </div>
+            {inputs.hasSurge && (
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="interior-surge-type" className="text-xs font-semibold text-ink-muted">Tipo de protector</Label>
+                <Select
+                  value={inputs.surgeType ?? ''}
+                  onValueChange={value => setInput({ surgeType: value == null || value === '' ? undefined : value as SurgeType })}
+                >
+                  <SelectTrigger id="interior-surge-type" className="h-9 w-full min-w-0 text-sm">
+                    <SelectValue>{(selected: string | null) => SURGE_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent alignItemWithTrigger={false}>
+                    {SURGE_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </PanelSection>
+
+        <PanelSection title="Canalización y conductores">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Label htmlFor="interior-surge-type" className="text-xs font-semibold text-ink-muted">Tipo de protector</Label>
+              <Label htmlFor="interior-installation-type" className="text-xs font-semibold text-ink-muted">Tipo de instalación</Label>
               <Select
-                value={inputs.surgeType ?? ''}
-                onValueChange={value => setInput({ surgeType: value == null || value === '' ? undefined : value as SurgeType })}
+                value={inputs.installationType ?? ''}
+                onValueChange={value => {
+                  const next = value == null || value === '' ? undefined : value as InstallationType
+                  setInput({ installationType: next, buriedDepthM: next === 'enterrado' ? inputs.buriedDepthM : undefined })
+                }}
               >
-                <SelectTrigger id="interior-surge-type" className="h-9 w-full min-w-0 text-sm">
-                  <SelectValue>{(selected: string | null) => SURGE_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue>
-                </SelectTrigger>
+                <SelectTrigger id="interior-installation-type" className="h-9 w-full min-w-0 text-sm"><SelectValue>{(selected: string | null) => INSTALLATION_TYPE_ITEMS.find(item => item.value === (selected ?? ''))?.label ?? 'Sin declarar'}</SelectValue></SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
-                  {SURGE_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                  {INSTALLATION_TYPE_ITEMS.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-          )}
-          <div className="flex flex-col gap-1 rounded-control bg-surface-muted p-3 text-xs"><span className="font-semibold text-ink-muted">ICP · calibre de la potencia contratada</span>{evaluation.icpCurrentA == null
-            ? <span>Sin potencia contratada</span>
-            : evaluation.icpRatingA == null
-              ? <span className="flex flex-wrap items-center gap-1 font-semibold tabular-nums text-danger"><TriangleAlert className="size-3.5 shrink-0" aria-hidden="true" />{fmtDec(evaluation.icpCurrentA)} A · fuera de la serie normalizada</span>
-              : <span className="tabular-nums">{fmtDec(evaluation.icpRatingA)} A <span className="text-ink-faint">· calculado {fmtDec(evaluation.icpCurrentA)} A</span></span>}</div>
-        </div>
-
-        <div className="mt-5">
-          <InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} />
-        </div>
+            {inputs.installationType === 'enterrado' && (
+              <div className="flex min-w-0 flex-col gap-1.5">
+                <Label htmlFor="interior-buried-depth" className="text-xs font-semibold text-ink-muted">Profundidad de enterramiento (m)</Label>
+                <Input
+                  id="interior-buried-depth"
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  value={inputs.buriedDepthM ?? ''}
+                  onChange={event => {
+                    const raw = event.target.value
+                    const value = Number(raw)
+                    setInput({ buriedDepthM: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
+                  }}
+                  className="w-32"
+                />
+              </div>
+            )}
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <Label htmlFor="interior-insulation" className="text-xs font-semibold text-ink-muted">Aislamiento de la instalación (kΩ)</Label>
+              <Input
+                id="interior-insulation"
+                type="number"
+                min="0"
+                step="0.01"
+                value={inputs.insulationKohm ?? ''}
+                onChange={event => {
+                  const raw = event.target.value
+                  const value = Number(raw)
+                  setInput({ insulationKohm: raw === '' || !Number.isFinite(value) ? undefined : Math.max(0, value) })
+                }}
+                className="w-32"
+              />
+              {explanationMode === 'didactic' && <span className="text-[11px] leading-4 text-ink-faint">Un solo valor para la vivienda; se imprime en la hoja 1 del ELEC-3.</span>}
+            </div>
+          </div>
+          <div className="mt-4">
+            <InteriorConductorField value={interiorConductor} onChange={onInteriorConductorChange} onOpenConductorTable={onOpenConductorTable} />
+          </div>
+        </PanelSection>
 
         <div className="mt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -804,9 +829,14 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                         ) : (
                         <div className="flex flex-wrap items-center gap-1">
                           {device.circuits.map(id => (
-                            <span key={id} className={`inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-semibold ${CIRCUIT_ROW_TINT[id] ?? 'bg-brand-soft'}`}>
+                            <span
+                              key={id}
+                              title={`Arrastrar ${id} a otro diferencial`}
+                              onPointerDown={event => startCircuitDrag(event, id)}
+                              className={`inline-flex cursor-grab touch-none items-center gap-1 rounded-control px-1.5 py-0.5 font-semibold select-none active:cursor-grabbing ${CIRCUIT_ROW_TINT[id] ?? 'bg-brand-soft'}`}
+                            >
                               {id}
-                              <button type="button" aria-label={`Quitar ${id} de ${device.id}`} className="cursor-pointer leading-none" onClick={() => setDifferentials(removeCircuit(differentialDevices, id))}>×</button>
+                              <button type="button" aria-label={`Quitar ${id} de ${device.id}`} className="cursor-pointer leading-none" onPointerDown={event => event.stopPropagation()} onClick={() => setDifferentials(removeCircuit(differentialDevices, id))}>×</button>
                             </span>
                           ))}
                           <Select value="" onValueChange={value => { if (value != null && value !== '') setDifferentials(assignCircuit(differentialDevices, device.id, value)) }}>

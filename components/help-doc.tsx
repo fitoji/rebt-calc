@@ -546,7 +546,7 @@ export function HelpDoc() {
 
               <Section id="explicacion" title="Modo cálculo y modo didáctico">
                 <p>
-                  El conmutador <code>Cálculo</code> / <code>Didáctico</code> de la cabecera decide cuánto detalle enseña la app. En modo cálculo ves los resultados; en modo didáctico aparece además, debajo de cada bloque, el desarrollo del cálculo.
+                  El conmutador <code>Cálculo</code> / <code>Didáctico</code> de la cabecera decide cuánto detalle enseña la app. En modo cálculo ves los resultados; en modo didáctico aparece además, debajo de cada bloque, el desarrollo del cálculo. En Cuadros el desarrollo incluye la subdivisión de C4, los diferenciales declarados con su tipo y agrupación, y las secciones elegidas por el proyecto, con la causa cuando no cumplen.
                 </p>
                 <p>
                   Ese desarrollo tiene tres partes: la fórmula que se aplica, los valores sustituidos y el criterio que ha decidido el resultado. Sirve para justificar un número en la memoria, para revisar un cálculo ajeno o para estudiar cómo se llega a la sección que propone la app.
