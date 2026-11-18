@@ -522,39 +522,6 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
             <h4 className="text-xs font-semibold text-ink-muted">Circuitos de la vivienda · {grade === 'elevated' ? 'electrificación elevada' : 'electrificación básica'}</h4>
             <Button type="button" variant="outline" size="sm" className="h-auto gap-2 px-3 py-1.5" aria-haspopup="dialog" aria-controls="housing-circuits-dialog" onClick={() => setShowCircuitTable(true)}><Table2 data-icon="inline-start" /> Tabla</Button>
           </div>
-          <div className="mt-2 rounded-control border border-line bg-paper p-3">
-            <FieldSet>
-              <FieldLegend className="text-xs font-semibold text-ink-muted">C4 · configuración</FieldLegend>
-              <RadioGroup value={String(c4Mode)} onValueChange={value => setInput({ c4Mode: Number(value) as 1 | 2 | 3 })} aria-describedby="c4-split-help" className="flex flex-wrap gap-3">
-                {([1, 2, 3] as const).map(mode => (
-                  <FieldLabel key={mode} htmlFor={`c4-mode-${mode}`} className="flex cursor-pointer items-center gap-2 text-xs">
-                    <RadioGroupItem id={`c4-mode-${mode}`} value={String(mode)} />
-                    {mode === 1 ? 'Circuito único' : `${mode} circuitos independientes`}
-                  </FieldLabel>
-                ))}
-              </RadioGroup>
-            </FieldSet>
-            <p id="c4-split-help" className="mt-2 text-[11px] leading-4 text-ink-faint">ITC-BT-25 tabla 1, nota (8): circuitos independientes de 16 A por aparato. No cambia el grado de electrificación ni añade diferencial.</p>
-            {c4Mode > 1 && (
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                {c4Mode === 2 && (
-                  <Label className="flex items-center gap-2 text-xs">
-                    Agrupar en C4.1
-                    <Select value={c4Pair} onValueChange={value => { if (value != null) setInput({ c4Pair: String(value) }) }}>
-                      <SelectTrigger id="c4-pair" className="w-56"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {C4_PAIRS.map(pair => <SelectItem key={pair.key} value={pair.key}>{pair.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                )}
-                <Label className="flex items-center gap-2 text-xs">
-                  Puntos de C4
-                  <Input aria-label="Puntos totales · C4" type="number" min="0" step="1" value={pointsFor('C4')} onChange={event => setPointOverride('C4', pointCount(event.target.value))} className="w-16" />
-                </Label>
-              </div>
-            )}
-          </div>
           <div className="mt-2 overflow-x-auto">
             <Table aria-label={`Circuitos de la vivienda · ${grade === 'elevated' ? 'electrificación elevada' : 'electrificación básica'}`} className="w-full text-left text-xs">
               <TableHeader>
@@ -641,6 +608,39 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                 })}
               </TableBody>
             </Table>
+          </div>
+          <div className="mt-2 rounded-control border border-line bg-paper p-3">
+            <FieldSet>
+              <FieldLegend className="text-xs font-semibold text-ink-muted">C4 · configuración</FieldLegend>
+              <RadioGroup value={String(c4Mode)} onValueChange={value => setInput({ c4Mode: Number(value) as 1 | 2 | 3 })} aria-describedby="c4-split-help" className="flex flex-wrap gap-3">
+                {([1, 2, 3] as const).map(mode => (
+                  <FieldLabel key={mode} htmlFor={`c4-mode-${mode}`} className="flex cursor-pointer items-center gap-2 text-xs">
+                    <RadioGroupItem id={`c4-mode-${mode}`} value={String(mode)} />
+                    {mode === 1 ? 'Circuito único' : `${mode} circuitos independientes`}
+                  </FieldLabel>
+                ))}
+              </RadioGroup>
+            </FieldSet>
+            <p id="c4-split-help" className="mt-2 text-[11px] leading-4 text-ink-faint">ITC-BT-25 tabla 1, nota (8): circuitos independientes de 16 A por aparato. No cambia el grado de electrificación ni añade diferencial.</p>
+            {c4Mode > 1 && (
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {c4Mode === 2 && (
+                  <Label className="flex items-center gap-2 text-xs">
+                    Agrupar en C4.1
+                    <Select value={c4Pair} onValueChange={value => { if (value != null) setInput({ c4Pair: String(value) }) }}>
+                      <SelectTrigger id="c4-pair" className="w-56"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {C4_PAIRS.map(pair => <SelectItem key={pair.key} value={pair.key}>{pair.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                )}
+                <Label className="flex items-center gap-2 text-xs">
+                  Puntos de C4
+                  <Input aria-label="Puntos totales · C4" type="number" min="0" step="1" value={pointsFor('C4')} onChange={event => setPointOverride('C4', pointCount(event.target.value))} className="w-16" />
+                </Label>
+              </div>
+            )}
           </div>
           {POINT_CIRCUITS.some(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1) && (
             <p className="mt-2 text-[11px] leading-4 text-ink-faint">Con los puntos declarados: {POINT_CIRCUITS.filter(circuit => (effectivePoints.requiredCircuits[circuit] ?? 1) > 1).map(circuit => `${circuit} necesita ${effectivePoints.requiredCircuits[circuit]} circuitos`).join(' · ')}.</p>

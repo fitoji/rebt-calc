@@ -52,6 +52,19 @@ test('las ramas independientes de C4 son circuitos con PIA de 16 A', () => {
   assert.equal(c4Branches(2, 'pareja-inexistente')[0].name, 'Lavadora y lavavajillas', 'una pareja inválida cae a la primera')
 })
 
+test('la configuración de C4 queda debajo de la tabla de circuitos', () => {
+  const panel = read('components/interior-panel.tsx')
+  const tableEnd = panel.indexOf('</Table>')
+  const config = panel.indexOf('C4 · configuración')
+  assert.ok(tableEnd > -1 && config > tableEnd, 'el control se lee después de la tabla')
+})
+
+test('las ramas independientes no repiten la nota (8) en cada fila', () => {
+  for (const branch of c4Branches(3)) assert.ok(!branch.note, `${branch.id} no lleva nota propia`)
+  for (const branch of c4Branches(2, 'lavadora-termo')) assert.ok(!branch.note, `${branch.id} no lleva nota propia`)
+  assert.ok(housingCircuitsFor(5750).find(circuit => circuit.id === 'C4')?.note, 'C4 sigue teniendo su nota en el modo circuito único')
+})
+
 test('al alternar modos no se pierde la longitud declarada en C4', () => {
   const branch = c4Branches(3)[0]
   assert.equal(housingCircuitLength({ C4: 18 }, branch), 18, 'la rama hereda la longitud de C4')
