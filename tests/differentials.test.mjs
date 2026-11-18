@@ -102,7 +102,8 @@ test('los tipos de diferencial llevan características verificables', () => {
   assert.equal(DIFFERENTIAL_TYPE_INFO.A.waveform, 'pulsating')
   assert.equal(DIFFERENTIAL_TYPE_INFO.F.waveform, 'mixed')
   assert.equal(DIFFERENTIAL_TYPE_INFO.B.waveform, 'dc')
-  assert.equal(DIFFERENTIAL_TYPE_INFO.S.waveform, null, 'S no es una forma de onda')
+  assert.equal(DIFFERENTIAL_TYPE_INFO.S.waveform, 'delay', 'S se dibuja como retardo, no como onda')
+  assert.match(DIFFERENTIAL_TYPE_INFO.S.detecta, /retardo/i)
 })
 
 test('la curva usa tiempos normativos de ensayo, no estimaciones', () => {
@@ -133,7 +134,32 @@ test('la tabla de diferenciales ofrece el botón de tipos y su referencia', () =
   assert.match(dialog, /IΔ \/ IΔn/, 'el eje horizontal está rotulado')
   assert.match(dialog, /ms/, 'el eje vertical declara la unidad')
   assert.match(dialog, /function Waveform/, 'la forma de onda se dibuja en la tabla')
+  assert.match(dialog, /delay: 'Retardo selectivo/, 'el tipo S tiene símbolo de retardo')
   assert.match(dialog, /info\.waveform/, 'el dibujo sale de la definición del tipo')
+})
+
+test('la leyenda de la curva nombra la banda del tipo S', () => {
+  const dialog = read('components/differential-types-dialog.tsx')
+  const band = dialog.match(/<Area dataKey="sBand"[^>]*\/>/)?.[0] ?? ''
+  assert.ok(band, 'la banda del tipo S existe')
+  assert.doesNotMatch(band, /legendType="none"/, 'la banda aparece en la leyenda')
+  assert.match(dialog, /sBand: \{ label: '[^']+'/, 'la banda tiene etiqueta de leyenda')
+})
+
+test('la gráfica conserva nombre accesible y alternativa textual', () => {
+  const dialog = read('components/differential-types-dialog.tsx')
+  assert.match(dialog, /<ChartContainer[^>]*aria-label="[^"]*[Tt]iempos de disparo[^"]*"/, 'el gráfico tiene nombre accesible')
+  assert.match(dialog, /<Table aria-label="Tiempos de disparo por múltiplo de IΔn"/, 'la tabla da los datos como texto')
+})
+
+test('los datos de la gráfica caen en el dominio visible y la banda es el margen del tipo S', () => {
+  const rows = differentialTripChartData()
+  assert.deepEqual(rows.map(row => row.multiple), [1, 2, 5], 'se mantienen los múltiplos de ensayo')
+  for (const row of rows) {
+    assert.equal(row.sBand, row.sMax - row.sMin, 'la banda es el margen mín–máx del tipo S')
+    assert.ok(row.sMin >= 0 && row.sMax <= 500, 'la banda entra en el eje 0–500 ms')
+    assert.ok(row.general <= row.sMax, 'el máximo general no supera el del tipo S')
+  }
 })
 
 test('un proyecto antiguo migra su tipo único a un diferencial que cubre todos los circuitos', () => {

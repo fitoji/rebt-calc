@@ -12,16 +12,17 @@ import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, differentialTripChartD
 
 const chartConfig = {
   general: { label: 'General · máximo permitido', color: 'var(--brand-mark)' },
-  sBand: { label: 'Tipo S · banda permitida', color: 'var(--brand-mark)' },
+  sBand: { label: 'Tipo S · banda permitida', color: 'var(--brand)' },
 } satisfies ChartConfig
 
 const chartData = differentialTripChartData()
 
 const WAVE_LABELS = {
   sine: 'Alterna sinusoidal',
-  pulsating: 'Continua pulsante',
-  mixed: 'Mixta con armónicos',
-  dc: 'Continua suave',
+  pulsating: 'Alterna sinusoidal y continua pulsante',
+  mixed: 'Alterna y pulsante con armónicos',
+  dc: 'Alterna, pulsante y continua suave',
+  delay: 'Retardo selectivo',
 } as const
 
 /** Dibujo esquemático de la corriente residual que detecta cada tipo. */
@@ -32,10 +33,12 @@ function Waveform({ kind }: { kind: keyof typeof WAVE_LABELS | null }) {
     pulsating: 'M1 15 H5 A5 5 0 0 1 15 15 H19 A5 5 0 0 1 29 15 H33 A5 5 0 0 1 43 15 H47',
     mixed: 'M1 10 q2 -6 4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0 t4 0',
     dc: 'M1 15 q4 -1 8 0 t8 0 t8 0 t8 0 t8 0',
+    delay: 'M2 15 H14 Q22 15 22 5 H46',
   } as const
   return (
     <svg viewBox="0 0 48 20" className="h-5 w-12 text-brand-mark" role="img" aria-label={`Forma de onda: ${WAVE_LABELS[kind]}`}>
       <line x1="1" y1="15" x2="47" y2="15" stroke="var(--line)" />
+      {kind === 'delay' && <line x1="22" y1="4" x2="22" y2="16" stroke="currentColor" strokeDasharray="2 2" opacity={0.45} />}
       <path d={paths[kind]} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   )
@@ -87,7 +90,12 @@ export function DifferentialTypesDialog({ open, onOpenChange }: { open: boolean;
         <section className="mt-6">
           <h3 className="text-sm font-bold text-ink">Curva corriente · tiempo de disparo</h3>
           <p className="mt-1 max-w-[75ch] text-xs leading-5 text-ink-muted">El eje horizontal son las veces la intensidad diferencial nominal (IΔn). El vertical, el tiempo máximo que la norma permite tardar en disparar. La banda sombreada es el margen del tipo S: espera más para dejar actuar primero al diferencial de aguas abajo.</p>
-          <ChartContainer config={chartConfig} className="mt-3 h-[240px] w-full">
+          <ChartContainer
+            config={chartConfig}
+            role="img"
+            aria-label="Tiempos de disparo de un diferencial general y de un tipo S a una, dos y cinco veces la intensidad diferencial nominal"
+            className="mt-3 h-[240px] w-full"
+          >
             <ComposedChart data={chartData} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
               <CartesianGrid vertical={false} stroke="var(--line)" strokeDasharray="3 3" />
               <XAxis
@@ -95,7 +103,7 @@ export function DifferentialTypesDialog({ open, onOpenChange }: { open: boolean;
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={value => `${value}×`}
-                label={{ value: 'IΔ / IΔn', position: 'insideBottom', offset: -4 }}
+                label={{ value: 'IΔ / IΔn', position: 'insideBottom', offset: -4, fill: 'var(--ink-faint)' }}
               />
               <YAxis
                 domain={[0, 500]}
@@ -103,7 +111,7 @@ export function DifferentialTypesDialog({ open, onOpenChange }: { open: boolean;
                 tickLine={false}
                 axisLine={false}
                 width={52}
-                label={{ value: 'Tiempo máximo (ms)', angle: -90, position: 'insideLeft' }}
+                label={{ value: 'Tiempo máximo (ms)', angle: -90, position: 'insideLeft', fill: 'var(--ink-faint)' }}
               />
               <ChartTooltip
                 content={({ active, payload }) => {
@@ -119,7 +127,7 @@ export function DifferentialTypesDialog({ open, onOpenChange }: { open: boolean;
                 }}
               />
               <Area dataKey="sMin" stackId="s" stroke="none" fill="transparent" legendType="none" isAnimationActive={false} />
-              <Area dataKey="sBand" stackId="s" stroke="none" fill="var(--color-sBand)" fillOpacity={0.18} legendType="none" isAnimationActive={false} />
+              <Area dataKey="sBand" stackId="s" stroke="none" fill="var(--color-sBand)" fillOpacity={0.18} isAnimationActive={false} />
               <Line dataKey="sMin" stroke="var(--ink-faint)" strokeWidth={1.4} strokeDasharray="2 3" dot={false} legendType="none" isAnimationActive={false} />
               <Line dataKey="sMax" stroke="var(--ink-subtle)" strokeWidth={1.6} strokeDasharray="4 3" dot={false} legendType="none" isAnimationActive={false} />
               <Line dataKey="general" stroke="var(--color-general)" strokeWidth={2} dot={{ r: 3, fill: 'var(--color-general)' }} isAnimationActive={false} />
