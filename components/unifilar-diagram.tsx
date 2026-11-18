@@ -16,6 +16,7 @@ import {
   busEndX,
   columnX,
   diagramWidth,
+  differentialDevicesFor,
   differentialsFor,
   kindColor,
   kindInk,
@@ -135,14 +136,15 @@ function DerivationColumn({
   const protection = res?.protection ?? derivation.protectionA
   const iga = derivation.housingIgaA
   const showIga = iga != null && iga > 0 && iga !== protection
-  const { differentials, sensitivityMa } = differentialsFor(derivation)
+  const { sensitivityMa } = differentialsFor(derivation)
+  const devices = differentialDevicesFor(derivation)
   const label = truncateLabel(derivation.label)
   const poles = polesFor(derivation.system)
 
   const meterY = L.busY + 40
   const inY = meterY + 44
   const rcdY = inY + 40
-  const loadY = rcdY + 48
+  const loadY = rcdY + (devices.length > 1 ? 58 : 48)
 
   return (
     <g>
@@ -171,10 +173,30 @@ function DerivationColumn({
       )}
 
       <Conductor x={x} y1={inY + 14} y2={rcdY - 14} color={color} />
-      <g transform={`translate(${x},${rcdY})`}><RCD color={color} /></g>
-      <text x={x + 28} y={rcdY + 4} fontSize={8.5} style={{ fill: ink }}>
-        {sensitivityMa} mA{differentials > 1 ? ` ×${differentials}` : ''}
-      </text>
+      {devices.length === 1 ? (
+        <>
+          <g transform={`translate(${x},${rcdY})`}><RCD color={color} /></g>
+          <text x={x + 28} y={rcdY + 4} fontSize={8.5} style={{ fill: ink }}>
+            {sensitivityMa} mA{devices[0]?.type ? ` · ${devices[0].type}` : ''}
+          </text>
+        </>
+      ) : (
+        <>
+          <line x1={x - (devices.length - 1) * 24} y1={rcdY - 22} x2={x + (devices.length - 1) * 24} y2={rcdY - 22} stroke={color} strokeWidth={1.6} />
+          {devices.map((device, index) => {
+            const offset = (index - (devices.length - 1) / 2) * 48
+            return (
+              <g key={device.id} transform={`translate(${x + offset},${rcdY})`}>
+                <title>{`${device.id} · ${device.type ?? 'sin declarar'} · ${device.sensitivityMa} mA · ${device.circuits.join(', ') || 'sin circuitos'}`}</title>
+                <Conductor x={0} y1={-22} y2={-14} color={color} />
+                <RCD color={color} />
+                <text x={0} y={26} fontSize={7.5} textAnchor="middle" style={{ fill: ink }}>{device.id} · {device.type ?? '—'}</text>
+                <text x={0} y={36} fontSize={6.5} textAnchor="middle" style={{ fill: 'var(--ink-faint)' }}>{device.circuits.join(', ') || 'sin asignar'}</text>
+              </g>
+            )
+          })}
+        </>
+      )}
 
       <Conductor x={x} y1={rcdY + 14} y2={loadY - 14} color={color} />
       <g transform={`translate(${x},${loadY})`}>

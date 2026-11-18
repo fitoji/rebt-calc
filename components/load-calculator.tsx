@@ -25,7 +25,7 @@ import { AdministrativePanel, InstallerFields, ProjectDataFields } from '@/compo
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { CIRCUIT_USE_LABELS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
-import { housingCircuitSizing, housingCircuitsFor } from '../lib/housing-circuits.mjs'
+import { housingCircuitLength, housingCircuitSizing, housingCircuitsFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { BASIC_MAX_SURFACE_M2, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { POINT_CIRCUITS, ROOM_LABELS, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { explainLineCalculation, explainLoadForecast, explainMeterCenter } from '../lib/calculation-explanations.mjs'
@@ -511,7 +511,7 @@ export function LoadCalculator() {
   const effectiveAdministrativeDwellingId = selectedAdministrativeDwellingId != null && interiorDwellings.some(dwelling => dwelling.id === selectedAdministrativeDwellingId)
     ? selectedAdministrativeDwellingId
     : interiorDwellings[0]?.id ?? null
-  const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean }>) => {
+  const updateDerivationInterior = (id: string, patch: Partial<{ contractedPowerW: number; circuits: number; hasSurge: boolean; lengths: Record<string, number>; rooms: Array<{ id: string; type: string; area: number; length: number }>; hasHeating: boolean; hasCooling: boolean; hasDryer: boolean; c4Mode: 1 | 2 | 3; c4Pair: string; differentials: Array<{ id: string; type: 'AC' | 'A' | 'F' | 'B' | null; sensitivityMa: number; selective: boolean; rdcDd: boolean; circuits: string[] }> }>) => {
     setLineTouched(true)
     setDerivations(current => current.map(derivation => derivation.id === id
       ? { ...derivation, interior: { ...resolveInterior(derivation.powerW, derivation.interior), ...patch } }
@@ -632,7 +632,7 @@ export function LoadCalculator() {
     : buildDwellingDocument(dwellingDocumentInput({
         derivation: elec3Dwelling,
         interior: resolveInterior(elec3Dwelling.powerW, elec3Dwelling.interior),
-        circuits: housingCircuitsFor(elec3Dwelling.powerW, { hasIrve: parking > 0 }),
+        circuits: housingCircuitsFor(elec3Dwelling.powerW, { hasIrve: parking > 0, ...resolveC4Split(elec3Dwelling.interior) }),
         projectInfo,
         lga: project.lga,
         hasIrve: parking > 0,
@@ -810,18 +810,21 @@ export function LoadCalculator() {
     URL.revokeObjectURL(url)
   }
 
-  const housingCircuitReportRows = () => interiorDwellings.flatMap(dwelling => housingCircuitsFor(dwelling.powerW, { hasIrve: parking > 0 }).map(circuit => {
-    const lengthM = dwelling.interior?.lengths?.[circuit.id] ?? 0
-    const sizing = housingCircuitSizing(circuit, lengthM)
-    return [
-      dwelling.label,
-      `${circuit.id} · ${circuit.name}`,
-      circuit.breakerA == null ? '—' : `${circuit.breakerA} A`,
-      sizing.section == null ? '—' : `${sizing.section} mm²`,
-      `${fmt(lengthM, 1)} m`,
-      sizing.dropPercent == null ? '—' : `${fmt(sizing.dropPercent, 2)} %`,
-    ]
-  }))
+  const housingCircuitReportRows = () => interiorDwellings.flatMap(dwelling => {
+    const { c4Mode, c4Pair } = resolveC4Split(dwelling.interior)
+    return housingCircuitsFor(dwelling.powerW, { hasIrve: parking > 0, c4Mode, c4Pair }).map(circuit => {
+      const lengthM = housingCircuitLength(dwelling.interior?.lengths, circuit)
+      const sizing = housingCircuitSizing(circuit, lengthM)
+      return [
+        dwelling.label,
+        `${circuit.id} · ${circuit.name}`,
+        circuit.breakerA == null ? '—' : `${circuit.breakerA} A`,
+        sizing.section == null ? '—' : `${sizing.section} mm²`,
+        `${fmt(lengthM, 1)} m`,
+        sizing.dropPercent == null ? '—' : `${fmt(sizing.dropPercent, 2)} %`,
+      ]
+    })
+  })
 
   const housingRoomReportRows = () => interiorDwellings.flatMap(dwelling => {
     const interior = resolveInterior(dwelling.powerW, dwelling.interior)
