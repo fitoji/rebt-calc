@@ -20,7 +20,7 @@ S6. Usuario (verbatim): «implementa». Aceptación: implementación completa co
 
 - T1 — S2,S3,S4 — inline — done (`bbb0660`) — Motor `lib/`: modelo de modo y pareja, ramas C4.x con PIA 16 A, excepción de diferencial; tests RED→GREEN (4/4), suite 717/717, typecheck OK.
 - T2 — S5 — inline — done (`dd31d23`) — Persistencia `lib/calculator-storage.mjs`: validar/normalizar `c4Mode`/`c4Pair` y conservar projects antiguos; tests 52/52.
-- T3 — S1,S5 — inline — pending — UI `components/interior-panel.tsx`: RadioGroup, subfilas, SourceNote y conservación de datos al alternar; tests de regresión.
+- T3 — S1,S5 — inline — done (`3831d55`) — UI `components/interior-panel.tsx`: RadioGroup, subfilas, SourceNote y conservación de datos al alternar; tests 6/6, suite 719/719, typecheck OK.
 - T4 — S2,S3 — inline — pending — Emisión en `lib/elec3-dwelling.mjs`, `lib/elec3.mjs`, `lib/unifilar.mjs` e informe PDF; tests.
 - T5 — S5,S6 — inline — pending — Documentación (`components/help-doc.tsx`, `README.md` si aplica) y verificación final.
 

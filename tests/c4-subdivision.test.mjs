@@ -5,6 +5,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { c4BranchPoints, c4Branches, housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { circuitsForDifferentials, evaluateInterior } from '../lib/interior-installation.mjs'
+import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
+import { buildDwellingDocument } from '../lib/elec3.mjs'
+import { differentialsFor as unifilarDifferentials } from '../lib/unifilar.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
@@ -75,6 +78,41 @@ test('las ramas derivan puntos y potencia de C4 sin duplicar la previsión', () 
   assert.match(calc, /resolveC4Split\(dwelling\.interior\)/, 'el informe usa el mismo modo persistido')
   const lib = read('lib/housing-circuits.mjs')
   assert.ok(lib.includes('/^C4\\.\\d+$/'), 'las ramas heredan la potencia por toma de C4')
+})
+
+test('el unifilar consume el mismo recuento de diferenciales que el cuadro', () => {
+  const dwelling = c4Mode => ({ kind: 'dwelling', powerW: 5750, interior: { contractedPowerW: 5750, circuits: 6, hasSurge: false, c4Mode } })
+  assert.equal(unifilarDifferentials(dwelling(1)).differentials, 2, 'sin subdivisión, seis circuitos exigen dos')
+  assert.equal(unifilarDifferentials(dwelling(2)).differentials, 1, 'la rama extra de C4 se descuenta')
+  assert.equal(unifilarDifferentials(dwelling(3)).differentials, 1)
+})
+
+test('el ELEC-3 imprime cada rama de C4 sin duplicar potencia ni diferenciales', () => {
+  const rooms = [{ id: 'cocina', type: 'cocina', area: 12, length: 0 }]
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, rooms, c4Mode: 3 }
+  const document = buildDwellingDocument(dwellingDocumentInput({
+    derivation: { powerW: 5750 },
+    interior,
+    circuits: housingCircuitsFor(5750, { c4Mode: 3 }),
+  }))
+  const rows = document.files.slice(1)
+  const branches = rows.filter(row => row.id.startsWith('C4.'))
+
+  assert.deepEqual(branches.map(row => row.id), ['C4.1', 'C4.2', 'C4.3'])
+  for (const row of branches) {
+    assert.equal(row.intensitat, 16, 'la nota (8) fija 16 A por rama')
+    assert.equal(row.seccio, 2.5)
+    assert.equal(row.nom, `C4.${row.id.at(-1)} · ${['Lavadora', 'Lavavajillas', 'Termo eléctrico'][Number(row.id.at(-1)) - 1]}`)
+  }
+  const single = buildDwellingDocument(dwellingDocumentInput({
+    derivation: { powerW: 5750 },
+    interior: { ...interior, c4Mode: 1 },
+    circuits: housingCircuitsFor(5750),
+  }))
+  const singleC4 = single.files.slice(1).find(row => row.id === 'C4')
+  const sum = branches.reduce((total, row) => total + row.potencia, 0)
+  assert.ok(Math.abs(sum - singleC4.potencia) < 1e-9, 'los tres puntos siguen siendo tres')
+  assert.equal(document.administrative.diferenciales.length, 1, 'siete circuitos físicos, pero un diferencial')
 })
 
 test('el grado y el número de circuitos de tabla no cambian al subdividir', () => {

@@ -632,7 +632,7 @@ export function LoadCalculator() {
     : buildDwellingDocument(dwellingDocumentInput({
         derivation: elec3Dwelling,
         interior: resolveInterior(elec3Dwelling.powerW, elec3Dwelling.interior),
-        circuits: housingCircuitsFor(elec3Dwelling.powerW, { hasIrve: parking > 0 }),
+        circuits: housingCircuitsFor(elec3Dwelling.powerW, { hasIrve: parking > 0, ...resolveC4Split(elec3Dwelling.interior) }),
         projectInfo,
         lga: project.lga,
         hasIrve: parking > 0,
