@@ -336,6 +336,24 @@ test('persists the general differential type declared for a dwelling', () => {
   assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the differential type survives a reload')
 })
 
+test('persists the C4 split declared for a dwelling', () => {
+  const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, c4Mode: 2, c4Pair: 'lavavajillas-termo' }
+  const storage = createMemoryStorage()
+
+  saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+  assert.deepEqual(loadCalculatorInputs(storage).derivations[0].interior, interior, 'the mode and the pair survive a reload')
+})
+
+test('rejects an invalid C4 split instead of keeping it in a snapshot', () => {
+  for (const patch of [{ c4Mode: 4 }, { c4Mode: '2' }, { c4Pair: 'invented' }, { c4Pair: 3 }]) {
+    const interior = { contractedPowerW: 5750, circuits: 7, hasSurge: false, ...patch }
+    const storage = createMemoryStorage()
+
+    saveCalculatorInputs(storage, { ...sampleInputs, derivations: [{ ...sampleDerivation, interior }] })
+    assert.equal(loadCalculatorInputs(storage), null, `rejects ${JSON.stringify(patch)}`)
+  }
+})
+
 test('persists the surge protector type declared for a dwelling', () => {
   const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: true, surgeType: 'tipo2' }
   const storage = createMemoryStorage()
