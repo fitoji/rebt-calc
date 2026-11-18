@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
-import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
+import { C4_PAIRS, HOUSING_CIRCUIT_MAX_DROP, HOUSING_CIRCUIT_TABLE, HOUSING_CIRCUIT_TABLE_NOTES, c4BranchPoints, circuitPowerW, housingCircuitLength, housingCircuitFactor, housingCircuitForecastW, housingCircuitIb, housingCircuitSimultaneityPercent, housingCircuitSizing, housingCircuitsFor, housingGradeFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { MAX_POINTS, POINT_CIRCUITS, POINT_CIRCUIT_LABELS, ROOM_LABELS, ROOM_TYPES, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { HOUSING_POWER_STEPS, ICP_RATINGS } from '../lib/normative-tables.mjs'
 import { declaredGradeOf, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
@@ -578,7 +578,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
               </TableHeader>
               <TableBody>
                 {circuits.map(circuit => {
-                  const lengthM = inputs.lengths?.[circuit.id] ?? 0
+                  const lengthM = housingCircuitLength(inputs.lengths, circuit)
                   const sizing = housingCircuitSizing(circuit, lengthM)
                   // La potencia escrita por el proyecto entra en la unidad elegida y
                   // se guarda en vatios: el motor nunca ve kilovatios.

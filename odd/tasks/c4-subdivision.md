@@ -22,7 +22,7 @@ S6. Usuario (verbatim): «implementa». Aceptación: implementación completa co
 - T2 — S5 — inline — done (`dd31d23`) — Persistencia `lib/calculator-storage.mjs`: validar/normalizar `c4Mode`/`c4Pair` y conservar projects antiguos; tests 52/52.
 - T3 — S1,S5 — inline — done (`3831d55`) — UI `components/interior-panel.tsx`: RadioGroup, subfilas, SourceNote y conservación de datos al alternar; tests 6/6, suite 719/719, typecheck OK.
 - T4 — S2,S3 — inline — done (`9757eb9`) — Emisión en `lib/elec3-dwelling.mjs`, `lib/elec3.mjs`, `lib/unifilar.mjs` e informe PDF; tests 8/8, suite 723/723, typecheck OK.
-- T5 — S5,S6 — inline — done — Documentación (`components/help-doc.tsx`, `README.md`) y verificación final: suite 723/723, `tsc --noEmit` limpio, detector de Impeccable `[]`.
+- T5 — S5,S6 — inline — done (`37b5e43` + fix final) — Documentación (`components/help-doc.tsx`, `README.md`) y verificación final: suite 724/724, `tsc --noEmit` limpio, detector de Impeccable `[]`.
 
 ## Log
 
@@ -35,4 +35,5 @@ L1 (verbatim): «bien, ahora pensemos como podemos resolver en cuadros, la tabla
 - 2026-11-18 — Usuario (verbatim): «implementa». Sin RDD: `gentle-ai review mode status` → off (clone_local). Rama creada desde `main` (`998d7dc`).
 - 2026-11-18 — T1 `bbb0660` motor; T2 `dd31d23` validación de snapshot; T3 `3831d55` panel; T4 `9757eb9` ELEC-3/unifilar/informe. Test-first observado en cada unidad: RED por export faltante o validación ausente, GREEN después del cambio.
 - 2026-11-18 — Riesgo resuelto: los IDs sintéticos C4.x quedaban fuera de `POINT_CIRCUITS`/`MAX_POINTS`/`circuitPowerW`; se reparten puntos desde C4 y `circuitPowerW` cae al `baseId`. `circuitsForDifferentials` aplica la excepción en el límite del recuento, sin tocar `differentialsFor`, para no afectar C1/C2/C5.
-- 2026-11-18 — Verificación final: `pnpm test` 723/723, `pnpm typecheck` limpio, detector de Impeccable sin hallazgos. Sin native review (RDD off).
+- 2026-11-18 — Verificación final: `pnpm test` 724/724, `pnpm typecheck` limpio, detector de Impeccable sin hallazgos. Sin native review (RDD off).
+- 2026-11-18 — Ajuste final: `housingCircuitLength` hereda la longitud tipada en C4 cuando una rama no tiene la suya, en panel, informe y ELEC-3; así alternar modos no descarta la medición del proyectista.

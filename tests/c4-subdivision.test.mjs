@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { c4BranchPoints, c4Branches, housingCircuitsFor } from '../lib/housing-circuits.mjs'
+import { c4BranchPoints, c4Branches, housingCircuitLength, housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { circuitsForDifferentials, evaluateInterior } from '../lib/interior-installation.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
@@ -50,6 +50,14 @@ test('las ramas independientes de C4 son circuitos con PIA de 16 A', () => {
   assert.equal(two[1].name, 'Termo eléctrico')
   assert.equal(two[1].maxPoints, 1)
   assert.equal(c4Branches(2, 'pareja-inexistente')[0].name, 'Lavadora y lavavajillas', 'una pareja inválida cae a la primera')
+})
+
+test('al alternar modos no se pierde la longitud declarada en C4', () => {
+  const branch = c4Branches(3)[0]
+  assert.equal(housingCircuitLength({ C4: 18 }, branch), 18, 'la rama hereda la longitud de C4')
+  assert.equal(housingCircuitLength({ C4: 18, 'C4.1': 12 }, branch), 12, 'la longitud propia manda')
+  assert.equal(housingCircuitLength({}, branch), 0)
+  assert.equal(housingCircuitLength({ C1: 9 }, c4Branches(1)[0]), 0, 'un circuito sin base no hereda')
 })
 
 test('los puntos de C4 se reparten entre las ramas sin cambiar el total', () => {

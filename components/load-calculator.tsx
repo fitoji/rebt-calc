@@ -25,7 +25,7 @@ import { AdministrativePanel, InstallerFields, ProjectDataFields } from '@/compo
 import { InteriorCircuitsPanel, type CircuitRow, type CircuitSupply } from '@/components/interior-circuits-panel'
 import { defaultCircuitsFor, evaluateInterior, resolveInterior } from '../lib/interior-installation.mjs'
 import { CIRCUIT_USE_LABELS, evaluateBoard, sizeInteriorCircuit } from '../lib/interior-circuits.mjs'
-import { housingCircuitSizing, housingCircuitsFor, resolveC4Split } from '../lib/housing-circuits.mjs'
+import { housingCircuitLength, housingCircuitSizing, housingCircuitsFor, resolveC4Split } from '../lib/housing-circuits.mjs'
 import { BASIC_MAX_SURFACE_M2, electrificationGradeWarning } from '../lib/electrification-grade.mjs'
 import { POINT_CIRCUITS, ROOM_LABELS, applyPointOverrides, totalPoints } from '../lib/housing-points.mjs'
 import { explainLineCalculation, explainLoadForecast, explainMeterCenter } from '../lib/calculation-explanations.mjs'
@@ -813,7 +813,7 @@ export function LoadCalculator() {
   const housingCircuitReportRows = () => interiorDwellings.flatMap(dwelling => {
     const { c4Mode, c4Pair } = resolveC4Split(dwelling.interior)
     return housingCircuitsFor(dwelling.powerW, { hasIrve: parking > 0, c4Mode, c4Pair }).map(circuit => {
-      const lengthM = dwelling.interior?.lengths?.[circuit.id] ?? 0
+      const lengthM = housingCircuitLength(dwelling.interior?.lengths, circuit)
       const sizing = housingCircuitSizing(circuit, lengthM)
       return [
         dwelling.label,
