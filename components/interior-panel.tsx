@@ -780,7 +780,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                         ) : (
                         <div className="flex flex-wrap items-center gap-1">
                           {device.circuits.map(id => (
-                            <span key={id} className="inline-flex items-center gap-1 rounded-control bg-brand-soft px-1.5 py-0.5 font-semibold text-brand-ink">
+                            <span key={id} className={`inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 font-semibold ${CIRCUIT_ROW_TINT[id] ?? 'bg-brand-soft'}`}>
                               {id}
                               <button type="button" aria-label={`Quitar ${id} de ${device.id}`} className="cursor-pointer leading-none" onClick={() => setDifferentials(removeCircuit(differentialDevices, id))}>×</button>
                             </span>

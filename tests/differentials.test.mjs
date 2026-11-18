@@ -3,7 +3,7 @@ import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, DIFFERENTIAL_TYPES, assignCircuit, canAssignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
+import { DIFFERENTIAL_TRIP_TIMES, DIFFERENTIAL_TYPE_INFO, DIFFERENTIAL_TYPES, assignCircuit, canAssignCircuit, differentialTripChartData, normalizeDifferentials } from '../lib/differentials.mjs'
 import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
@@ -89,7 +89,7 @@ test('el panel arrastra circuitos sin asignar y los suelta en cada diferencial',
   assert.match(panel, /Circuitos sin asignar/, 'existe el pool arrastrable')
   assert.match(panel, /data-over/, 'el destino válido se resalta')
   assert.match(panel, /dragPreview\.current\?\.remove\(\)/, 'desmontar durante un drag quita el preview')
-  assert.match(panel, /CIRCUIT_ROW_TINT\[id\]/, 'los chips usan el mismo tinte que la tabla de circuitos')
+  assert.ok((panel.match(/CIRCUIT_ROW_TINT\[id\]/g) ?? []).length >= 2, 'el pool y el chip asignado usan el mismo tinte que la tabla de circuitos')
 })
 
 test('los tipos de diferencial llevan características verificables', () => {
@@ -98,6 +98,11 @@ test('los tipos de diferencial llevan características verificables', () => {
   assert.match(DIFFERENTIAL_TYPE_INFO.B.detecta, /continua/)
   assert.equal(DIFFERENTIAL_TYPE_INFO.F.hastaKhz, 1)
   assert.match(DIFFERENTIAL_TYPE_INFO.S.cargas, /cabecera/)
+  assert.equal(DIFFERENTIAL_TYPE_INFO.AC.waveform, 'sine')
+  assert.equal(DIFFERENTIAL_TYPE_INFO.A.waveform, 'pulsating')
+  assert.equal(DIFFERENTIAL_TYPE_INFO.F.waveform, 'mixed')
+  assert.equal(DIFFERENTIAL_TYPE_INFO.B.waveform, 'dc')
+  assert.equal(DIFFERENTIAL_TYPE_INFO.S.waveform, null, 'S no es una forma de onda')
 })
 
 test('la curva usa tiempos normativos de ensayo, no estimaciones', () => {
@@ -109,6 +114,11 @@ test('la curva usa tiempos normativos de ensayo, no estimaciones', () => {
   assert.equal(DIFFERENTIAL_TRIP_TIMES.selective.min[0].ms, 130)
   assert.equal(DIFFERENTIAL_TRIP_TIMES.selective.max[0].ms, 500)
   assert.match(DIFFERENTIAL_TRIP_TIMES.source, /61008|62423/)
+  assert.deepEqual(differentialTripChartData(), [
+    { multiple: 1, general: 300, sMin: 130, sMax: 500, sBand: 370 },
+    { multiple: 2, general: 150, sMin: 60, sMax: 200, sBand: 140 },
+    { multiple: 5, general: 40, sMin: 50, sMax: 150, sBand: 100 },
+  ])
 })
 
 test('la tabla de diferenciales ofrece el botón de tipos y su referencia', () => {
@@ -118,7 +128,12 @@ test('la tabla de diferenciales ofrece el botón de tipos y su referencia', () =
   const dialog = read('components/differential-types-dialog.tsx')
   assert.match(dialog, /DIFFERENTIAL_TYPE_INFO/, 'la tabla sale de la fuente compartida')
   assert.match(dialog, /DIFFERENTIAL_TRIP_TIMES/, 'la curva sale de la fuente compartida')
-  assert.match(dialog, /<polyline/, 'se dibuja la envolvente de tiempos')
+  assert.match(dialog, /ChartContainer/, 'la gráfica usa el chart de shadcn')
+  assert.match(dialog, /ChartLegend/, 'la leyenda explica las series')
+  assert.match(dialog, /IΔ \/ IΔn/, 'el eje horizontal está rotulado')
+  assert.match(dialog, /ms/, 'el eje vertical declara la unidad')
+  assert.match(dialog, /function Waveform/, 'la forma de onda se dibuja en la tabla')
+  assert.match(dialog, /info\.waveform/, 'el dibujo sale de la definición del tipo')
 })
 
 test('un proyecto antiguo migra su tipo único a un diferencial que cubre todos los circuitos', () => {
