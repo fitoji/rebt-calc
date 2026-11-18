@@ -23,6 +23,7 @@ test('el panel declara el mínimo reglamentario y una tabla por dispositivo', ()
   assert.match(panel, /assignCircuit\(/, 'mover un circuito lo quita del otro diferencial')
   assert.match(panel, /Añadir circuito/, 'la asignación es explícita')
   assert.match(panel, /RDC-DD/, 'la protección VE se declara')
+  assert.match(panel, /Cabecera selectiva · sin circuitos/, 'el diferencial de 300 mA no admite circuitos')
   assert.doesNotMatch(panel, /id="interior-differential-type"/, 'ya no hay un tipo global')
 })
 
@@ -98,17 +99,22 @@ test('los diferenciales declarados nunca bajan del mínimo reglamentario', () =>
   assert.deepEqual(declared.devices.map(device => device.id), ['D1', 'D2', 'D3'])
 })
 
-test('300 mA sólo vale para el diferencial selectivo de cabecera', () => {
-  const { devices } = normalizeDifferentials({
+test('300 mA sólo vale para el diferencial selectivo de cabecera, sin circuitos propios', () => {
+  const { devices, warnings } = normalizeDifferentials({
     differentials: [
-      { id: 'D1', type: 'A', sensitivityMa: 300, selective: true, circuits: [] },
-      { id: 'D2', type: 'A', sensitivityMa: 300, selective: false, circuits: [] },
+      { id: 'D1', type: 'A', sensitivityMa: 300, selective: true, circuits: ['C1'] },
+      { id: 'D2', type: 'A', sensitivityMa: 300, selective: false, circuits: ['C2'] },
     ],
     circuitIds: basicIds,
     minimum: 2,
   })
   assert.equal(devices[0].sensitivityMa, 300)
   assert.equal(devices[1].sensitivityMa, 30, 'una rama no puede tener 300 mA')
+  assert.deepEqual(devices[0].circuits, [], 'el diferencial de cabecera no protege circuitos directamente')
+  assert.deepEqual(devices[1].circuits, ['C2', 'C1'], 'C1 pasa al diferencial de 30 mA')
+  assert.ok(warnings.some(warning => /cabecera|aguas arriba/i.test(warning)), 'se avisa de la regla')
+  assert.ok(devices.some(device => device.sensitivityMa === 30), 'siempre queda protección de 30 mA')
+  assert.ok(devices.find(device => device.circuits.includes('C1')).sensitivityMa === 30, 'C1 queda protegido a 30 mA')
 })
 
 test('un circuito pertenece a un solo diferencial', () => {

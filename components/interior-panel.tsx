@@ -694,6 +694,9 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                           : <span className="text-ink-faint">—</span>}
                       </TableCell>
                       <TableCell className="py-2 pr-2">
+                        {device.sensitivityMa > DIFFERENTIAL_SENSITIVITY_MA ? (
+                          <span className="text-[11px] text-ink-faint">Cabecera selectiva · sin circuitos</span>
+                        ) : (
                         <div className="flex flex-wrap items-center gap-1">
                           {device.circuits.map(id => (
                             <span key={id} className="inline-flex items-center gap-1 rounded-control bg-brand-soft px-1.5 py-0.5 font-semibold text-brand-ink">
@@ -708,6 +711,7 @@ function InteriorPanelBody({ dwellings, selectedId, onSelect, onChange, onViewEl
                             </SelectContent>
                           </Select>
                         </div>
+                        )}
                       </TableCell>
                       <TableCell className="py-2">
                         <Button type="button" variant="ghost" size="icon-sm" aria-label={`Eliminar ${device.id}`} onClick={() => setDifferentials(removeDifferential(differentialDevices, device.id))}><Trash2 /></Button>

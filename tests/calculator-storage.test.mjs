@@ -367,7 +367,7 @@ test('persists the differential devices declared for a dwelling', () => {
 })
 
 test('rejects a malformed differential device instead of keeping it in a snapshot', () => {
-  for (const differential of [{ type: 'Z' }, { sensitivityMa: 90 }, { circuits: [3] }, { selective: 'yes' }]) {
+  for (const differential of [{ type: 'Z' }, { sensitivityMa: 90 }, { sensitivityMa: 300 }, { circuits: [3] }, { selective: 'yes' }]) {
     const interior = { contractedPowerW: 5750, circuits: 5, hasSurge: false, differentials: [{ id: 'D1', ...differential }] }
     const storage = createMemoryStorage()
 
