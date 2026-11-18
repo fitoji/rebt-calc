@@ -7,6 +7,7 @@ import { DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../li
 import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
 import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
 import { buildDwellingDocument } from '../lib/elec3.mjs'
+import { differentialDevicesFor } from '../lib/unifilar.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
@@ -23,6 +24,28 @@ test('el panel declara el mínimo reglamentario y una tabla por dispositivo', ()
   assert.match(panel, /Añadir circuito/, 'la asignación es explícita')
   assert.match(panel, /RDC-DD/, 'la protección VE se declara')
   assert.doesNotMatch(panel, /id="interior-differential-type"/, 'ya no hay un tipo global')
+})
+
+test('el unifilar identifica cada diferencial declarado', () => {
+  const devices = differentialDevicesFor({
+    kind: 'dwelling',
+    powerW: 5750,
+    interior: {
+      contractedPowerW: 5750,
+      circuits: 5,
+      hasSurge: false,
+      differentials: [
+        { id: 'D1', type: 'A', sensitivityMa: 30, circuits: ['C1', 'C2'] },
+        { id: 'D2', type: 'B', sensitivityMa: 30, circuits: ['C13'] },
+      ],
+    },
+  })
+  assert.deepEqual(devices.map(device => device.id), ['D1', 'D2'])
+  assert.equal(devices[1].type, 'B')
+
+  const diagram = read('components/unifilar-diagram.tsx')
+  assert.match(diagram, /differentialDevicesFor\(derivation\)/, 'la lámina lee los dispositivos')
+  assert.match(diagram, /devices\.map\(/, 'dibuja uno por dispositivo')
 })
 
 test('la hoja 2 del ELEC-3 declara tipo y circuitos sin inventar el calibre', () => {

@@ -21,7 +21,7 @@ S6. Decisiones de arquitectura: un único array `differentials[]` persistido por
 - T1 — S2,S3,S6 — inline — done (`0368301`) — Motor y persistencia: modelo `differentials[]`, normalización/migración, mínimo vs declarados, regla VE, validación en storage; tests RED→GREEN, suite 734/734, typecheck OK.
 - T2 — S1,S4,S6 — inline — done — UI en `components/interior-panel.tsx`: tabla progresiva, selects de tipo/sensibilidad, chips de circuitos y avisos en línea; se retiraron el checkbox global y el select de tipo único; suite 735/735, typecheck OK.
 - T3 — S3,S5,S6 — inline — done — ELEC-3 hoja 2: adapter, i18n y caption; el tipo se imprime en la columna «Nombre» y los circuitos en «Circuito», sin tocar el modelo de 4 columnas ni el calibre pendiente; suite 736/736, typecheck OK.
-- T4 — S5 — inline — pending — Unifilar: dibujar los N diferenciales con identificación coherente con la tabla; tests.
+- T4 — S5 — inline — done — Unifilar: `differentialDevicesFor` expone el array sin romper el recuento existente; la lámina dibuja un símbolo por dispositivo con id, tipo y circuitos; suite 737/737, typecheck OK.
 - T5 — S5,S6 — inline — pending — Documentación (help, README, texto del caption) y verificación final.
 
 ## Log
