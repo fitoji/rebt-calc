@@ -65,7 +65,7 @@ type Elec3Document = {
   administrative?: AdministrativeBlock | null
 }
 
-/** Filas de interruptor diferencial del impreso; la app solo declara la sensibilidad. */
+/** Filas de interruptor diferencial del impreso: tipo, circuitos y sensibilidad declarados; calibre pendiente. */
 const MODEL_DIFFERENTIAL_ROWS = 3
 
 const number = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 2 })

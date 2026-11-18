@@ -4,6 +4,9 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DIFFERENTIAL_TYPES, assignCircuit, normalizeDifferentials } from '../lib/differentials.mjs'
+import { housingCircuitsFor } from '../lib/housing-circuits.mjs'
+import { dwellingDocumentInput } from '../lib/elec3-dwelling.mjs'
+import { buildDwellingDocument } from '../lib/elec3.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
@@ -20,6 +23,27 @@ test('el panel declara el mínimo reglamentario y una tabla por dispositivo', ()
   assert.match(panel, /Añadir circuito/, 'la asignación es explícita')
   assert.match(panel, /RDC-DD/, 'la protección VE se declara')
   assert.doesNotMatch(panel, /id="interior-differential-type"/, 'ya no hay un tipo global')
+})
+
+test('la hoja 2 del ELEC-3 declara tipo y circuitos sin inventar el calibre', () => {
+  const differentials = [
+    { id: 'D1', type: 'A', sensitivityMa: 30, selective: false, rdcDd: false, circuits: ['C1', 'C2'] },
+    { id: 'D2', type: 'B', sensitivityMa: 30, selective: false, rdcDd: false, circuits: ['C13'] },
+  ]
+  const document = buildDwellingDocument(dwellingDocumentInput({
+    derivation: { powerW: 5750 },
+    interior: { contractedPowerW: 5750, circuits: 5, hasSurge: false, differentials },
+    circuits: housingCircuitsFor(5750, { hasIrve: true }),
+  }))
+  const rows = document.administrative.diferenciales
+
+  assert.equal(rows[0].circuito, 'C1, C2', 'los circuitos asignados se imprimen')
+  assert.equal(rows[0].nombre, 'Tipo A', 'el tipo se imprime en la columna nombre')
+  assert.equal(rows[0].sensibilidadMa, 30)
+  assert.equal(rows[0].inA, null, 'el calibre sigue pendiente del instalador')
+  assert.equal(rows[1].nombre, 'Tipo B')
+  const i18n = read('lib/elec3-i18n.mjs')
+  assert.match(i18n, /declara el tipo, los circuitos y la sensibilidad/, 'el caption ya no dice que sólo declara sensibilidad')
 })
 
 test('un proyecto antiguo migra su tipo único a un diferencial que cubre todos los circuitos', () => {
