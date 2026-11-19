@@ -220,21 +220,6 @@ function ConductivityField({ idPrefix, state, role }: { idPrefix: string; state:
 }
 
 /**
- * Tensión de la línea. La fija el sistema —230 V fase-neutro en monofásica y
- * 400 V entre fases en trifásica—, así que se muestra como dato en lugar de
- * ofrecer un número libre que podría contradecir el sistema y falsear Ib.
- */
-function VoltageField({ id, label, system }: { id: string; label: string; system: 'three-phase' | 'single-phase' }) {
-  return (
-    <div className="block">
-      <span className="label mb-1 block">{label}</span>
-      <p id={id} className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm tabular-nums">{nominalVoltageFor(system)} V</p>
-      <p className="mt-1 text-xs text-ink-faint">Red de distribución 230/400 V · lo fija el sistema</p>
-    </div>
-  )
-}
-
-/**
  * Potencia de una derivación generada. Pertenece a la previsión de cargas: se
  * muestra como dato, con el acceso directo a la pestaña que la posee, en vez de
  * un input que `syncDerivationPowers` pisaría en silencio.
@@ -560,7 +545,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         <h3 className="flex flex-wrap items-center gap-2 font-bold">
           <span aria-hidden="true" className="size-2 rounded-full bg-tab-lga" />
           Línea General de Alimentación
-          <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">Trifásica</span>
+          <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-ink-faint">Trifásica · 400 V</span>
         </h3>
         <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
           <Table2 data-icon="inline-start" /> Tablas
@@ -590,9 +575,12 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
       >
         <LineSectionField role="lga" result={result} onChange={onChange} />
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
+        {powerMode === 'manual' && (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
+          </div>
+        )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
-          <VoltageField id="lga-voltage" label="Tensión entre fases" system="three-phase" />
           <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
@@ -642,7 +630,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
             <h3 className="flex flex-wrap items-center gap-2 font-bold">
               <span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />
               Derivación Individual
-              <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">{system === 'three-phase' ? 'Trifásica' : 'Monofásica'}</span>
+              <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-ink-faint">{system === 'three-phase' ? 'Trifásica' : 'Monofásica'} · {nominalVoltageFor(system)} V</span>
             </h3>
             {editingLabel && <span className="max-w-full truncate rounded-control bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
           </div>
@@ -678,18 +666,17 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           {powerReadOnly
             ? <PowerFromForecastField value={state.powerW} powerUnit={powerUnit} onEdit={onEditPower} />
             : <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />}
-          <VoltageField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} system={system} />
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
+          <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
               conductividad: se leen juntos, en la misma fila. */}
           <InsulationField idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />
           <ConductivityField idPrefix="di" state={state} role="di" />
-          <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
-          <NumberField id="di-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
           <NumberField id="di-control" label="Hilo de mando" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
+          <NumberField id="di-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
       </PanelSection>
       {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}

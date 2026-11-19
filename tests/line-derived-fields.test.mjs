@@ -36,14 +36,20 @@ test('el resultado declara la tensión con la que dimensionó', () => {
   assert.equal(result.ratedCurrent, 40, 'Ib = 9200 / 230')
 })
 
-test('el panel muestra la tensión como dato, no como input', () => {
+test('la tensión no ocupa un campo: se lee en la cabecera', () => {
   const modules = read('components/line-modules.tsx')
-  assert.match(modules, /function VoltageField\(/, 'hay un campo de tensión derivado')
-  assert.ok(modules.includes('<VoltageField id="lga-voltage" label="Tensión entre fases" system="three-phase" />'), 'la LGA usa la tensión del sistema')
-  assert.ok(modules.includes('<VoltageField id="di-voltage"'), 'la DI usa la tensión del sistema')
-  assert.doesNotMatch(modules, /<NumberField id="lga-voltage"/, 'la LGA ya no ofrece un número libre')
-  assert.doesNotMatch(modules, /<NumberField id="di-voltage"/, 'la DI ya no ofrece un número libre')
-  assert.match(modules, /Red de distribución 230\/400 V/, 'el panel explica de dónde sale')
+  assert.doesNotMatch(modules, /VoltageField/, 'no hay campo de tensión')
+  assert.doesNotMatch(modules, /id="lga-voltage"/, 'la LGA no tiene campo de tensión')
+  assert.doesNotMatch(modules, /id="di-voltage"/, 'la DI no tiene campo de tensión')
+  assert.match(modules, /Trifásica · 400 V/, 'la LGA declara la tensión en la cabecera')
+  assert.match(modules, /· \{nominalVoltageFor\(system\)\} V/, 'la DI declara la tensión de su sistema')
+})
+
+test('la LGA esconde la potencia hasta que se edita a mano', () => {
+  const modules = read('components/line-modules.tsx')
+  assert.match(modules, /powerMode === 'manual' &&/, 'la potencia aparece sólo en modo manual')
+  assert.ok(modules.includes('id="lga-power"'), 'el campo sigue existiendo para el modo manual')
+  assert.match(modules, /Potencia automática desde la previsión/, 'el valor automático se lee en la banda')
 })
 
 test('la potencia de una DI generada se muestra como dato de la previsión', () => {
