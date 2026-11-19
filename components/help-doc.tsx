@@ -408,7 +408,7 @@ export function HelpDoc() {
                     ['Potencia prevista (P)', 'La toma de la previsión del edificio; el campo aparece solo si pulsas «Editar manual». La tensión de la línea (400 V en trifásica) se lee en la cabecera'],
                     ['Factor de potencia (cos φ)', 'Entra en la intensidad de línea'],
                     ['Longitud de la línea', 'Del cuadro general al punto donde empiezan las derivaciones'],
-                    ['Caída máxima admisible', 'La fija el supuesto de enlace'],
+                    ['Caída máxima admisible', 'La fija el supuesto de enlace; el desplegable ofrece los tres valores de la ITC-BT-15: 0,5 % (contadores en más de un lugar), 1 % (totalmente centralizados) y 1,5 % (único usuario sin LGA)'],
                     ['Conductividad (γ)', 'La fija el aislamiento: 48 m/(Ω·mm²) en PVC (cobre a 70 °C) y 44 en XLPE/EPR (cobre a 90 °C). No es editable'],
                     ['Aislamiento', 'Fijo en XLPE: la ITC-BT-14 sólo admite RZ1-K o DZ1-K de 0,6/1 kV'],
                     ['Protección de la línea (In)', '0 deja que la app elija; otro valor fija el interruptor que verifica Ib ≤ In ≤ Iz. No es el IGA.'],

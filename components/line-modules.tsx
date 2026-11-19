@@ -262,6 +262,43 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
 }
 
 /**
+ * Caída máxima admisible de la derivación. La ITC-BT-15 §3 sólo publica tres
+ * valores, elegidos por la colocación de los contadores (0,5 %, 1 % y 1,5 %):
+ * el desplegable los ofrece en lugar de un número libre que podría salirse de
+ * la instrucción. Los valores salen del registro normativo, no de literales.
+ */
+function DropField({ id, value, onChange, tables, onOpenTables }: {
+  id: string
+  value: number
+  onChange: (value: number) => void
+  tables?: TableKey[]
+  onOpenTables?: (tables: TableKey[]) => void
+}) {
+  const pct = (number: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(number)
+  const options = INSTALLATION_SCENARIOS.map(scenario => ({
+    value: String(scenario.di),
+    label: `${pct(scenario.di)} % · ${scenario.label.charAt(0).toLowerCase()}${scenario.label.slice(1)}`,
+  })).sort((a, b) => Number(a.value) - Number(b.value))
+  // Un proyecto viejo puede traer un valor fuera de la instrucción: se conserva
+  // como opción para que el control no oculte lo que está mostrando.
+  if (!options.some(option => Number(option.value) === value)) {
+    options.push({ value: String(value), label: `${pct(value)} % · valor del proyecto` })
+  }
+
+  return (
+    <SelectField
+      id={id}
+      label="Caída máxima admisible"
+      value={String(value)}
+      options={options}
+      onChange={next => onChange(Number(next))}
+      tables={tables}
+      onOpenTables={onOpenTables}
+    />
+  )
+}
+
+/**
  * Conductores de la línea con el color físico que los identifica. La pinta la
  * tarjeta del rail: los colores se declaran una sola vez, junto a la línea.
  */
@@ -668,7 +705,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
             : <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />}
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
-          <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
+          <DropField id="di-drop" value={state.maxDropPercent} onChange={value => onChange({ maxDropPercent: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
               conductividad: se leen juntos, en la misma fila. */}
           <InsulationField idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />

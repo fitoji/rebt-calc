@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { lineInputFromState, nominalVoltageFor } from '../lib/line-state.mjs'
 import { sizeLine } from '../lib/line-sizing.mjs'
+import { INSTALLATION_SCENARIOS } from '../lib/installation-config.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const read = file => readFileSync(path.join(root, file), 'utf8')
@@ -50,6 +51,18 @@ test('la LGA esconde la potencia hasta que se edita a mano', () => {
   assert.match(modules, /powerMode === 'manual' &&/, 'la potencia aparece sólo en modo manual')
   assert.ok(modules.includes('id="lga-power"'), 'el campo sigue existiendo para el modo manual')
   assert.match(modules, /Potencia automática desde la previsión/, 'el valor automático se lee en la banda')
+})
+
+test('la caída de la DI se elige entre los tres valores de la ITC-BT-15', () => {
+  const values = INSTALLATION_SCENARIOS.map(scenario => scenario.di).sort((a, b) => a - b)
+  assert.deepEqual(values, [0.5, 1, 1.5], 'la instrucción sólo publica 0,5, 1 y 1,5 %')
+
+  const modules = read('components/line-modules.tsx')
+  assert.match(modules, /function DropField\(/, 'hay un campo de caída con opciones')
+  assert.match(modules, /INSTALLATION_SCENARIOS\.map/, 'los valores salen del registro normativo')
+  assert.ok(modules.includes('<DropField id="di-drop"'), 'la DI usa el desplegable')
+  assert.doesNotMatch(modules, /<NumberField id="di-drop"/, 'la DI ya no ofrece un número libre')
+  assert.match(modules, /valor del proyecto/, 'un valor viejo se conserva como opción')
 })
 
 test('la potencia de una DI generada se muestra como dato de la previsión', () => {
