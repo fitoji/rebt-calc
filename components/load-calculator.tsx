@@ -793,8 +793,9 @@ export function LoadCalculator() {
   }, [selectedDerivation, calculatedDerivations])
   // ITC-BT-14 tabla 1 and ITC-BT-18 tabla 2 derive these from the phase
   // section, so the report can never print a neutral thinner than the norm.
-  const lgaNeutral = lgaNeutralSection(lgaResult.finalSection) ?? lga.neutralSection
-  const lgaProtective = lgaResult.finalSection == null ? lga.peSection : protectiveSection(lgaResult.finalSection)
+  const lgaPrintedSection = lgaResult.effectiveSection ?? lgaResult.finalSection
+  const lgaNeutral = lgaNeutralSection(lgaPrintedSection) ?? lga.neutralSection
+  const lgaProtective = lgaPrintedSection == null ? lga.peSection : protectiveSection(lgaPrintedSection)
   const lgaExplanation = useMemo(() => explainLineCalculation(lga, lgaResult, { system: 'three-phase', line: 'lga', powerUnit }), [lga, lgaResult, powerUnit])
   const diExplanation = useMemo(() => explainLineCalculation(di, diResult, { system: 'single-phase', line: 'di', powerUnit }), [di, diResult, powerUnit])
 
@@ -936,8 +937,8 @@ export function LoadCalculator() {
           ['Momento eléctrico (M)', `${fmt(lgaResult.momentKwM, 2)} kW·m`],
           ['Conductividad (γ)', `${fmt(lgaResult.gamma)} m/(Ω·mm²)`],
           ...(lgaResult.sectionOverride == null ? [] : [['Sección automática de cálculo', lgaResult.autoSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.autoSection)} mm²`]]),
-          ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
-          ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (${lgaResult.cableType})`],
+          ['Sección adoptada', (lgaResult.effectiveSection ?? lgaResult.finalSection) == null ? 'Sin sección admisible' : `${fmt(lgaResult.effectiveSection ?? lgaResult.finalSection)} mm²`],
+          ['Conductores de Fase (R, S, T)', (lgaResult.effectiveSection ?? lgaResult.finalSection) == null ? '—' : `3 x ${fmt(lgaResult.effectiveSection ?? lgaResult.finalSection)} mm² Cu (${lgaResult.cableType})`],
           ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (${lgaResult.cableType})`],
           ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (${lgaResult.cableType})`],
           ['Tubo protector empotrado', `${fmt(lga.tubeDiameter)} mm de diámetro exterior${lgaResult.minimumTube == null ? ' mínimo' : ` · mínimo ${fmt(lgaResult.minimumTube)} mm`}`],
@@ -956,8 +957,8 @@ export function LoadCalculator() {
           ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
           ['Momento eléctrico (M)', `${fmt(diResult.momentKwM, 2)} kW·m`],
           ['Conductividad (γ)', `${fmt(diResult.gamma)} m/(Ω·mm²)`],
-          ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
-          ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (${diResult.cableType})`],
+          ['Sección adoptada', (diResult.effectiveSection ?? diResult.finalSection) == null ? 'Sin sección admisible' : `${fmt(diResult.effectiveSection ?? diResult.finalSection)} mm²`],
+          ['Conductores de alimentación (fase + neutro)', (diResult.effectiveSection ?? diResult.finalSection) == null ? '—' : `${fmt(diResult.effectiveSection ?? diResult.finalSection)} mm² Cu (${diResult.cableType})`],
           ['Conductor de protección (tierra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`],
           ['Hilo de mando (tarificación)', `1 x ${fmt(di.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`],
           ['Canalización y tubo protector', `Tubo protector empotrado de diámetro exterior Ø ${fmt(di.tubeDiameter)} mm`],
@@ -1174,8 +1175,8 @@ export function LoadCalculator() {
       ['Momento eléctrico (M)', `${fmt(lgaResult.momentKwM, 2)} kW·m`],
       ['Conductividad (γ)', `${fmt(lgaResult.gamma)} m/(Ω·mm²)`],
       ...(lgaResult.sectionOverride == null ? [] : [['Sección automática de cálculo', lgaResult.autoSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.autoSection)} mm²`]]),
-      ['Sección adoptada', lgaResult.finalSection == null ? 'Sin sección admisible' : `${fmt(lgaResult.finalSection)} mm²`],
-      ['Conductores de Fase (R, S, T)', lgaResult.finalSection == null ? '—' : `3 x ${fmt(lgaResult.finalSection)} mm² Cu (${lgaResult.cableType})`],
+      ['Sección adoptada', (lgaResult.effectiveSection ?? lgaResult.finalSection) == null ? 'Sin sección admisible' : `${fmt(lgaResult.effectiveSection ?? lgaResult.finalSection)} mm²`],
+      ['Conductores de Fase (R, S, T)', (lgaResult.effectiveSection ?? lgaResult.finalSection) == null ? '—' : `3 x ${fmt(lgaResult.effectiveSection ?? lgaResult.finalSection)} mm² Cu (${lgaResult.cableType})`],
       ['Conductor Neutro (N)', `1 x ${fmt(lgaNeutral)} mm² Cu (${lgaResult.cableType})`],
       ['Conductor de Protección (PE)', `1 x ${fmt(lgaProtective)} mm² Cu (${lgaResult.cableType})`],
       ['Tubo protector empotrado', `${fmt(lga.tubeDiameter)} mm de diámetro exterior${lgaResult.minimumTube == null ? ' mínimo' : ` · mínimo ${fmt(lgaResult.minimumTube)} mm`}`],
@@ -1195,8 +1196,8 @@ export function LoadCalculator() {
       ['Sección por caída de tensión', `${fmt(diResult.sectionByDrop, 2)} mm²`],
       ['Momento eléctrico (M)', `${fmt(diResult.momentKwM, 2)} kW·m`],
       ['Conductividad (γ)', `${fmt(diResult.gamma)} m/(Ω·mm²)`],
-      ['Sección adoptada', diResult.finalSection == null ? 'Sin sección admisible' : `${fmt(diResult.finalSection)} mm²`],
-      ['Conductores de alimentación (fase + neutro)', diResult.finalSection == null ? '—' : `${fmt(diResult.finalSection)} mm² Cu (${diResult.cableType})`],
+      ['Sección adoptada', (diResult.effectiveSection ?? diResult.finalSection) == null ? 'Sin sección admisible' : `${fmt(diResult.effectiveSection ?? diResult.finalSection)} mm²`],
+      ['Conductores de alimentación (fase + neutro)', (diResult.effectiveSection ?? diResult.finalSection) == null ? '—' : `${fmt(diResult.effectiveSection ?? diResult.finalSection)} mm² Cu (${diResult.cableType})`],
       ['Conductor de protección (tierra / PE)', `1 x ${fmt(di.peSection)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`],
       ['Hilo de mando (tarificación)', `1 x ${fmt(di.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`],
       ['Canalización y tubo protector', `Tubo protector empotrado de diámetro exterior Ø ${fmt(di.tubeDiameter)} mm`],
@@ -1211,7 +1212,7 @@ export function LoadCalculator() {
       ['Observaciones', diResult.problems.length > 0 ? diResult.problems.join(' ') : 'Cumple los criterios aplicados'],
     ])
     addExplanationPage('8.1 Desarrollo del cálculo · DI', diExplanation as { steps: PdfExplanationStep[] })
-    addDetailPage('9. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${power(derivation.powerW)}`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
+    addDetailPage('9. Derivaciones individuales · resumen', ['Tipo', 'Elemento', 'Sistema', 'Potencia', 'Longitud', 'Método', 'Sección', 'Protección', 'Caída'], calculatedDerivations.length === 0 ? [['—', 'Sin derivaciones generadas', '', '', '', '', '', '', '']] : calculatedDerivations.map(derivation => [DERIVATION_LABELS[derivation.kind], derivation.label, derivation.system === 'three-phase' ? 'Trifásica' : 'Monofásica', `${power(derivation.powerW)}`, `${fmt(derivation.lengthM, 2)} m`, derivation.method, (derivation.result.effectiveSection ?? derivation.result.finalSection) == null ? '—' : `${fmt(derivation.result.effectiveSection ?? derivation.result.finalSection)} mm²`, derivation.result.protection == null ? '—' : `${fmt(derivation.result.protection)} A`, derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`]))
     addDetailPage('10. Instalaciones interiores · ITC-BT-25', ['Vivienda', 'IGA', 'P máx.', 'P contratada', 'ICP', 'Diferenciales', 'Sobretensiones'], interiorDwellings.map(dwelling => {
       const interior = resolveInterior(dwelling.powerW, dwelling.interior)
       const evaluation = evaluateInterior({ igaA: dwelling.housingIgaA ?? null, powerW: dwelling.powerW, ...interior })
@@ -1472,7 +1473,7 @@ export function LoadCalculator() {
                             <TableCell className="py-2"><Input aria-label={`Longitud · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.lengthM} onChange={event => updateDerivation(derivation.id, { lengthM: Math.max(0, Number(event.target.value)) })} /></TableCell>
                             <TableCell className="py-2"><ChoiceSelect label={`Método · ${derivation.label}`} value={derivation.method} onChange={value => updateDerivation(derivation.id, { method: value as LineState['method'] })} items={[...METHODS]} /></TableCell>
                             <TableCell className="py-2"><Input aria-label={`Protección · ${derivation.label}`} className="w-20" type="number" min="0" value={derivation.protectionA || ''} onChange={event => updateDerivation(derivation.id, { protectionA: Math.max(0, Number(event.target.value)) })} /></TableCell>
-                            <TableCell className="py-2 text-right tabular-nums">{derivation.result.finalSection == null ? '—' : `${fmt(derivation.result.finalSection)} mm²`}</TableCell>
+                            <TableCell className="py-2 text-right tabular-nums">{(derivation.result.effectiveSection ?? derivation.result.finalSection) == null ? '—' : `${fmt(derivation.result.effectiveSection ?? derivation.result.finalSection)} mm²`}</TableCell>
                             <TableCell className="py-2 text-right tabular-nums">{derivation.result.dropPercent == null ? '—' : `${fmt(derivation.result.dropPercent, 2)} %`}</TableCell>
                           </TableRow>
                         ))}

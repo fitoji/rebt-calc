@@ -187,8 +187,8 @@ test('el panel conserva todos sus controles', () => {
   assert.ok(source.includes('id="lga-power"') && source.includes('id="di-power"'), 'the power inputs stay')
   assert.ok(source.includes('id="lga-length"') && source.includes('id="di-length"'), 'the length inputs stay')
   assert.ok(source.includes('onPowerModeChange'), 'the power-mode control stays')
-  assert.ok(source.includes('htmlFor="lga-section"'), 'the fixed-section control keeps its label')
-  assert.ok(source.includes('onChange({ sectionOverride: section })'), 'the panel persists the fixed section')
+  assert.ok(source.includes('htmlFor={`${role}-section`}'), 'the fixed-section control keeps its label')
+  assert.ok(source.includes('onChange({ sectionOverride: section ?? 0 })'), 'the panel persists the fixed section')
   assert.equal([...source.matchAll(/> Tablas\b/g)].length, 2, 'the Tablas button stays in both panels')
 })
 

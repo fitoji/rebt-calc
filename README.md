@@ -99,7 +99,7 @@ Y para las líneas, cada módulo devuelve:
 |--------|-----------------|----------------|
 | Intensidad de cálculo `Ib` | trifásica | monofásica |
 | Sección por caída de tensión | % máximo configurable | % máximo configurable |
-| Sección normalizada adoptada | primera que cumple caída + `Iz`, fijable a mano | primera que cumple caída + `Iz` |
+| Sección normalizada adoptada | primera que cumple caída + `Iz`, fijable a mano | ídem, fijable a mano |
 | Intensidad admisible `Iz` | de tabla y corregida por agrupamiento | ídem |
 | Protección `In` | serie normalizada, con verificación `Ib ≤ In ≤ Iz` | ídem |
 | Neutro y PE | — | prefijados desde la sección de fase y editables |
@@ -212,7 +212,7 @@ La conductividad `γ` sale del anexo 2 de la Guía Técnica de Aplicación del R
 9. La **designación del cable** sale de la línea y su instalación: `RZ1-K 0,6/1 kV` en la LGA (la ITC-BT-14 sólo admite RZ1-K o DZ1-K), `ES07Z1-K 450/750 V` en la DI al aire (tabla C de la guía) y `RZ1-K 0,6/1 kV` en la DI enterrada (tabla E, el multiconductor que pide la instrucción).
 10. Las derivaciones de vivienda llevan el **IGA de su escalón de potencia** y su potencia máxima admisible, `230 × IGA`; si la potencia prevista la supera, el aviso sale en la tarjeta. El IGA no es el ICP: fija un límite de diseño, no la potencia contratada.
 
-En la LGA la sección adoptada se puede fijar a mano desde la tarjeta de resultados: la lista ofrece las secciones mayores que la automática, y el motor recalcula `Iz`, la caída, el neutro y el PE sobre la sección elegida. Si la sección fijada deja de cumplir un criterio, el aviso se mantiene y la sección automática sigue visible como referencia; nunca se sustituye en silencio.
+En la LGA y en la DI la sección adoptada se puede fijar a mano desde la tarjeta «Sección de fase»: el desplegable abre todas las secciones con intensidad admisible publicada, deja siempre marcada la **automática** (la recomendada por mínimo, caída y `Iz`) y el motor recalcula `Iz`, la caída, el neutro y el PE sobre la sección elegida. Elegir una sección mayor se propaga al rail, al esquema unifilar, al informe y al ELEC-3. Elegir una menor deja el control en rojo con el motivo —por debajo del mínimo de la instrucción, `Iz` menor que `Ib` o caída por encima del límite— y la sección elegida se sigue viendo en el panel, pero la memoria y el ELEC-3 imprimen la automática: nunca se certifica un cable por debajo de la recomendación.
 
 Caída de tensión máxima admisible, según el supuesto de enlace:
 

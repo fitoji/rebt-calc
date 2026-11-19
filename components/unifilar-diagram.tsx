@@ -29,6 +29,8 @@ import {
 /** Lo que la lámina necesita del resultado de una línea ya dimensionada. */
 export type UnifilarResult = {
   finalSection?: number | null
+  /** Sección que la lámina puede imprimir: la fijada si cumple, si no la automática. */
+  effectiveSection?: number | null
   protection?: number | null
   cableType?: string
   dropPercent?: number | null
@@ -105,7 +107,7 @@ function OriginColumn({ x, lga, singleUser }: { x: number; lga: UnifilarLine; si
         </>
       ) : (
         <>
-          <LineLabel x={x + 9} y={70} title="LGA" sub={`${section(res?.finalSection)} · ${polesFor('three-phase')}`} />
+          <LineLabel x={x + 9} y={70} title="LGA" sub={`${section(res?.effectiveSection ?? res?.finalSection)} · ${polesFor('three-phase')}`} />
           <g transform={`translate(${x},110)`}><CircuitBreaker /></g>
           <text x={x + 18} y={105} fontSize={10} fontWeight={600} style={{ fill: 'var(--ink)' }}>In {amps(protection)}</text>
           <text x={x + 18} y={117} fontSize={8.5} style={{ fill: 'var(--ink-faint)' }}>{shortCable(res?.cableType)}</text>
@@ -156,7 +158,7 @@ function DerivationColumn({
         ticks={derivation.system === 'three-phase' ? 3 : 1}
       />
       <text x={x - 8} y={L.busY + 18} fontSize={9} fontWeight={700} textAnchor="end" style={{ fill: ink }}>DI</text>
-      <text x={x - 8} y={L.busY + 29} fontSize={8} textAnchor="end" style={{ fill: 'var(--ink-faint)' }}>{section(res?.finalSection)}</text>
+      <text x={x - 8} y={L.busY + 29} fontSize={8} textAnchor="end" style={{ fill: 'var(--ink-faint)' }}>{section(res?.effectiveSection ?? res?.finalSection)}</text>
 
       {withMeter && (
         <>

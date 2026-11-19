@@ -44,7 +44,7 @@ test('each control opens only the tables it uses', () => {
 })
 
 test('the panels size lines through the shared engine, not inline formula copies', () => {
-  assert.match(modules, /import \{ sizeLine \} from '@\/lib\/line-sizing\.mjs'/, 'engine imported')
+  assert.match(modules, /import \{[^}]*\bsizeLine\b[^}]*\} from '@\/lib\/line-sizing\.mjs'/, 'engine imported')
   assert.match(modules, /import \{[^}]*\blineInputFromState\b[^}]*\} from '@\/lib\/line-state\.mjs'/, 'line input builder imported')
   assert.equal(count(modules, /sizeLine\(lineInputFromState/g), 1, 'one sizing call, inside computeLine')
   assert.equal(count(modules, /export function computeLine/g), 1, 'one shared helper')
@@ -108,8 +108,10 @@ test('each conductor carries its identification colour as a rule under its name'
 // desde la consolidación (tests/rail-result.test.mjs). Acá queda el control que
 // sigue viviendo en el panel.
 test('the panel lets the phase section be fixed', () => {
-  assert.ok(modules.includes('htmlFor="lga-section"'), 'the section control has an associated label')
-  assert.ok(modules.includes("onChange({ sectionOverride: section })"), 'the panel persists the fixed section')
+  assert.ok(modules.includes('htmlFor={`${role}-section`}'), 'the section control has an associated label')
+  assert.ok(modules.includes('onChange({ sectionOverride: section ?? 0 })'), 'the panel persists the fixed section')
+  assert.match(modules, /<LineSectionField role="lga"/, 'the LGA panel gets the section control')
+  assert.match(modules, /<LineSectionField role="di"/, 'the DI panel gets the section control')
   assert.match(read('lib/line-sizing.mjs'), /sectionOverride/, 'the engine owns the override instead of the card')
 })
 

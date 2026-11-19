@@ -22,13 +22,14 @@ import {
   TUBES_CONTACT_AIR,
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
-import { sizeLine } from '@/lib/line-sizing.mjs'
+import { lineSectionWarning, sizeLine } from '@/lib/line-sizing.mjs'
 import { lineInputFromState, gammaFor, insulationFor } from '@/lib/line-state.mjs'
 import { formatPower, powerFieldValue, storePower } from '../lib/power-units.mjs'
 import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
 import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
+import { LineSectionSelect } from '@/components/line-section-select'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
 
 export type InstallationMethod = (typeof METHODS)[number]
@@ -252,20 +253,21 @@ export function ConductorList({ elements }: { elements: readonly ResultElement[]
  * del rail. El color físico de cada conductor se declara acá una sola vez.
  */
 export function lgaResultElements(state: LineState, result: ReturnType<typeof sizeLine>): ResultElement[] {
+  const phase = result.effectiveSection ?? result.finalSection
   return [
-    { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: PHASES },
-    { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(result.finalSection) ?? state.neutralSection)} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.blue] },
-    { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(result.finalSection == null ? state.peSection : protectiveSection(result.finalSection))} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.greenYellow] },
+    { element: 'Conductores de Fase (R, S, T)', detail: `3 x ${phase == null ? '—' : fmt(phase)} mm² Cu (${result.cableType})`, colors: PHASES },
+    { element: 'Conductor Neutro (N)', detail: `1 x ${fmt(lgaNeutralSection(phase) ?? state.neutralSection)} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.blue] },
+    { element: 'Conductor de Protección (PE)', detail: `1 x ${fmt(phase == null ? state.peSection : protectiveSection(phase))} mm² Cu (${result.cableType})`, colors: [CONDUCTOR_COLORS.greenYellow] },
     { element: 'Tubo protector empotrado', detail: `${fmt(state.tubeDiameter)} mm de diámetro exterior${result.minimumTube == null ? ' mínimo' : ` · tabla 1 pide ${fmt(result.minimumTube)} mm`}` },
   ]
 }
 
 /** Elementos de la derivación individual: la fase y el neutro siguen al sistema cargado. */
 export function diResultElements(state: LineState, result: ReturnType<typeof sizeLine>, system: 'three-phase' | 'single-phase'): ResultElement[] {
-  const phase = result.finalSection
+  const phase = result.effectiveSection ?? result.finalSection
   const pe = phase == null ? state.peSection : protectiveSection(phase)
   return [
-    { element: 'Conductores de alimentación (fase + neutro)', detail: `${result.finalSection == null ? '—' : fmt(result.finalSection)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
+    { element: 'Conductores de alimentación (fase + neutro)', detail: `${phase == null ? '—' : fmt(phase)} mm² Cu (${result.cableType})`, colors: system === 'three-phase' ? [...PHASES, CONDUCTOR_COLORS.blue] : [CONDUCTOR_COLORS.brown, CONDUCTOR_COLORS.blue] },
     { element: 'Conductor de protección (tierra / PE)', detail: `1 x ${fmt(pe)} mm² Cu (tipo ES07Z1-K, verde-amarillo)`, colors: [CONDUCTOR_COLORS.greenYellow] },
     { element: 'Hilo de mando (tarificación)', detail: `1 x ${fmt(state.controlSection)} mm² Cu (tipo ES07Z1-K, color rojo)`, colors: [CONDUCTOR_COLORS.red] },
     { element: 'Canalización y tubo protector', detail: `Tubo protector empotrado de diámetro exterior Ø ${fmt(state.tubeDiameter)} mm` },
@@ -273,54 +275,55 @@ export function diResultElements(state: LineState, result: ReturnType<typeof siz
 }
 
 /**
- * Sección de fase de la LGA.
+ * Sección de fase de una línea (LGA o DI).
  *
  * Es el control que sobrevive a la consolidación: las cifras de la línea se leen
  * en la tarjeta del rail, pero la sección se puede fijar a mano sin salir del
- * panel. Una sección fijada antes de que cambiara la carga puede quedar por
- * debajo de la automática: se mantiene en la lista para que el control nunca
- * oculte el valor que está mostrando.
+ * panel. El desplegable deja siempre marcada la automática y ofrece todas las
+ * secciones con intensidad admisible publicada; una que no cumple se muestra en
+ * rojo con el motivo, sin ocultar el valor que el proyectista fijó.
  */
-function LgaSectionField({ result, onChange }: {
+function LineSectionField({ role, result, onChange }: {
+  role: 'lga' | 'di'
   result: ReturnType<typeof sizeLine>
   onChange: (patch: Partial<LineState>) => void
 }) {
-  const selectable = result.candidates
-    .filter(candidate => result.autoSection == null
-      ? candidate.section >= result.minimumSection
-      : candidate.section > result.autoSection)
-    .map(candidate => candidate.section)
+  const instruction = role === 'lga' ? 'ITC-BT-14 §3' : 'ITC-BT-15 §3'
+  const tint = role === 'lga' ? 'bg-tab-lga-soft' : 'bg-tab-di-soft'
   const selected = result.sectionOverride
-  const options = selected != null && !selectable.includes(selected)
-    ? [selected, ...selectable].sort((a, b) => a - b)
-    : selectable
-  const automaticLabel = result.autoSection == null
-    ? 'Automática · sin sección'
-    : `Automática · ${fmt(result.autoSection)} mm²`
+  const warning = lineSectionWarning(result)
+  // El desplegable ofrece todas las secciones con intensidad admisible
+  // publicada, también las menores a la recomendada: elegirlas es una decisión
+  // del proyectista y el aviso explica qué criterio deja de cumplirse.
+  const sections = result.candidates.map(candidate => candidate.section)
 
   return (
     <aside className="min-w-0 self-start rounded-card border border-line bg-paper p-5 shadow-card">
       <h4 className="text-sm font-semibold">Sección de fase</h4>
       <p className="mt-1 text-xs leading-5 text-ink-faint">La sección se puede fijar a mano: el cálculo la respeta y avisa si no cumple.</p>
       <div className="mt-3">
-        <label htmlFor="lga-section" className="label mb-1 block">Sección adoptada (0 = automática)</label>
-        <select
-          id="lga-section"
-          className="h-8 w-full rounded-control border border-line bg-transparent px-2.5 text-sm text-ink-strong"
-          value={selected == null ? 'auto' : String(selected)}
-          onChange={event => {
-            const section = event.target.value === 'auto' ? 0 : Number(event.target.value)
-            onChange({ sectionOverride: section })
-          }}
-        >
-          <option value="auto">{automaticLabel}</option>
-          {options.map(section => <option key={section} value={String(section)}>{fmt(section)} mm²</option>)}
-        </select>
-        <p id="lga-section-hint" className="mt-1.5 text-xs leading-5 text-ink-faint">
+        <label htmlFor={`${role}-section`} className="label mb-1 block">Sección adoptada</label>
+        <LineSectionSelect
+          id={`${role}-section`}
+          role={role}
+          sections={sections}
+          recommended={result.autoSection}
+          selected={selected}
+          invalid={result.overrideInvalidReason != null}
+          tint={tint}
+          onChange={section => onChange({ sectionOverride: section ?? 0 })}
+        />
+        <p id={`${role}-section-hint`} className="mt-1.5 text-xs leading-5 text-ink-faint">
           {selected == null
-            ? `Mínimo ${fmt(result.minimumSection)} mm² · ITC-BT-14 §3`
+            ? `Mínimo ${fmt(result.minimumSection)} mm² · ${instruction}`
             : `Automática: ${result.autoSection == null ? 'sin sección' : `${fmt(result.autoSection)} mm²`} · mínimo ${fmt(result.minimumSection)} mm²`}
         </p>
+        {warning != null && (
+          <p role="alert" className="mt-1.5 flex items-start gap-1 text-xs font-semibold leading-5 text-danger">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            {warning}
+          </p>
+        )}
       </div>
     </aside>
   )
@@ -491,7 +494,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
-      <LgaSectionField result={result} onChange={onChange} />
+      <LineSectionField role="lga" result={result} onChange={onChange} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>
@@ -518,7 +521,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
 
   return (
     <>
-    <div className="grid min-w-0 gap-6">
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
       <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -548,6 +551,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
         </div>
         {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
       </section>
+      <LineSectionField role="di" result={result} onChange={onChange} />
     </div>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>

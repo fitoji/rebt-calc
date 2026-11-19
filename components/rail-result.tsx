@@ -34,6 +34,8 @@ export type RailLoadRow = readonly [string, string, number, boolean]
  */
 export type RailLineSummary = {
   finalSection: number | null
+  /** Sección que la memoria puede imprimir: la fijada si cumple, si no la automática. */
+  effectiveSection?: number | null
   ratedCurrent: number
   sectionByDrop: number
   momentKwM: number
@@ -206,7 +208,7 @@ function LgaRailCard({ unit, installationType, lgaPowerW, lga, onOpenLineTables 
       {!noLga && <>
         <RailRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(lga.ratedCurrent, 2)} A`} />
         <RailRow label="Intensidad admisible corregida (Iz)" value={lga.correctedCurrent == null ? '—' : `${fmtTrim(lga.correctedCurrent, 1)} A`} />
-        <RailRow label="Sección de fase" value={sectionLabel(lga.finalSection)} />
+        <RailRow label="Sección de fase" value={sectionLabel(lga.effectiveSection ?? lga.finalSection)} />
         <div className="my-2 h-px bg-panel-line" />
         <RailBlock title="Conductores y caída de tensión" />
         <RailRow label="Sección por caída" value={`${fmt(lga.sectionByDrop, 2)} mm²`} />
@@ -242,7 +244,7 @@ function DiRailCard({ unit, derivationCount, derivationPowerW, selectedDerivatio
       {line && <>
         <div className="my-2 h-px bg-panel-line" />
         <RailRow label={line.label} value={formatPower(line.powerW, unit)} />
-        <RailRow label="Sección de fase normalizada" value={sectionLabel(line.finalSection)} />
+        <RailRow label="Sección de fase normalizada" value={sectionLabel(line.effectiveSection ?? line.finalSection)} />
         <RailRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(line.ratedCurrent, 2)} A`} />
         <RailRow label="Sección por caída" value={`${fmt(line.sectionByDrop, 2)} mm²`} />
         <RailRow label="Momento eléctrico (M)" value={`${fmt(line.momentKwM, 2)} kW·m`} />
@@ -309,7 +311,7 @@ function EsquemaRailCard({ unit, loadTotal, installationType, lga, derivationCou
       caption="Potencia total prevista"
       note={derivationCount === 0 ? 'El esquema se dibuja con las derivaciones de la instalación: todavía no hay ninguna.' : undefined}
     >
-      <RailRow label="LGA" value={noLga ? 'Sin LGA · único usuario' : sectionLabel(lga.finalSection)} />
+      <RailRow label="LGA" value={noLga ? 'Sin LGA · único usuario' : sectionLabel(lga.effectiveSection ?? lga.finalSection)} />
       <RailRow label="Derivaciones individuales" value={fmt(derivationCount)} />
     </RailCard>
   )
