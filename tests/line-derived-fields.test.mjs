@@ -53,16 +53,24 @@ test('la LGA esconde la potencia hasta que se edita a mano', () => {
   assert.match(modules, /Potencia automática desde la previsión/, 'el valor automático se lee en la banda')
 })
 
-test('la caída de la DI se elige entre los tres valores de la ITC-BT-15', () => {
-  const values = INSTALLATION_SCENARIOS.map(scenario => scenario.di).sort((a, b) => a - b)
-  assert.deepEqual(values, [0.5, 1, 1.5], 'la instrucción sólo publica 0,5, 1 y 1,5 %')
+test('la caída se elige entre los valores de la instrucción y marca la recomendada', () => {
+  const di = INSTALLATION_SCENARIOS.map(scenario => scenario.di).sort((a, b) => a - b)
+  assert.deepEqual(di, [0.5, 1, 1.5], 'ITC-BT-15 sólo publica 0,5, 1 y 1,5 %')
+  const lga = INSTALLATION_SCENARIOS.map(scenario => scenario.lga).filter(value => value != null).sort((a, b) => a - b)
+  assert.deepEqual(lga, [0.5, 1], 'ITC-BT-14 sólo publica 0,5 y 1 %')
 
   const modules = read('components/line-modules.tsx')
-  assert.match(modules, /function DropField\(/, 'hay un campo de caída con opciones')
-  assert.match(modules, /INSTALLATION_SCENARIOS\.map/, 'los valores salen del registro normativo')
-  assert.ok(modules.includes('<DropField id="di-drop"'), 'la DI usa el desplegable')
-  assert.doesNotMatch(modules, /<NumberField id="di-drop"/, 'la DI ya no ofrece un número libre')
+  const select = read('components/line-drop-select.tsx')
+  assert.match(modules, /function dropOptions\(/, 'las opciones salen del supuesto de enlace')
+  assert.match(modules, /INSTALLATION_SCENARIOS/, 'los valores salen del registro normativo')
   assert.match(modules, /valor del proyecto/, 'un valor viejo se conserva como opción')
+  assert.ok(modules.includes('<DropField id="lga-drop" role="lga"'), 'la LGA usa el desplegable')
+  assert.ok(modules.includes('<DropField id="di-drop" role="di"'), 'la DI usa el desplegable')
+  assert.doesNotMatch(modules, /<NumberField id="(lga|di)-drop"/, 'no queda un número libre')
+
+  assert.match(select, /from '@ui-sdk\/react\/select'/, 'usa el Select de UI SDK, como Cuadros')
+  assert.match(select, /SelectItemIndicator/, 'el ítem seleccionado lleva su check')
+  assert.match(select, /Recomendada/, 'el valor del supuesto se marca como recomendado')
 })
 
 test('la potencia de una DI generada se muestra como dato de la previsión', () => {

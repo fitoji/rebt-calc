@@ -30,6 +30,7 @@ import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
 import { explainLineCalculation } from '@/lib/calculation-explanations.mjs'
 import { CalculationSteps, type ExplanationStep } from '@/components/calculation-steps'
 import { LineSectionSelect } from '@/components/line-section-select'
+import { LineDropSelect } from '@/components/line-drop-select'
 import { INSTALLATION_SCENARIOS, limitsForInstallation, mismatchesLimit, type InstallationType } from '@/lib/installation-config.mjs'
 
 export type InstallationMethod = (typeof METHODS)[number]
@@ -262,39 +263,41 @@ function SelectField({ id, label, value, options, onChange, tables, onOpenTables
 }
 
 /**
- * Caída máxima admisible de la derivación. La ITC-BT-15 §3 sólo publica tres
- * valores, elegidos por la colocación de los contadores (0,5 %, 1 % y 1,5 %):
- * el desplegable los ofrece en lugar de un número libre que podría salirse de
- * la instrucción. Los valores salen del registro normativo, no de literales.
+ * Caída máxima admisible de una línea, según la instrucción y el supuesto de
+ * enlace. La LGA publica 0,5 % y 1 % (ITC-BT-14 §3); la derivación, 0,5 %, 1 %
+ * y 1,5 % (ITC-BT-15 §3). Los valores salen del registro normativo, no de
+ * literales, y un proyecto viejo conserva su valor como opción.
  */
-function DropField({ id, value, onChange, tables, onOpenTables }: {
-  id: string
-  value: number
-  onChange: (value: number) => void
-  tables?: TableKey[]
-  onOpenTables?: (tables: TableKey[]) => void
-}) {
+function dropOptions(role: 'lga' | 'di', current: number) {
   const pct = (number: number) => new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(number)
-  const options = INSTALLATION_SCENARIOS.map(scenario => ({
-    value: String(scenario.di),
-    label: `${pct(scenario.di)} % · ${scenario.label.charAt(0).toLowerCase()}${scenario.label.slice(1)}`,
-  })).sort((a, b) => Number(a.value) - Number(b.value))
-  // Un proyecto viejo puede traer un valor fuera de la instrucción: se conserva
-  // como opción para que el control no oculte lo que está mostrando.
-  if (!options.some(option => Number(option.value) === value)) {
-    options.push({ value: String(value), label: `${pct(value)} % · valor del proyecto` })
+  const options = INSTALLATION_SCENARIOS
+    .map(scenario => ({ value: role === 'lga' ? scenario.lga : scenario.di, label: scenario.label }))
+    .filter((entry): entry is { value: number; label: string } => entry.value != null)
+    .map(entry => ({
+      value: entry.value,
+      label: `${pct(entry.value)} % · ${entry.label.charAt(0).toLowerCase()}${entry.label.slice(1)}`,
+    }))
+
+  if (!options.some(option => Math.abs(option.value - current) < 0.001)) {
+    options.push({ value: current, label: `${pct(current)} % · valor del proyecto` })
   }
 
+  return options.sort((a, b) => a.value - b.value)
+}
+
+/** Caída máxima admisible con su etiqueta y el Select de UI SDK. */
+function DropField({ id, role, value, recommended, onChange }: {
+  id: string
+  role: 'lga' | 'di'
+  value: number
+  recommended: number | null
+  onChange: (value: number) => void
+}) {
   return (
-    <SelectField
-      id={id}
-      label="Caída máxima admisible"
-      value={String(value)}
-      options={options}
-      onChange={next => onChange(Number(next))}
-      tables={tables}
-      onOpenTables={onOpenTables}
-    />
+    <div className="block">
+      <label htmlFor={id} className="label mb-1 block">Caída máxima admisible</label>
+      <LineDropSelect id={id} role={role} value={value} options={dropOptions(role, value)} recommended={recommended} onChange={onChange} />
+    </div>
   )
 }
 
@@ -624,7 +627,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
               conductividad: se leen juntos, en la misma fila. */}
           <LgaInsulationField />
           <ConductivityField idPrefix="lga" state={state} role="lga" />
-          <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
+          <DropField id="lga-drop" role="lga" value={state.maxDropPercent} recommended={limits.lga} onChange={value => onChange({ maxDropPercent: value })} />
           <NumberField id="lga-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
       </PanelSection>
@@ -705,7 +708,7 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
             : <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />}
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
-          <DropField id="di-drop" value={state.maxDropPercent} onChange={value => onChange({ maxDropPercent: value })} />
+          <DropField id="di-drop" role="di" value={state.maxDropPercent} recommended={limits.di} onChange={value => onChange({ maxDropPercent: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
               conductividad: se leen juntos, en la misma fila. */}
           <InsulationField idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />
