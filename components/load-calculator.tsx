@@ -59,6 +59,25 @@ import { UnifilarPanel } from '@/components/unifilar-panel'
 import { RailResult, type RailDwellingSummary, type RailLineSummary, type RailSelectedDerivation } from '@/components/rail-result'
 import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
 import { classifyDocumentation, documentKindLabel } from '../lib/project-documentation.mjs'
+import { flushSync } from 'react-dom'
+
+/*
+ * El cambio de tema y de modo repinta toda la paleta. La View Transition cruza
+ * el antes y el después en 300ms en vez de teleportar los colores. Si el
+ * navegador no la soporta o el sistema pide menos movimiento, se aplica directo.
+ */
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> }
+}
+
+function withViewTransition(update: () => void) {
+  const doc = document as ViewTransitionDocument
+  if (typeof doc.startViewTransition !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update()
+    return
+  }
+  doc.startViewTransition(() => { flushSync(update) })
+}
 
 type ProjectInfo = {
   companyName: string
@@ -307,14 +326,18 @@ export function LoadCalculator() {
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
   const toggleTheme = () => {
     const next = nextTheme(theme)
-    setTheme(next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
-    try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    withViewTransition(() => {
+      setTheme(next)
+      document.documentElement.classList.toggle('dark', next === 'dark')
+      try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    })
   }
   const changeExplanationMode = (next: ExplanationMode) => {
-    setExplanationMode(next)
-    document.documentElement.dataset.explanationMode = next
-    try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    withViewTransition(() => {
+      setExplanationMode(next)
+      document.documentElement.dataset.explanationMode = next
+      try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    })
   }
   const [showDownload, setShowDownload] = useState(false)
   const [elec3DwellingId, setElec3DwellingId] = useState<string | null>(null)

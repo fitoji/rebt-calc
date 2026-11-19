@@ -12,7 +12,7 @@ Emil Kowalski).
 | 002 | Cambio de pestaña sin jank y sin animación redundante | HIGH | `app/globals.css`, `components/load-calculator.tsx` | TODO |
 | 003 | Duraciones de overlays y feedback de press | MEDIUM | `components/ui/*` (5) | DONE |
 | 004 | El acordeón abre y cierra con altura animada | HIGH | `components/ui/accordion.tsx` | DONE |
-| 005 | Personalidad didáctica, blobs y cobertura de reduced-motion | MEDIUM | `app/globals.css`, `components/calculation-steps.tsx`, `components/load-calculator.tsx` | TODO |
+| 005 | Personalidad didáctica, blobs y cobertura de reduced-motion | MEDIUM | `app/globals.css`, `components/calculation-steps.tsx`, `components/load-calculator.tsx` | DONE |
 
 ## Orden recomendado y dependencias
 

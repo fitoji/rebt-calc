@@ -908,7 +908,6 @@ html.dark[data-explanation-mode="calculation"] {
     );
     opacity: 0;
     transition: opacity 620ms ease;
-    will-change: transform;
   }
 
   .dark .mode-blob {
@@ -925,6 +924,7 @@ html.dark[data-explanation-mode="calculation"] {
 
   html[data-explanation-mode='didactic'] .mode-shell .mode-blob {
     opacity: 1;
+    will-change: transform;
     animation: var(--blob-drift) var(--blob-speed, 34s) ease-in-out infinite alternate;
   }
 
@@ -1041,7 +1041,15 @@ html.dark[data-explanation-mode="calculation"] {
    */
 
   .step-reveal {
-    animation: step-reveal 340ms var(--ease-out) both;
+    animation: step-reveal var(--dur-slow) var(--ease-pop) both;
+  }
+
+  /*
+   * Didáctico: la sección adoptada queda teñida para que el ojo encuentre el
+   * resultado del cálculo sin que nada se mueva.
+   */
+  html[data-explanation-mode='didactic'] .step-chosen {
+    background-color: color-mix(in oklab, var(--brand) 12%, transparent);
   }
 }
 
@@ -1091,9 +1099,40 @@ html.dark[data-explanation-mode="calculation"] {
   .tab-trigger {
     transition-duration: 1ms;
   }
+
+  /*
+   * tw-animate-css: se conserva el fade, se elimina el desplazamiento y el zoom.
+   * Los custom properties son `inherits: false`, por eso se aplican a todo nodo.
+   */
+  *,
+  ::before,
+  ::after {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-enter-rotate: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 1;
+    --tw-exit-rotate: 0;
+  }
+
+  [data-slot='accordion-panel'] {
+    transition-duration: 1ms;
+  }
 }
 
 .table-conductor thead th { background: var(--conductor-head); color: var(--conductor-head-text); }
 .table-conductor tbody tr:nth-child(odd) { background: var(--conductor-row-odd); }
 .table-conductor tbody tr:nth-child(even) { background: var(--conductor-row-even); }
 .table-conductor tbody td { color: var(--conductor-row-text); }
+
+/*
+ * Cambio de tema y de modo: el snapshot del documento se cruza en 300ms.
+ * Lo dispara el JS solo si la API existe y el sistema no pide menos movimiento.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}
