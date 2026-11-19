@@ -78,6 +78,21 @@ test('el sello del apartado acompaña al título, sin rótulo encima', () => {
     'el apartado va en la misma línea, como sello')
 })
 
+test('aislamiento y conductividad se leen juntos, uno al lado del otro', () => {
+  const lga = panel('LgaPanel', 'DiPanel')
+  const di = panel('DiPanel', 'SimpleTable')
+
+  for (const [name, body, insulation] of [
+    ['LGA', lga, '<LgaInsulationField'],
+    ['DI', di, '<InsulationField'],
+  ]) {
+    const start = body.indexOf(insulation)
+    const end = body.indexOf('<ConductivityField')
+    assert.ok(start >= 0 && end > start, `${name}: el aislamiento va antes que la conductividad`)
+    assert.doesNotMatch(body.slice(start, end), /<NumberField/, `${name}: no hay otro campo entre aislamiento y conductividad`)
+  }
+})
+
 test('el modo didáctico añade la lectura de cada apartado', () => {
   assert.match(modules, /const didactic = explanationMode === 'didactic'/, 'el panel conoce el modo')
   assert.equal([...modules.matchAll(/note=\{didactic \?/g)].length, 2, 'la §2 explica su alcance sólo en didáctico')

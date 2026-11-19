@@ -562,9 +562,11 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
-          <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
-          <ConductivityField idPrefix="lga" state={state} role="lga" />
+          {/* El aislamiento fija la temperatura de servicio y, con ella, la
+              conductividad: se leen juntos, en la misma fila. */}
           <LgaInsulationField />
+          <ConductivityField idPrefix="lga" state={state} role="lga" />
+          <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <NumberField id="lga-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
       </PanelSection>
@@ -640,13 +642,15 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
           <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
-          <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
-          <ConductivityField idPrefix="di" state={state} role="di" />
+          {/* El aislamiento fija la temperatura de servicio y, con ella, la
+              conductividad: se leen juntos, en la misma fila. */}
           <InsulationField idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />
+          <ConductivityField idPrefix="di" state={state} role="di" />
+          <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
+          <NumberField id="di-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
           <NumberField id="di-control" label="Hilo de mando" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
-          <NumberField id="di-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
       </PanelSection>
       {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
