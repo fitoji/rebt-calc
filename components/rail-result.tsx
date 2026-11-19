@@ -139,7 +139,16 @@ function RailCard({ heading, figure, unit, caption, note, children }: {
 }
 
 /** Una fila del desglose: rótulo, valor y, si el valor sale de una tabla, su botón. */
-function RailRow({ label, value, action }: { label: string; value: string; action?: ReactNode }) {
+function RailRow({ label, value, action, stacked = false }: { label: string; value: string; action?: ReactNode; stacked?: boolean }) {
+  if (stacked) {
+    return (
+      <div className="text-sm">
+        <span className="flex items-center gap-1.5 text-panel-muted">{label}{action}</span>
+        <span className="mt-0.5 block font-semibold">{value}</span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <span className="flex items-center gap-1.5 text-panel-muted">{label}{action}</span>
@@ -204,7 +213,7 @@ function LgaRailCard({ unit, installationType, lgaPowerW, lga, onOpenLineTables 
       caption={noLga ? 'Sin línea general de alimentación' : 'Potencia de la LGA'}
       note={noLga ? 'Único usuario: la derivación individual llega directa al cuadro de mando.' : undefined}
     >
-      <RailRow label="Supuesto de enlace" value={installationLabel(installationType)} />
+      <RailRow label="Supuesto de enlace" value={installationLabel(installationType)} stacked />
       {!noLga && <>
         <RailRow label="Intensidad de cálculo (Ib)" value={`${fmtTrim(lga.ratedCurrent, 2)} A`} />
         <RailRow label="Intensidad admisible corregida (Iz)" value={lga.correctedCurrent == null ? '—' : `${fmtTrim(lga.correctedCurrent, 1)} A`} />

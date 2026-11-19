@@ -394,26 +394,30 @@ export function HelpDoc() {
                   La LGA es la línea que va de la caja general de protección al principio de las derivaciones individuales. La app calcula su sección y su protección con dos criterios a la vez: la caída de tensión al final de la línea y la intensidad admisible del conductor.
                 </p>
                 <SubHeading>Qué le tienes que decir</SubHeading>
+                <p>
+                  El panel sigue el orden de la instrucción: primero la instalación (ITC-BT-14 §2), después los cables (§3).
+                </p>
                 <DataTable
                   head={['Campo', 'Para qué sirve']}
                   rows={[
+                    ['Tipo de instalación', 'Tabla A (al aire) o la fila de tubos enterrados de la misma tabla'],
+                    ['Método de instalación', 'Columna de la tabla: A, B1, B2, C, E o F'],
+                    ['Disposición de los circuitos', 'Tabla E (empotrados) o G (al aire)'],
+                    ['Circuitos agrupados, capas y tubos', 'Factores de reducción de las tablas E, F, G, H e I'],
+                    ['Diámetro del tubo protector', 'Mínimo de la tabla 1 de la ITC-BT-14 según la sección de fase'],
                     ['Potencia prevista (P)', 'La toma de la previsión del edificio, o la que escribas si pulsas «Editar manual»'],
                     ['Tensión entre fases', '400 V en trifásica'],
                     ['Factor de potencia (cos φ)', 'Entra en la intensidad de línea'],
                     ['Longitud de la línea', 'Del cuadro general al punto donde empiezan las derivaciones'],
                     ['Caída máxima admisible', 'La fija el supuesto de enlace'],
                     ['Conductividad (γ)', 'La fija el aislamiento: 48 m/(Ω·mm²) en PVC (cobre a 70 °C) y 44 en XLPE/EPR (cobre a 90 °C). No es editable'],
-                    ['Tipo de instalación', 'Tabla A (al aire) o la fila de tubos enterrados de la misma tabla'],
-                    ['Disposición de los circuitos', 'Tabla E (empotrados) o G (al aire)'],
-                    ['Método de instalación', 'Columna de la tabla: A, B1, B2, C, E o F'],
                     ['Aislamiento', 'Fijo en XLPE: la ITC-BT-14 sólo admite RZ1-K o DZ1-K de 0,6/1 kV'],
-                    ['Circuitos agrupados, capas y tubos', 'Factores de reducción de las tablas E, F, G, H e I'],
                     ['Protección de la línea (In)', '0 deja que la app elija; otro valor fija el interruptor que verifica Ib ≤ In ≤ Iz. No es el IGA.'],
                   ]}
                 />
                 <SubHeading>Qué te devuelve</SubHeading>
                 <p>
-                  Con la potencia P, la longitud L y la caída admisible ΔU, la sección por caída sale de <code>S = P · L / (γ · U · ΔU)</code> en trifásica y de <code>S = 2 · P · L / (γ · U · ΔU)</code> en monofásica. La app toma como sección la menor normalizada que cumple a la vez esa caída y la intensidad admisible corregida por el agrupamiento, así que el resultado nunca esconde un criterio incumplido detrás del escalón siguiente. En la tarjeta «Sección de fase» puedes fijar otra sección: el desplegable deja siempre marcada la automática y ofrece todas las secciones con intensidad admisible publicada. Una sección mayor se propaga al rail, al esquema unifilar, al informe y al ELEC-3; una menor queda en rojo con el motivo —mínimo de la instrucción, <code>Iz</code> menor que <code>Ib</code> o caída por encima del límite— y la memoria sigue imprimiendo la automática.
+                  Con la potencia P, la longitud L y la caída admisible ΔU, la sección por caída sale de <code>S = P · L / (γ · U · ΔU)</code> en trifásica y de <code>S = 2 · P · L / (γ · U · ΔU)</code> en monofásica. La app toma como sección la menor normalizada que cumple a la vez esa caída y la intensidad admisible corregida por el agrupamiento, así que el resultado nunca esconde un criterio incumplido detrás del escalón siguiente. En el bloque «Sección adoptada» del apartado Cables puedes fijar otra sección: el desplegable deja siempre marcada la automática y ofrece todas las secciones con intensidad admisible publicada. Una sección mayor se propaga al rail, al esquema unifilar, al informe y al ELEC-3; una menor queda en rojo con el motivo —mínimo de la instrucción, <code>Iz</code> menor que <code>Ib</code> o caída por encima del límite— y la memoria sigue imprimiendo la automática.
                 </p>
                 <Bullets items={[
                   <><strong>Intensidad de cálculo (Ib) e intensidad admisible corregida (Iz).</strong> La corriente que la línea debe transportar y la que admite la sección elegida después de aplicar el agrupamiento, enfrentadas en la cabecera de la tarjeta.</>,
@@ -439,6 +443,9 @@ export function HelpDoc() {
               <Section id="di" title="Derivaciones individuales">
                 <p>
                   La app genera una derivación por cada suministro de la instalación: una por vivienda, una por local, una por garaje y una para los servicios generales. La lista de la izquierda es la del edificio; al elegir una, el panel de la derecha muestra sus campos y su resultado.
+                </p>
+                <p>
+                  El panel sigue el orden de la ITC-BT-15: la instalación y su tubo (§2) y, debajo, los cables con la sección, el neutro, la protección y el hilo de mando (§3).
                 </p>
                 <Bullets items={[
                   <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,

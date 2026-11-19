@@ -26,7 +26,7 @@ test('mobile tables keep desktop tables and never trap overflowing content', () 
   assert.match(calc, /hidden(?: min-w-0)? overflow-x-auto md:block/, 'desktop tables kept for md and up')
   assert.ok(calc.includes('flex min-w-0 flex-col gap-6'), 'the cargas column can shrink inside the grid')
   assert.match(calc, /grid min-w-0 items-start gap-6 xl:grid-cols-\[minmax\(0,1fr\)_320px\]/, 'the shell grid can shrink instead of widening the tab')
-  assert.ok(modules.includes('grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]'), 'LGA and DI use the same shrinkable grid')
+  assert.ok(modules.includes('grid gap-4 sm:grid-cols-2'), 'LGA and DI lay their fields out in two columns that collapse on mobile')
   assert.ok(modules.includes('min-w-0 rounded-card border border-line bg-paper'), 'LGA and DI cards can shrink with the grid')
   assert.ok(tabs.includes('min-w-0 flex-1 text-sm outline-none'), 'TabsContent itself can shrink')
   // El desborde horizontal se resuelve en el root: si el body fuera contenedor de

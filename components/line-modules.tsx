@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, type ReactNode } from 'react'
-import { Info, Table2, TriangleAlert, X } from 'lucide-react'
+import { Table2, TriangleAlert, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
@@ -143,6 +143,31 @@ function FieldRow({ htmlFor, text, tables, onOpenTables }: {
         </button>
       )}
     </span>
+  )
+}
+
+/**
+ * Bloque de la instrucción. La LGA y la derivación se leen como las escribe el
+ * REBT: primero la instalación (ITC-BT-14/15 §2) y después los cables (§3). El
+ * sello del apartado vive en la misma línea del título, como los códigos P1–P5
+ * de la previsión: no es un rótulo encima del encabezado.
+ */
+function PanelSection({ id, title, clause, note, children }: {
+  id: string
+  title: string
+  clause: string
+  note?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section aria-labelledby={id} className="mt-6 border-t border-line pt-5 first:mt-0 first:border-t-0 first:pt-0">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h4 id={id} className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{title}</h4>
+        <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-ink-faint">{clause}</span>
+      </div>
+      {note != null && <p className="mt-1.5 text-xs leading-5 text-ink-faint">{note}</p>}
+      <div className="mt-4">{children}</div>
+    </section>
   )
 }
 
@@ -298,38 +323,46 @@ function LineSectionField({ role, result, onChange }: {
   const sections = result.candidates.map(candidate => candidate.section)
 
   return (
-    <aside className="min-w-0 self-start rounded-card border border-line bg-paper p-5 shadow-card">
-      <h4 className="text-sm font-semibold">Sección de fase</h4>
-      <p className="mt-1 text-xs leading-5 text-ink-faint">La sección se puede fijar a mano: el cálculo la respeta y avisa si no cumple.</p>
-      <div className="mt-3">
-        <label htmlFor={`${role}-section`} className="label mb-1 block">Sección adoptada</label>
-        <LineSectionSelect
-          id={`${role}-section`}
-          role={role}
-          sections={sections}
-          recommended={result.autoSection}
-          selected={selected}
-          invalid={result.overrideInvalidReason != null}
-          tint={tint}
-          onChange={section => onChange({ sectionOverride: section ?? 0 })}
-        />
-        <p id={`${role}-section-hint`} className="mt-1.5 text-xs leading-5 text-ink-faint">
-          {selected == null
-            ? `Mínimo ${fmt(result.minimumSection)} mm² · ${instruction}`
-            : `Automática: ${result.autoSection == null ? 'sin sección' : `${fmt(result.autoSection)} mm²`} · mínimo ${fmt(result.minimumSection)} mm²`}
-        </p>
-        {warning != null && (
-          <p role="alert" className="mt-1.5 flex items-start gap-1 text-xs font-semibold leading-5 text-danger">
-            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            {warning}
-          </p>
-        )}
+    <div className="rounded-control border border-line bg-surface-muted/60 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 sm:max-w-md">
+          <label htmlFor={`${role}-section`} className="label mb-1 block">Sección adoptada</label>
+          <p className="text-xs leading-5 text-ink-faint">El cálculo adopta la menor que cumple mínimo, caída e intensidad admisible. Puedes fijar otra.</p>
+        </div>
+        <div className="w-full shrink-0 sm:w-52">
+          <LineSectionSelect
+            id={`${role}-section`}
+            role={role}
+            sections={sections}
+            recommended={result.autoSection}
+            selected={selected}
+            invalid={result.overrideInvalidReason != null}
+            tint={tint}
+            onChange={section => onChange({ sectionOverride: section ?? 0 })}
+          />
+        </div>
       </div>
-    </aside>
+      <p id={`${role}-section-hint`} className="mt-2 text-xs leading-5 text-ink-faint">
+        {selected == null
+          ? `Mínimo ${fmt(result.minimumSection)} mm² · ${instruction}`
+          : `Automática: ${result.autoSection == null ? 'sin sección' : `${fmt(result.autoSection)} mm²`} · mínimo ${fmt(result.minimumSection)} mm²`}
+      </p>
+      {warning != null && (
+        <p role="alert" className="mt-1.5 flex items-start gap-1 text-xs font-semibold leading-5 text-danger">
+          <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          {warning}
+        </p>
+      )}
+    </div>
   )
 }
 
-function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
+/**
+ * Instalación (ITC-BT-14 §2 e ITC-BT-15 §2): cómo discurre la línea y con qué
+ * canalización. El tubo cierra el bloque porque su mínimo sale de la tabla 1,
+ * que la instrucción publica al final del apartado.
+ */
+function InstallationFields({ idPrefix, state, onChange, onOpenTables, role }: {
   idPrefix: string
   state: LineState
   onChange: (patch: Partial<LineState>) => void
@@ -351,6 +384,15 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
         onOpenTables={onOpenTables}
       />
       <SelectField
+        id={`${idPrefix}-method`}
+        label="Método de instalación"
+        value={state.method}
+        options={METHODS.map(method => ({ value: method, label: METHOD_LABEL[method] }))}
+        onChange={value => onChange({ method: value as InstallationMethod })}
+        tables={['A']}
+        onOpenTables={onOpenTables}
+      />
+      <SelectField
         id={`${idPrefix}-layout`}
         label="Disposición de los circuitos"
         value={state.layout}
@@ -362,35 +404,6 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
         tables={['E', 'G']}
         onOpenTables={onOpenTables}
       />
-      <SelectField
-        id={`${idPrefix}-method`}
-        label="Método de instalación"
-        value={state.method}
-        options={METHODS.map(method => ({ value: method, label: METHOD_LABEL[method] }))}
-        onChange={value => onChange({ method: value as InstallationMethod })}
-        tables={['A']}
-        onOpenTables={onOpenTables}
-      />
-      {role === 'lga' ? (
-        <div>
-          <span className="label mb-1 block">Aislamiento</span>
-          <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm">XLPE / EPR · 90 °C · RZ1-K (AS)</p>
-          <p className="mt-1 text-xs text-ink-faint">ITC-BT-14 §3 sólo admite RZ1-K o DZ1-K de 0,6/1 kV.</p>
-        </div>
-      ) : (
-        <SelectField
-          id={`${idPrefix}-insulation`}
-          label="Aislamiento"
-          value={state.insulation}
-          options={[
-            { value: 'PVC', label: 'PVC · 70 °C' },
-            { value: 'XLPE', label: 'XLPE / EPR · 90 °C' },
-          ]}
-          onChange={value => onChange({ insulation: value as Insulation })}
-          tables={['A']}
-          onOpenTables={onOpenTables}
-        />
-      )}
       <NumberField
         id={`${idPrefix}-circuits`}
         label="Circuitos agrupados"
@@ -419,13 +432,50 @@ function VariantFields({ idPrefix, state, onChange, onOpenTables, role }: {
         onOpenTables={onOpenTables}
       />
       <NumberField
-        id={`${idPrefix}-protection`}
-        label="Protección de la línea (In) · 0 = automática"
-        value={state.protectionA}
-        suffix="A"
-        onChange={value => onChange({ protectionA: Math.max(0, value) })}
+        id={`${idPrefix}-tube`}
+        label="Diámetro del tubo protector"
+        value={state.tubeDiameter}
+        suffix="mm"
+        onChange={value => onChange({ tubeDiameter: value })}
+        // La tabla 1 de la ITC-BT-14 (sección → neutro → tubo) sólo está
+        // transcrita para la LGA; la derivación no inventa un mínimo de tabla.
+        tables={role === 'lga' ? ['BT14-1'] : undefined}
+        onOpenTables={onOpenTables}
       />
     </>
+  )
+}
+
+/** Aislamiento de la LGA: la instrucción no deja elegirlo, así que se informa. */
+function LgaInsulationField() {
+  return (
+    <div>
+      <span className="label mb-1 block">Aislamiento</span>
+      <p className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm">XLPE / EPR · 90 °C · RZ1-K (AS)</p>
+      <p className="mt-1 text-xs text-ink-faint">ITC-BT-14 §3 sólo admite RZ1-K o DZ1-K de 0,6/1 kV.</p>
+    </div>
+  )
+}
+
+function InsulationField({ idPrefix, state, onChange, onOpenTables }: {
+  idPrefix: string
+  state: LineState
+  onChange: (patch: Partial<LineState>) => void
+  onOpenTables: (tables: TableKey[]) => void
+}) {
+  return (
+    <SelectField
+      id={`${idPrefix}-insulation`}
+      label="Aislamiento"
+      value={state.insulation}
+      options={[
+        { value: 'PVC', label: 'PVC · 70 °C' },
+        { value: 'XLPE', label: 'XLPE / EPR · 90 °C' },
+      ]}
+      onChange={value => onChange({ insulation: value as Insulation })}
+      tables={['A']}
+      onOpenTables={onOpenTables}
+    />
   )
 }
 
@@ -468,34 +518,58 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   const result = useMemo(() => computeLine(state, 'three-phase', 'lga'), [state])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system: 'three-phase', line: 'lga', powerUnit }), [state, result])
   const limits = limitsForInstallation(installationType)
+  const didactic = explanationMode === 'didactic'
 
   return (
     <>
-    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-lga" />Línea General de Alimentación</h3>
-          <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
-            <Table2 data-icon="inline-start" /> Tablas
-          </Button>
-        </div>
-        <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>Trifásica. Caída máxima 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.</span></p>
-        <InstallationField value={installationType} limit={limits.lga} configured={state.maxDropPercent} />
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
+    <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <h3 className="flex flex-wrap items-center gap-2 font-bold">
+          <span aria-hidden="true" className="size-2 rounded-full bg-tab-lga" />
+          Línea General de Alimentación
+          <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">Trifásica</span>
+        </h3>
+        <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
+          <Table2 data-icon="inline-start" /> Tablas
+        </Button>
+      </div>
+      <InstallationField value={installationType} limit={limits.lga} configured={state.maxDropPercent} />
+
+      <PanelSection
+        id="lga-installation-title"
+        title="Instalación"
+        clause="ITC-BT-14 §2"
+        note={didactic ? 'Los tubos se eligen en la tabla 1 según la sección del cable; el resto de canalizaciones debe permitir ampliar la sección un 100 %.' : undefined}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
+          <InstallationFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} role="lga" />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        id="lga-cables-title"
+        title="Cables"
+        clause="ITC-BT-14 §3"
+        note={<>
+          Caída máxima: 0,5 % con contadores totalmente centralizados y 1 % con centralizaciones parciales.
+          {didactic && ' La sección mínima es de 10 mm² de cobre; el neutro y el PE se derivan de la fase en lugar de escribirse.'}
+        </>}
+      >
+        <LineSectionField role="lga" result={result} onChange={onChange} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
           <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="lga-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <ConductivityField idPrefix="lga" state={state} role="lga" />
-          <NumberField id="lga-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
-          <VariantFields idPrefix="lga" state={state} onChange={onChange} onOpenTables={onOpenTables} role="lga" />
+          <LgaInsulationField />
+          <NumberField id="lga-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
-        {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
-      </section>
-      <LineSectionField role="lga" result={result} onChange={onChange} />
-    </div>
+      </PanelSection>
+      {showSourceNotes && <SourceNote label="ITC-BT-14 §3">ITC-BT-14 §3: caída máxima del 0,5 % con contadores totalmente centralizados y del 1 % con centralizaciones parciales; sección mínima de 10 mm² en cobre (16 mm² en aluminio) con independencia del número de fases; intensidad admisible según la tabla A (cobre) o B (aluminio) de la propia ITC-BT-14, que en las filas enterradas ya incluye el factor 0,8 de la ITC-BT-07, y la ITC-BT-19 cuando la combinación no está publicada. La instrucción sólo admite cable unipolar RZ1-K o DZ1-K (XLPE, 0,6/1 kV). <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+    </section>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>
   )
@@ -515,44 +589,68 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   const result = useMemo(() => computeLine(state, system, 'di'), [state, system])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di', powerUnit }), [state, result, system])
   const limits = limitsForInstallation(installationType)
+  const didactic = explanationMode === 'didactic'
 
   const phase = result.finalSection
   const pe = phase == null ? state.peSection : protectiveSection(phase)
 
   return (
     <>
-    <div className="grid min-w-0 gap-6 xl:grid-cols-[1fr_360px]">
-      <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h3 className="flex items-center gap-2 font-bold"><span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />Derivación Individual</h3>
-              {editingLabel && <span className="max-w-full truncate rounded-control bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
-            </div>
+    <section className="min-w-0 rounded-card border border-line bg-paper p-5 shadow-card">
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 className="flex flex-wrap items-center gap-2 font-bold">
+              <span aria-hidden="true" className="size-2 rounded-full bg-tab-di" />
+              Derivación Individual
+              <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">{system === 'three-phase' ? 'Trifásica' : 'Monofásica'}</span>
+            </h3>
+            {editingLabel && <span className="max-w-full truncate rounded-control bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
           </div>
-          <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
-            <Table2 data-icon="inline-start" /> Tablas
-          </Button>
         </div>
-        <p className="mb-4 flex items-start gap-2 rounded-control bg-brand-soft p-3 text-xs leading-5 text-brand-ink"><Info data-icon="inline-start" className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{system === 'three-phase' ? 'Trifásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.' : 'Monofásica. Caída máxima 0,5 % con contadores concentrados en varios lugares, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.'}</span></p>
-        <InstallationField value={installationType} limit={limits.di} configured={state.maxDropPercent} />
+        <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>
+          <Table2 data-icon="inline-start" /> Tablas
+        </Button>
+      </div>
+      <InstallationField value={installationType} limit={limits.di} configured={state.maxDropPercent} />
+
+      <PanelSection
+        id="di-installation-title"
+        title="Instalación"
+        clause="ITC-BT-15 §2"
+        note={didactic ? 'El tubo de la derivación no baja de 32 mm de diámetro exterior y la canalización debe permitir ampliar la sección un 100 %.' : undefined}
+      >
         <div className="grid gap-4 sm:grid-cols-2">
+          <InstallationFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} role="di" />
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        id="di-cables-title"
+        title="Cables"
+        clause="ITC-BT-15 §3"
+        note={<>
+          Caída máxima: 0,5 % con contadores en más de un lugar, 1 % con contadores totalmente concentrados y 1,5 % en suministros de un único usuario sin LGA.
+          {didactic && ' La sección mínima es de 6 mm² y el hilo de mando de 1,5 mm².'}
+        </>}
+      >
+        <LineSectionField role="di" result={result} onChange={onChange} />
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
           <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           <NumberField id="di-drop" label="Caída máxima admisible" value={state.maxDropPercent} suffix="%" step="0.1" onChange={value => onChange({ maxDropPercent: value })} />
           <ConductivityField idPrefix="di" state={state} role="di" />
-          <VariantFields idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} role="di" />
+          <InsulationField idPrefix="di" state={state} onChange={onChange} onOpenTables={onOpenTables} />
           <NumberField id="di-neutral" label="Neutro" value={phase ?? state.neutralSection} suffix="mm²" onChange={value => onChange({ neutralSection: value })} />
           <NumberField id="di-pe" label="Conductor de protección (PE)" value={pe} suffix="mm²" onChange={value => onChange({ peSection: value })} />
           <NumberField id="di-control" label="Hilo de mando" value={state.controlSection} suffix="mm²" step="0.1" onChange={value => onChange({ controlSection: value })} />
-          <NumberField id="di-tube" label="Diámetro del tubo protector" value={state.tubeDiameter} suffix="mm" onChange={value => onChange({ tubeDiameter: value })} />
+          <NumberField id="di-protection" label="Protección de la línea (In) · 0 = automática" value={state.protectionA} suffix="A" onChange={value => onChange({ protectionA: Math.max(0, value) })} />
         </div>
-        {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
-      </section>
-      <LineSectionField role="di" result={result} onChange={onChange} />
-    </div>
+      </PanelSection>
+      {showSourceNotes && <SourceNote label="ITC-BT-15 §3">ITC-BT-15 §3: caída máxima del 0,5 % con contadores concentrados en más de un lugar, del 1 % con contadores totalmente concentrados y del 1,5 % en suministros de un único usuario sin línea general; sección mínima de 6 mm² en cobre y 1,5 mm² para el hilo de mando, igual en monofásico y en trifásico; intensidad admisible según las tablas C, D y E de la propia ITC-BT-15 (E es el cable multiconductor que la instrucción pide en enterrado) y la ITC-BT-19 cuando la combinación no está publicada. <BoeLink href={BOE_REBT} label="RD 842/2002 · BOE-A-2002-18099" /></SourceNote>}
+    </section>
     {explanationMode === 'didactic' && <CalculationSteps steps={explanation.steps as ExplanationStep[]} />}
     </>
   )

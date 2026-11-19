@@ -15,7 +15,9 @@ test('S1/S2/S4: the cards show the moment, the conductivity, both drops and the 
   }
   assert.ok(modules.includes('${result.cableType}'), 'the conductor designation comes from the result, not from a literal')
   assert.equal(modules.includes('(RZ1-K 0,6/1 kV)`'), false, 'the hardcoded RZ1-K of the DI is gone')
-  assert.match(modules, /id="lga-tube"/, 'the LGA tube can be set, so its minimum is actionable')
+  assert.match(modules, /id=\{`\$\{idPrefix\}-tube`\}/, 'the LGA tube can be set, so its minimum is actionable')
+  assert.match(modules, /<InstallationFields idPrefix="lga"[^>]*role="lga"/, 'the LGA renders the installation block')
+  assert.ok(modules.includes("tables={role === 'lga' ? ['BT14-1'] : undefined}"), 'the LGA tube opens table 1, where its minimum lives')
   assert.match(card, /El IGA no es el ICP ni la protección In/, 'the card tells the IGA, the ICP and In apart')
 })
 
