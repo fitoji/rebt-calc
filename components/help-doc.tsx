@@ -406,7 +406,7 @@ export function HelpDoc() {
                     ['Circuitos agrupados, capas y tubos', 'Factores de reducción de las tablas E, F, G, H e I'],
                     ['Diámetro del tubo protector', 'Mínimo de la tabla 1 de la ITC-BT-14 según la sección de fase'],
                     ['Potencia prevista (P)', 'La toma de la previsión del edificio, o la que escribas si pulsas «Editar manual»'],
-                    ['Tensión entre fases', '400 V en trifásica'],
+                    ['Tensión entre fases', '400 V en trifásica; la fija el sistema y no se edita'],
                     ['Factor de potencia (cos φ)', 'Entra en la intensidad de línea'],
                     ['Longitud de la línea', 'Del cuadro general al punto donde empiezan las derivaciones'],
                     ['Caída máxima admisible', 'La fija el supuesto de enlace'],
@@ -448,7 +448,7 @@ export function HelpDoc() {
                   El panel sigue el orden de la ITC-BT-15: la instalación y su tubo (§2) y, debajo, los cables con la sección, el neutro, la protección y el hilo de mando (§3).
                 </p>
                 <Bullets items={[
-                  <><strong>Potencia y cos φ.</strong> Salen de la previsión del suministro; puedes ajustarlos si el proyecto lo pide.</>,
+                  <><strong>Potencia y cos φ.</strong> La potencia sale de la previsión del suministro y se muestra como dato: el botón «Editar en Previsión» lleva a la pestaña que la posee. El cos φ sí se ajusta acá.</>,
                   <><strong>Longitud y caída máxima.</strong> La caída se toma del supuesto de enlace.</>,
                   <><strong>Aislamiento.</strong> PVC (70 °C) o XLPE/EPR (90 °C). Fija la temperatura máxima de servicio y, con ella, la conductividad del cálculo: 48 o 44 m/(Ω·mm²).</>,
                   <><strong>Neutro y conductor de protección.</strong> Sección del neutro y del PE que acompañan a la fase.</>,

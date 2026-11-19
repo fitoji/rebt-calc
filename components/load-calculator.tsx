@@ -1492,7 +1492,7 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} powerReadOnly={selectedDerivation != null && selectedDerivation.sourceKey != null} onEditPower={() => changeTab('cargas')} />
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">

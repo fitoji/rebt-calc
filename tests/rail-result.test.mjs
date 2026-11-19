@@ -184,7 +184,8 @@ test('el panel ya no pinta su propio bloque de resultado', () => {
 test('el panel conserva todos sus controles', () => {
   const source = lineModules()
   assert.ok(source.includes('<InstallationField'), 'the enlace scenario field stays')
-  assert.ok(source.includes('id="lga-power"') && source.includes('id="di-power"'), 'the power inputs stay')
+  assert.ok(source.includes('id="lga-power"'), 'the LGA power input stays')
+  assert.ok(source.includes('id="di-power"'), 'the DI power keeps its anchor for the read-only value')
   assert.ok(source.includes('id="lga-length"') && source.includes('id="di-length"'), 'the length inputs stay')
   assert.ok(source.includes('onPowerModeChange'), 'the power-mode control stays')
   assert.ok(source.includes('htmlFor={`${role}-section`}'), 'the fixed-section control keeps its label')

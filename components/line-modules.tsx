@@ -23,7 +23,7 @@ import {
   TUBES_CONTACT_BURIED,
 } from '@/lib/cable-tables.mjs'
 import { lineSectionWarning, sizeLine } from '@/lib/line-sizing.mjs'
-import { lineInputFromState, gammaFor, insulationFor } from '@/lib/line-state.mjs'
+import { lineInputFromState, gammaFor, insulationFor, nominalVoltageFor } from '@/lib/line-state.mjs'
 import { formatPower, powerFieldValue, storePower } from '../lib/power-units.mjs'
 import { lgaNeutralSection, protectiveSection } from '@/lib/conductor-sections.mjs'
 import { GUIDE_TABLES } from '@/lib/guide-tables.mjs'
@@ -215,6 +215,39 @@ function ConductivityField({ idPrefix, state, role }: { idPrefix: string; state:
         {fmt(gammaFor(state, role))} m/(Ω·mm²)
       </p>
       <p className="mt-1 text-xs text-ink-faint">Cobre a {maxServiceTemperature} °C · Anexo 2 de la Guía del REBT</p>
+    </div>
+  )
+}
+
+/**
+ * Tensión de la línea. La fija el sistema —230 V fase-neutro en monofásica y
+ * 400 V entre fases en trifásica—, así que se muestra como dato en lugar de
+ * ofrecer un número libre que podría contradecir el sistema y falsear Ib.
+ */
+function VoltageField({ id, label, system }: { id: string; label: string; system: 'three-phase' | 'single-phase' }) {
+  return (
+    <div className="block">
+      <span className="label mb-1 block">{label}</span>
+      <p id={id} className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm tabular-nums">{nominalVoltageFor(system)} V</p>
+      <p className="mt-1 text-xs text-ink-faint">Red de distribución 230/400 V · lo fija el sistema</p>
+    </div>
+  )
+}
+
+/**
+ * Potencia de una derivación generada. Pertenece a la previsión de cargas: se
+ * muestra como dato, con el acceso directo a la pestaña que la posee, en vez de
+ * un input que `syncDerivationPowers` pisaría en silencio.
+ */
+function PowerFromForecastField({ value, powerUnit, onEdit }: { value: number; powerUnit: 'W' | 'kW'; onEdit?: () => void }) {
+  return (
+    <div className="block">
+      <span className="label mb-1 block">Potencia prevista (P)</span>
+      <p id="di-power" className="rounded-control border border-line bg-surface-muted px-3 py-2 text-sm tabular-nums">{formatPower(value, powerUnit)}</p>
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5 text-ink-faint">
+        Origen: previsión de cargas.
+        {onEdit && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-0.5 text-xs" onClick={onEdit}>Editar en Previsión</Button>}
+      </p>
     </div>
   )
 }
@@ -559,7 +592,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-control bg-surface-muted px-3 py-2"><span className="text-xs font-semibold text-ink-muted">{powerMode === 'auto' ? `Potencia automática desde la previsión: ${formatPower(loadTotal, powerUnit)}` : 'Potencia manual'}</span>{onPowerModeChange && <Button type="button" variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => onPowerModeChange(powerMode === 'auto' ? 'manual' : 'auto')}>{powerMode === 'auto' ? 'Editar manual' : 'Volver a previsión'}</Button>}</div>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <NumberField id="lga-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
-          <NumberField id="lga-voltage" label="Tensión entre fases" value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
+          <VoltageField id="lga-voltage" label="Tensión entre fases" system="three-phase" />
           <NumberField id="lga-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="lga-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
@@ -577,7 +610,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W' }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W', powerReadOnly = false, onEditPower }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -587,6 +620,10 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   system?: 'single-phase' | 'three-phase'
   editingLabel?: string
   powerUnit?: 'W' | 'kW'
+  /** La potencia viene de la previsión: se muestra como dato y no se escribe acá. */
+  powerReadOnly?: boolean
+  /** Acción para saltar a la previsión de cargas, donde la potencia sí se edita. */
+  onEditPower?: () => void
 }) {
   const result = useMemo(() => computeLine(state, system, 'di'), [state, system])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di', powerUnit }), [state, result, system])
@@ -638,8 +675,10 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
       >
         <LineSectionField role="di" result={result} onChange={onChange} />
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />
-          <NumberField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} value={state.voltageV} suffix="V" onChange={value => onChange({ voltageV: value })} />
+          {powerReadOnly
+            ? <PowerFromForecastField value={state.powerW} powerUnit={powerUnit} onEdit={onEditPower} />
+            : <NumberField id="di-power" label="Potencia prevista (P)" value={powerFieldValue(state.powerW, powerUnit)} suffix={powerUnit} step={powerUnit === 'kW' ? '0.01' : '1'} onChange={value => onChange({ powerW: storePower(value, powerUnit) })} />}
+          <VoltageField id="di-voltage" label={system === 'three-phase' ? 'Tensión entre fases' : 'Tensión fase-neutro'} system={system} />
           <NumberField id="di-cosphi" label={<>Factor de potencia (cos <span className="label-symbol">φ</span>)</>} value={state.cosPhi} suffix="cos φ" step="0.01" onChange={value => onChange({ cosPhi: value })} />
           <NumberField id="di-length" label="Longitud de la línea" value={state.lengthM} suffix="m" onChange={value => onChange({ lengthM: value })} />
           {/* El aislamiento fija la temperatura de servicio y, con ella, la
