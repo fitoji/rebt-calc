@@ -662,9 +662,17 @@ export function LoadCalculator() {
   const selectedDerivation = derivations.find(derivation => derivation.id === selectedDerivationId) ?? null
   const selectedState = selectedDerivation ?? di
   const selectedSystem = selectedDerivation?.system ?? 'single-phase'
+  const selectedDerivationIndex = selectedDerivation == null ? -1 : derivations.findIndex(derivation => derivation.id === selectedDerivation.id)
   const updateSelectedDerivation = (patch: Partial<LineState>) => {
     if (selectedDerivation) updateDerivation(selectedDerivation.id, patch)
     else updateDi(patch)
+  }
+  // Las flechas recorren la misma lista que genera la previsión, como el
+  // selector de vivienda de Cuadros. Con la DI base (sin selección) la
+  // primera flecha hacia la derecha entra en la primera derivación.
+  const navigateDerivation = (delta: -1 | 1) => {
+    const next = derivations[selectedDerivationIndex + delta]
+    if (next) setSelectedDerivationId(next.id)
   }
 
   const railDerivationPowerW = useMemo(
@@ -1492,7 +1500,7 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} powerReadOnly={selectedDerivation != null && selectedDerivation.sourceKey != null} onEditPower={() => changeTab('cargas')} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} powerReadOnly={selectedDerivation != null && selectedDerivation.sourceKey != null} onEditPower={() => changeTab('cargas')} derivationIndex={selectedDerivationIndex} derivationCount={derivations.length} onNavigateDerivation={navigateDerivation} />
           </TabsContent>
           <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
             <div className="flex flex-col gap-6">

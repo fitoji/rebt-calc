@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, type ReactNode } from 'react'
-import { Table2, TriangleAlert, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Table2, TriangleAlert, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { BoeLink, BOE_REBT, SourceNote } from '@/components/source-note'
@@ -638,7 +638,7 @@ export function LgaPanel({ state, onChange, onOpenTables, showSourceNotes = true
   )
 }
 
-export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W', powerReadOnly = false, onEditPower }: {
+export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true, installationType, explanationMode = 'calculation', system = 'single-phase', editingLabel, powerUnit = 'W', powerReadOnly = false, onEditPower, derivationIndex = -1, derivationCount = 0, onNavigateDerivation }: {
   state: LineState
   onChange: (patch: Partial<LineState>) => void
   onOpenTables: (tables?: TableKey[]) => void
@@ -652,6 +652,12 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
   powerReadOnly?: boolean
   /** Acción para saltar a la previsión de cargas, donde la potencia sí se edita. */
   onEditPower?: () => void
+  /** Posición de la derivación mostrada dentro de la lista, para las flechas. */
+  derivationIndex?: number
+  /** Cuántas derivaciones hay; con 0 no se muestran las flechas. */
+  derivationCount?: number
+  /** Navegación anterior/siguiente entre derivaciones, como en Cuadros. */
+  onNavigateDerivation?: (delta: -1 | 1) => void
 }) {
   const result = useMemo(() => computeLine(state, system, 'di'), [state, system])
   const explanation = useMemo(() => explainLineCalculation(state, result, { system, line: 'di', powerUnit }), [state, result, system])
@@ -673,6 +679,12 @@ export function DiPanel({ state, onChange, onOpenTables, showSourceNotes = true,
               <span className="rounded-control border border-line px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-ink-faint">{system === 'three-phase' ? 'Trifásica' : 'Monofásica'} · {nominalVoltageFor(system)} V</span>
             </h3>
             {editingLabel && <span className="max-w-full truncate rounded-control bg-tab-di-soft px-2 py-0.5 text-xs font-semibold text-tab-di-ink" title={editingLabel}>Editando: {editingLabel}</span>}
+            {derivationCount > 0 && onNavigateDerivation && (
+              <div className="flex items-center gap-1" role="group" aria-label="Navegar entre derivaciones">
+                <Button type="button" variant="outline" size="icon" className="size-8 shrink-0" aria-label="Derivación anterior" disabled={derivationIndex <= 0} onClick={() => onNavigateDerivation(-1)}><ChevronLeft aria-hidden="true" /></Button>
+                <Button type="button" variant="outline" size="icon" className="size-8 shrink-0" aria-label="Derivación siguiente" disabled={derivationIndex >= derivationCount - 1} onClick={() => onNavigateDerivation(1)}><ChevronRight aria-hidden="true" /></Button>
+              </div>
+            )}
           </div>
         </div>
         <Button type="button" variant="outline" size="sm" className="h-auto shrink-0 gap-2 px-3 py-1.5" onClick={() => onOpenTables()}>

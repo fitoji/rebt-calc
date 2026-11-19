@@ -73,6 +73,20 @@ test('la caída se elige entre los valores de la instrucción y marca la recomen
   assert.match(select, /Recomendada/, 'el valor del supuesto se marca como recomendado')
 })
 
+test('el card de la DI navega entre derivaciones con flechas', () => {
+  const modules = read('components/line-modules.tsx')
+  const calc = read('components/load-calculator.tsx')
+
+  assert.ok(modules.includes('aria-label="Derivación anterior"'), 'flecha anterior')
+  assert.ok(modules.includes('aria-label="Derivación siguiente"'), 'flecha siguiente')
+  assert.match(modules, /derivationIndex <= 0/, 'la anterior se desactiva al principio')
+  assert.match(modules, /derivationIndex >= derivationCount - 1/, 'la siguiente se desactiva al final')
+  assert.match(calc, /const selectedDerivationIndex = /, 'la calculadora calcula la posición')
+  assert.match(calc, /derivationIndex=\{selectedDerivationIndex\}/, 'pasa la posición al panel')
+  assert.match(calc, /derivationCount=\{derivations\.length\}/, 'pasa el total de derivaciones')
+  assert.match(calc, /onNavigateDerivation=\{navigateDerivation\}/, 'pasa la navegación')
+})
+
 test('la potencia de una DI generada se muestra como dato de la previsión', () => {
   const modules = read('components/line-modules.tsx')
   const calc = read('components/load-calculator.tsx')
