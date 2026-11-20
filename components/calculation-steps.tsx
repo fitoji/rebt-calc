@@ -33,7 +33,7 @@ export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
           <article
             key={step.id}
             className="step-reveal border-b border-line py-4 last:border-b-0"
-            style={{ animationDelay: `${Math.min(index, 5) * 45}ms` }}
+            style={{ animationDelay: `${Math.min(index, 3) * 40}ms` }}
           >
             <h4 className="mb-2 text-sm font-semibold text-ink">{step.title}</h4>
             {step.kind === 'table' && (
@@ -69,7 +69,7 @@ export function CalculationSteps({ steps }: { steps: ExplanationStep[] }) {
                     </thead>
                     <tbody className="divide-y divide-line">
                       {step.rows?.map(row => (
-                        <tr key={row.section} className={row.status === 'chosen' ? 'font-semibold text-ink-strong' : 'text-ink-subtle'}>
+                        <tr key={row.section} className={row.status === 'chosen' ? 'step-chosen font-semibold text-ink-strong' : 'text-ink-subtle'}>
                           <td className="py-1.5 tabular-nums">{row.section == null ? '—' : `${fmt(row.section, 1)} mm²`}</td>
                           <td className="py-1.5 tabular-nums">{row.correctedCurrent == null ? '—' : `${fmt(row.correctedCurrent, 0)} A`}</td>
                           <td className="py-1.5 tabular-nums">

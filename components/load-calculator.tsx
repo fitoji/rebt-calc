@@ -59,6 +59,25 @@ import { UnifilarPanel } from '@/components/unifilar-panel'
 import { RailResult, type RailDwellingSummary, type RailLineSummary, type RailSelectedDerivation } from '@/components/rail-result'
 import { computeVisibleTabs, cuadrosHasEdits, resolveActiveTab } from '../lib/tab-visibility.mjs'
 import { classifyDocumentation, documentKindLabel } from '../lib/project-documentation.mjs'
+import { flushSync } from 'react-dom'
+
+/*
+ * El cambio de tema y de modo repinta toda la paleta. La View Transition cruza
+ * el antes y el después en 300ms en vez de teleportar los colores. Si el
+ * navegador no la soporta o el sistema pide menos movimiento, se aplica directo.
+ */
+type ViewTransitionDocument = Document & {
+  startViewTransition?: (callback: () => void) => { finished: Promise<void> }
+}
+
+function withViewTransition(update: () => void) {
+  const doc = document as ViewTransitionDocument
+  if (typeof doc.startViewTransition !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    update()
+    return
+  }
+  doc.startViewTransition(() => { flushSync(update) })
+}
 
 type ProjectInfo = {
   companyName: string
@@ -280,7 +299,6 @@ export function LoadCalculator() {
   // campo «Tipo de conductor» del ELEC-3. Por defecto se instala H07V-K.
   const [interiorConductor, setInteriorConductor] = useState<InteriorConductor>(DEFAULT_INTERIOR_CONDUCTOR)
   const [activeTab, setActiveTab] = useState<TabValue>('cargas')
-  const [tabDirection, setTabDirection] = useState<'forward' | 'back'>('forward')
   const [meterCenter, setMeterCenter] = useState<MeterCenterState>({ ...DEFAULT_METER_CENTER })
   // Los datos de documentación viajan con la previsión: no son cargas del edificio.
   const [documentation, setDocumentation] = useState<Documentation>(() => ({ ...DEFAULT_DOCUMENTATION }))
@@ -308,19 +326,18 @@ export function LoadCalculator() {
   const updateDi = (patch: Partial<LineState>) => { setLineTouched(true); setDi(current => ({ ...current, ...patch })) }
   const toggleTheme = () => {
     const next = nextTheme(theme)
-    setTheme(next)
-    document.documentElement.classList.toggle('dark', next === 'dark')
-    try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    withViewTransition(() => {
+      setTheme(next)
+      document.documentElement.classList.toggle('dark', next === 'dark')
+      try { window.localStorage.setItem(THEME_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    })
   }
   const changeExplanationMode = (next: ExplanationMode) => {
-    setExplanationMode(next)
-    document.documentElement.dataset.explanationMode = next
-    try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
-  }
-  // El panel entra desde el lado hacia el que viaja el indicador.
-  const changeTab = (next: TabValue) => {
-    setTabDirection(TAB_ORDER.indexOf(next) >= TAB_ORDER.indexOf(activeTab) ? 'forward' : 'back')
-    setActiveTab(next)
+    withViewTransition(() => {
+      setExplanationMode(next)
+      document.documentElement.dataset.explanationMode = next
+      try { window.localStorage.setItem(EXPLANATION_MODE_STORAGE_KEY, next) } catch { /* keep the choice in memory */ }
+    })
   }
   const [showDownload, setShowDownload] = useState(false)
   const [elec3DwellingId, setElec3DwellingId] = useState<string | null>(null)
@@ -1357,7 +1374,7 @@ export function LoadCalculator() {
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}>Cerrar</Button><Button type="button" variant="default" className="w-full h-auto gap-2 rounded-control px-4 py-3 font-semibold sm:w-auto" onClick={() => setShowProjectInfo(false)}><Check data-icon="inline-start" /> Guardar datos</Button></div>
           </DialogContent>
         </Dialog>
-        <Tabs value={activeTabValue} onValueChange={value => changeTab(value as TabValue)} className="gap-6">
+        <Tabs value={activeTabValue} onValueChange={value => setActiveTab(value as TabValue)} className="gap-6">
           <TabsList data-active-tab={activeTabValue} className="tab-bar relative h-auto w-fit max-w-full items-center gap-1 overflow-x-auto rounded-tab-track border border-line bg-paper p-1">
             <TabsIndicator />
             <TabsTrigger value="cargas" className="tab-trigger relative z-10 h-auto flex-none gap-2 whitespace-nowrap rounded-tab px-3 py-1.5 text-center text-xs font-semibold sm:px-4 sm:text-sm"><span aria-hidden="true" className="tab-dot size-1.5 shrink-0 rounded-full bg-brand-mark" />Previsión de cargas</TabsTrigger>
@@ -1381,7 +1398,7 @@ export function LoadCalculator() {
           </TabsList>
           <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="min-w-0">
-          <TabsContent value="cargas" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="cargas" className="tab-panel">
         {/* En móvil el desglose queda al final de la página: esta barra mantiene el
             total a la vista mientras se editan los bloques de la previsión. Es sticky
             y no fixed para no tapar el pie ni exigir relleno extra al final. */}
@@ -1437,13 +1454,13 @@ export function LoadCalculator() {
           <DocumentationPanel documentation={documentation} onChange={patch => setDocumentation(current => ({ ...current, ...patch }))} />
         {explanationMode === 'didactic' && <CalculationSteps steps={loadExplanation.steps as ExplanationStep[]} />}
           </TabsContent>
-          <TabsContent value="lga" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="lga" className="tab-panel">
             <MeterCenterCard center={meterCenter} onChange={updateMeterCenter} suggestedMeters={suggestedMeters} evaluation={meterEvaluation} explanation={meterExplanation} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             {installationType === 'single-user'
               ? <p className="mt-6 rounded-card border border-line bg-brand-soft p-4 text-sm leading-6 text-brand-ink"><b>Único usuario sin línea general.</b> La medida es individual: no hay LGA. El supuesto y la centralización se gestionan en la card de arriba.</p>
               : <LgaPanel state={lga} onChange={updateLga} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} powerMode={lgaPowerMode} onPowerModeChange={changeLgaPowerMode} loadTotal={result.total} powerUnit={powerUnit} />}
           </TabsContent>
-          <TabsContent value="di" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="di" className="tab-panel">
             <section className="mb-6 rounded-card border border-line bg-paper p-5 shadow-card">
               <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -1500,24 +1517,24 @@ export function LoadCalculator() {
                 </>
               )}
             </section>
-            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} powerReadOnly={selectedDerivation != null && selectedDerivation.sourceKey != null} onEditPower={() => changeTab('cargas')} derivationIndex={selectedDerivationIndex} derivationCount={derivations.length} onNavigateDerivation={navigateDerivation} />
+            <DiPanel state={selectedState} onChange={updateSelectedDerivation} onOpenTables={openLineTables} showSourceNotes={settings.showSourceNotes} installationType={installationType} explanationMode={explanationMode} system={selectedSystem} editingLabel={selectedDerivation?.label} powerUnit={powerUnit} powerReadOnly={selectedDerivation != null && selectedDerivation.sourceKey != null} onEditPower={() => setActiveTab('cargas')} derivationIndex={selectedDerivationIndex} derivationCount={derivations.length} onNavigateDerivation={navigateDerivation} />
           </TabsContent>
-          <TabsContent value="interiores" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="interiores" className="tab-panel">
             <div className="flex flex-col gap-6">
               <InteriorPanel dwellings={interiorDwellings} selectedId={effectiveDwellingId} onSelect={setSelectedDwellingId} onChange={updateDerivationInterior} onViewElec3={setElec3DwellingId} interiorConductor={interiorConductor} onInteriorConductorChange={setInteriorConductor} onOpenConductorTable={() => openReferenceTable('BT26')} powerUnit={powerUnit} hasIrve={parking > 0} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} onOpenTables={() => openReferenceTable('T25-A')} />
               <InteriorCircuitsPanel supplies={circuitSupplies} selectedId={effectiveSupplyId} onSelect={setSelectedSupplyId} onChange={updateDerivationCircuits} powerUnit={powerUnit} explanationMode={explanationMode} showSourceNotes={settings.showSourceNotes} />
             </div>
           </TabsContent>
-          <TabsContent value="esquema" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="esquema" className="tab-panel">
             <UnifilarPanel
               lga={{ ...lga, result: lgaResult }}
               derivations={calculatedDerivations}
               installationType={installationType}
               onGenerateDerivations={generateDerivations}
-              onOpenDerivations={() => changeTab('di')}
+              onOpenDerivations={() => setActiveTab('di')}
             />
           </TabsContent>
-          <TabsContent value="administrativos" data-dir={tabDirection} className="tab-panel">
+          <TabsContent value="administrativos" className="tab-panel">
             <AdministrativePanel info={projectInfo} onChange={updateProjectInfo} />
             {/* Los datos de cada instalación van después de la cabecera del documento
                 (A4) y se navegan por su propia vivienda (A1). */}

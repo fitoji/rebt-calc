@@ -325,6 +325,16 @@
   --control-lift:
     inset 0 1px 2px color-mix(in oklab, var(--shadow-ink) 12%, transparent),
     inset 0 -1px 0 color-mix(in oklab, var(--paper) 80%, transparent);
+  /*
+   * Movimiento. Un solo juego de curvas y duraciones: los componentes consumen
+   * estos nombres, nunca un cubic-bezier suelto.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);      /* entradas y salidas */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);  /* movimiento en pantalla */
+  --ease-pop: var(--ease-out);                      /* rebote: solo didáctico */
+  --dur-fast: 160ms;                                /* press, hover, color */
+  --dur-base: 200ms;                                /* tabs, selects, acordeón */
+  --dur-slow: 240ms;                                /* modales, pasos */
 }
 
 .dark {
@@ -531,6 +541,8 @@ html[data-explanation-mode="didactic"] {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Didáctico: misma base, con un rebote corto para los momentos de delight. */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
   --font-sans: var(--font-dm-sans);
   --font-mono: var(--font-space-mono);
   font-family: var(--font-dm-sans);
@@ -896,7 +908,6 @@ html.dark[data-explanation-mode="calculation"] {
     );
     opacity: 0;
     transition: opacity 620ms ease;
-    will-change: transform;
   }
 
   .dark .mode-blob {
@@ -913,6 +924,7 @@ html.dark[data-explanation-mode="calculation"] {
 
   html[data-explanation-mode='didactic'] .mode-shell .mode-blob {
     opacity: 1;
+    will-change: transform;
     animation: var(--blob-drift) var(--blob-speed, 34s) ease-in-out infinite alternate;
   }
 
@@ -981,11 +993,10 @@ html.dark[data-explanation-mode="calculation"] {
       inset 0 0 0 1px color-mix(in oklab, var(--tab-accent) 46%, transparent),
       var(--control-lift);
     transition:
-      translate 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      width 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      height 320ms cubic-bezier(0.16, 1, 0.3, 1),
-      background-color 220ms linear,
-      box-shadow 220ms linear;
+      translate var(--dur-slow) var(--ease-out),
+      width var(--dur-slow) var(--ease-out),
+      height var(--dur-slow) var(--ease-out),
+      background-color var(--dur-base) linear;
   }
 
   .tab-trigger {
@@ -1010,8 +1021,8 @@ html.dark[data-explanation-mode="calculation"] {
 
   .tab-dot {
     transition:
-      scale 220ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 220ms linear;
+      scale var(--dur-base) var(--ease-out),
+      opacity var(--dur-base) linear;
     opacity: 0.55;
   }
 
@@ -1025,19 +1036,20 @@ html.dark[data-explanation-mode="calculation"] {
   }
 
   /*
-   * Cambio de panel. El contenido entra desde el lado hacia el que se movió el
-   * indicador, así que el gesto explica la relación espacial entre módulos.
+   * El panel no entra animado: cambiar de pestaña es navegación de alta
+   * frecuencia y el indicador ya cuenta la historia espacial.
    */
-  .tab-panel[data-dir='forward'] {
-    animation: tab-panel-forward 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .tab-panel[data-dir='back'] {
-    animation: tab-panel-back 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
 
   .step-reveal {
-    animation: step-reveal 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation: step-reveal var(--dur-slow) var(--ease-pop) both;
+  }
+
+  /*
+   * Didáctico: la sección adoptada queda teñida para que el ojo encuentre el
+   * resultado del cálculo sin que nada se mueva.
+   */
+  html[data-explanation-mode='didactic'] .step-chosen {
+    background-color: color-mix(in oklab, var(--brand) 12%, transparent);
   }
 }
 
@@ -1068,20 +1080,6 @@ html.dark[data-explanation-mode="calculation"] {
   }
 }
 
-@keyframes tab-panel-forward {
-  from {
-    opacity: 0;
-    transform: translate3d(16px, 8px, 0);
-  }
-}
-
-@keyframes tab-panel-back {
-  from {
-    opacity: 0;
-    transform: translate3d(-16px, 8px, 0);
-  }
-}
-
 @keyframes step-reveal {
   from {
     opacity: 0;
@@ -1092,7 +1090,6 @@ html.dark[data-explanation-mode="calculation"] {
 /* Sin movimiento pedido por el sistema: el estado sigue siendo legible. */
 @media (prefers-reduced-motion: reduce) {
   .mode-blob,
-  .tab-panel[data-dir],
   .step-reveal {
     animation: none;
   }
@@ -1102,9 +1099,40 @@ html.dark[data-explanation-mode="calculation"] {
   .tab-trigger {
     transition-duration: 1ms;
   }
+
+  /*
+   * tw-animate-css: se conserva el fade, se elimina el desplazamiento y el zoom.
+   * Los custom properties son `inherits: false`, por eso se aplican a todo nodo.
+   */
+  *,
+  ::before,
+  ::after {
+    --tw-enter-translate-x: 0;
+    --tw-enter-translate-y: 0;
+    --tw-enter-scale: 1;
+    --tw-enter-rotate: 0;
+    --tw-exit-translate-x: 0;
+    --tw-exit-translate-y: 0;
+    --tw-exit-scale: 1;
+    --tw-exit-rotate: 0;
+  }
+
+  [data-slot='accordion-panel'] {
+    transition-duration: 1ms;
+  }
 }
 
 .table-conductor thead th { background: var(--conductor-head); color: var(--conductor-head-text); }
 .table-conductor tbody tr:nth-child(odd) { background: var(--conductor-row-odd); }
 .table-conductor tbody tr:nth-child(even) { background: var(--conductor-row-even); }
 .table-conductor tbody td { color: var(--conductor-row-text); }
+
+/*
+ * Cambio de tema y de modo: el snapshot del documento se cruza en 300ms.
+ * Lo dispara el JS solo si la API existe y el sistema no pide menos movimiento.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+}
