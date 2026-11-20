@@ -1053,6 +1053,34 @@ html.dark[data-explanation-mode="calculation"] {
   }
 }
 
+/* El anillo consume el data-over que startCircuitDrag ya pone en la copia del puntero. */
+[data-drag-preview] {
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+[data-drag-preview][data-over] {
+  box-shadow: 0 0 0 2px var(--brand-mark);
+}
+
+.help-toc {
+  interpolate-size: allow-keywords;
+}
+
+.help-toc::details-content {
+  block-size: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    block-size var(--dur-base) var(--ease-out),
+    opacity var(--dur-base) linear,
+    content-visibility var(--dur-base) allow-discrete;
+}
+
+.help-toc[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
 @keyframes blob-drift-a {
   from {
     transform: translate3d(0, 0, 0) scale(1);
@@ -1096,7 +1124,9 @@ html.dark[data-explanation-mode="calculation"] {
 
   .tab-indicator,
   .tab-dot,
-  .tab-trigger {
+  .tab-trigger,
+  [data-drag-preview],
+  .help-toc::details-content {
     transition-duration: 1ms;
   }
 
