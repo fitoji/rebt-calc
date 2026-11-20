@@ -157,7 +157,7 @@ export function HelpDoc() {
             </p>
           </div>
 
-          <details className="mt-8 rounded-card border border-line bg-paper p-4 lg:hidden">
+          <details className="help-toc mt-8 rounded-card border border-line bg-paper p-4 lg:hidden">
             <summary className="cursor-pointer text-sm font-semibold text-ink">Índice de la guía</summary>
             <nav aria-label="Índice de la guía" className="mt-4"><Toc /></nav>
           </details>
